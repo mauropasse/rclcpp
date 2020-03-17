@@ -12,31 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RCLCPP__EXECUTORS__STATIC_EXECUTOR_WAITABLE_HPP_
-#define RCLCPP__EXECUTORS__STATIC_EXECUTOR_WAITABLE_HPP_
+#ifndef RCLCPP__EXECUTORS__STATIC_EXECUTOR_ENTITIES_COLLECTOR_HPP_
+#define RCLCPP__EXECUTORS__STATIC_EXECUTOR_ENTITIES_COLLECTOR_HPP_
 
 namespace rclcpp
 {
 namespace executors
 {
 
-class StaticExecutorWaitable : public rclcpp::Waitable
+class StaticExecutorEntitiesCollector : public rclcpp::Waitable
 {
 public:
-  RCLCPP_SMART_PTR_DEFINITIONS(StaticExecutorWaitable)
+  RCLCPP_SMART_PTR_DEFINITIONS(StaticExecutorEntitiesCollector)
 
   // Constructor
   RCLCPP_PUBLIC
-  StaticExecutorWaitable() = default;
+  StaticExecutorEntitiesCollector() = default;
 
   // Destructor
-  ~StaticExecutorWaitable();
+  ~StaticExecutorEntitiesCollector();
 
   RCLCPP_PUBLIC
   void
   init(rcl_wait_set_t* p_wait_set,
        memory_strategy::MemoryStrategy::SharedPtr& memory_strategy,
-       StaticExecutorWaitable::SharedPtr this_shared_ptr);
+       StaticExecutorEntitiesCollector::SharedPtr this_shared_ptr);
 
   RCLCPP_PUBLIC
   void
@@ -146,11 +146,11 @@ private:
   /// Executable list: timers, subscribers, clients, services and waitables
   executor::ExecutableList exec_list_;
 
-  /// Shared pointer to this StaticExecutorWaitable
-  StaticExecutorWaitable::SharedPtr this_shared_ptr_;
+  /// Shared pointer to this StaticExecutorEntitiesCollector
+  StaticExecutorEntitiesCollector::SharedPtr this_shared_ptr_;
 };
 
 }  // namespace executors
 }  // namespace rclcpp
 
-#endif  // RCLCPP__EXECUTORS__STATIC_EXECUTOR_WAITABLE_HPP_
+#endif  // RCLCPP__EXECUTORS__STATIC_EXECUTOR_ENTITIES_COLLECTOR_HPP_

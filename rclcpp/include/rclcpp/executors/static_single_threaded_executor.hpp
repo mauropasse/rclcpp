@@ -28,7 +28,7 @@
 #include "rclcpp/utilities.hpp"
 #include "rclcpp/rate.hpp"
 #include "rclcpp/visibility_control.hpp"
-#include "rclcpp/executors/static_executor_waitable.hpp"
+#include "rclcpp/executors/static_executor_entities_collector.hpp"
 
 namespace rclcpp
 {
@@ -138,10 +138,10 @@ public:
     }
     std::chrono::nanoseconds timeout_left = timeout_ns;
 
-    static_exec_waitable_ = std::make_shared<StaticExecutorWaitable>();
-    static_exec_waitable_->init(&wait_set_, memory_strategy_, static_exec_waitable_);
+    entities_collector_ = std::make_shared<StaticExecutorEntitiesCollector>();
+    entities_collector_->init(&wait_set_, memory_strategy_, entities_collector_);
     // Collect entities and clean any invalid nodes.
-    static_exec_waitable_->execute();
+    entities_collector_->execute();
 
     while (rclcpp::ok(this->context_)) {
       // Do one set of work.
@@ -182,7 +182,7 @@ protected:
 private:
   RCLCPP_DISABLE_COPY(StaticSingleThreadedExecutor)
 
-  StaticExecutorWaitable::SharedPtr static_exec_waitable_;
+  StaticExecutorEntitiesCollector::SharedPtr entities_collector_;
 };
 
 }  // namespace executors

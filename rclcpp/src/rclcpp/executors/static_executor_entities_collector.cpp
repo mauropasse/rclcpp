@@ -13,11 +13,11 @@
 // limitations under the License.
 
 #include "rclcpp/executors/static_single_threaded_executor.hpp"
-#include "rclcpp/executors/static_executor_waitable.hpp"
+#include "rclcpp/executors/static_executor_entities_collector.hpp"
 
-using rclcpp::executors::StaticExecutorWaitable;
+using rclcpp::executors::StaticExecutorEntitiesCollector;
 
-StaticExecutorWaitable::~StaticExecutorWaitable()
+StaticExecutorEntitiesCollector::~StaticExecutorEntitiesCollector()
 {
   // Disassociate all nodes
   for (auto & weak_node : weak_nodes_) {
@@ -33,10 +33,10 @@ StaticExecutorWaitable::~StaticExecutorWaitable()
 }
 
 void
-StaticExecutorWaitable::init(
+StaticExecutorEntitiesCollector::init(
        rcl_wait_set_t* p_wait_set,
        memory_strategy::MemoryStrategy::SharedPtr& memory_strategy,
-       StaticExecutorWaitable::SharedPtr this_shared_ptr)
+       StaticExecutorEntitiesCollector::SharedPtr this_shared_ptr)
 {
   // Empty initialize executable list
   executor::ExecutableList exec_list_();
@@ -47,7 +47,7 @@ StaticExecutorWaitable::init(
     throw std::runtime_error("Received NULL memory strategy in executor waitable.");
   }
   memory_strategy_ = memory_strategy;
-  // Get this StaticExecutorWaitable shared pointer
+  // Get this StaticExecutorEntitiesCollector shared pointer
   this_shared_ptr_ = this_shared_ptr;
 
   // Get memory strategy and executable list. Prepare wait_set_
@@ -55,7 +55,7 @@ StaticExecutorWaitable::init(
 }
 
 void
-StaticExecutorWaitable::execute()
+StaticExecutorEntitiesCollector::execute()
 {
   // Fill memory strategy with entities comming from weak_nodes_
   get_memory_strategy();
@@ -66,7 +66,7 @@ StaticExecutorWaitable::execute()
 }
 
 void
-StaticExecutorWaitable::get_memory_strategy()
+StaticExecutorEntitiesCollector::get_memory_strategy()
 {
   memory_strategy_->clear_handles();
   bool has_invalid_weak_nodes = memory_strategy_->collect_entities(weak_nodes_);
@@ -88,7 +88,7 @@ StaticExecutorWaitable::get_memory_strategy()
 }
 
 void
-StaticExecutorWaitable::get_executable_list()
+StaticExecutorEntitiesCollector::get_executable_list()
 {
   exec_list_.clear();
 
@@ -147,7 +147,7 @@ StaticExecutorWaitable::get_executable_list()
 }
 
 void
-StaticExecutorWaitable::prepare_wait_set()
+StaticExecutorEntitiesCollector::prepare_wait_set()
 {
   // clear wait set
   if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
@@ -168,7 +168,7 @@ StaticExecutorWaitable::prepare_wait_set()
 }
 
 void
-StaticExecutorWaitable::refresh_wait_set(std::chrono::nanoseconds timeout)
+StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeout)
 {
   // clear wait set (memeset to '0' all wait_set_ entities
   // but keeps the wait_set_ number of entities)
@@ -195,7 +195,7 @@ StaticExecutorWaitable::refresh_wait_set(std::chrono::nanoseconds timeout)
 }
 
 bool
-StaticExecutorWaitable::add_to_wait_set(rcl_wait_set_t * wait_set)
+StaticExecutorEntitiesCollector::add_to_wait_set(rcl_wait_set_t * wait_set)
 {
   // Add waitable guard conditions (one for each registered node) into the wait set.
   for (const auto & gc : guard_conditions_) {
@@ -211,13 +211,13 @@ StaticExecutorWaitable::add_to_wait_set(rcl_wait_set_t * wait_set)
   return true;
 }
 
-size_t StaticExecutorWaitable::get_number_of_ready_guard_conditions()
+size_t StaticExecutorEntitiesCollector::get_number_of_ready_guard_conditions()
 {
   return guard_conditions_.size();
 }
 
 void
-StaticExecutorWaitable::add_node_and_guard_condition(
+StaticExecutorEntitiesCollector::add_node_and_guard_condition(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr,
   rcl_guard_condition_t * node_guard_condition)
 {
@@ -226,7 +226,7 @@ StaticExecutorWaitable::add_node_and_guard_condition(
 }
 
 void
-StaticExecutorWaitable::remove_node_and_guard_condition(
+StaticExecutorEntitiesCollector::remove_node_and_guard_condition(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr)
 {
   auto node_it = weak_nodes_.begin();
@@ -244,7 +244,7 @@ StaticExecutorWaitable::remove_node_and_guard_condition(
 }
 
 bool
-StaticExecutorWaitable::is_ready(rcl_wait_set_t * p_wait_set)
+StaticExecutorEntitiesCollector::is_ready(rcl_wait_set_t * p_wait_set)
 {
   // Check wait_set guard_conditions for added/removed entities to/from a node
   for (size_t i = 0; i < p_wait_set->size_of_guard_conditions; ++i) {

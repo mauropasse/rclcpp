@@ -20,7 +20,7 @@ StaticSingleThreadedExecutor::StaticSingleThreadedExecutor(
   const rclcpp::executor::ExecutorArgs & args)
 : executor::Executor(args)
 {
-  static_exec_waitable_ = std::make_shared<StaticExecutorWaitable>();
+  entities_collector_ = std::make_shared<StaticExecutorEntitiesCollector>();
 }
 
 StaticSingleThreadedExecutor::~StaticSingleThreadedExecutor() {}
@@ -35,7 +35,7 @@ StaticSingleThreadedExecutor::spin()
 
   // Set memory_strategy_ and exec_list_ based on weak_nodes_
   // Prepare wait_set_ based on memory_strategy_
-  static_exec_waitable_->init(&wait_set_, memory_strategy_, static_exec_waitable_);
+  entities_collector_->init(&wait_set_, memory_strategy_, entities_collector_);
 
   while (rclcpp::ok(this->context_) && spinning.load()) {
     execute_ready_executables();
@@ -61,7 +61,7 @@ StaticSingleThreadedExecutor::add_node(
     }
   }
 
-  static_exec_waitable_->add_node_and_guard_condition(node_ptr, node_ptr->get_notify_guard_condition());
+  entities_collector_->add_node_and_guard_condition(node_ptr, node_ptr->get_notify_guard_condition());
 }
 
 void
@@ -90,7 +90,7 @@ StaticSingleThreadedExecutor::remove_node(
   std::atomic_bool & has_executor = node_ptr->get_associated_with_executor_atomic();
   has_executor.store(false);
 
-  static_exec_waitable_->remove_node_and_guard_condition(node_ptr);
+  entities_collector_->remove_node_and_guard_condition(node_ptr);
 }
 
 void
@@ -103,44 +103,44 @@ void
 StaticSingleThreadedExecutor::execute_ready_executables(std::chrono::nanoseconds timeout)
 {
  // Refresh wait set and wait for work
- static_exec_waitable_->refresh_wait_set(timeout);
+ entities_collector_->refresh_wait_set(timeout);
 
   // Execute all the ready subscriptions
   for (size_t i = 0; i < wait_set_.size_of_subscriptions; ++i) {
-    if (i < static_exec_waitable_->get_number_of_subscriptions()) {
+    if (i < entities_collector_->get_number_of_subscriptions()) {
       if (wait_set_.subscriptions[i]) {
-        execute_subscription(static_exec_waitable_->get_subscription(i));
+        execute_subscription(entities_collector_->get_subscription(i));
       }
     }
   }
   // Execute all the ready timers
   for (size_t i = 0; i < wait_set_.size_of_timers; ++i) {
-    if (i < static_exec_waitable_->get_number_of_timers()) {
-      if (wait_set_.timers[i] && static_exec_waitable_->get_timer(i)->is_ready()) {
-        execute_timer(static_exec_waitable_->get_timer(i));
+    if (i < entities_collector_->get_number_of_timers()) {
+      if (wait_set_.timers[i] && entities_collector_->get_timer(i)->is_ready()) {
+        execute_timer(entities_collector_->get_timer(i));
       }
     }
   }
   // Execute all the ready services
   for (size_t i = 0; i < wait_set_.size_of_services; ++i) {
-    if (i < static_exec_waitable_->get_number_of_services()) {
+    if (i < entities_collector_->get_number_of_services()) {
       if (wait_set_.services[i]) {
-        execute_service(static_exec_waitable_->get_service(i));
+        execute_service(entities_collector_->get_service(i));
       }
     }
   }
   // Execute all the ready clients
   for (size_t i = 0; i < wait_set_.size_of_clients; ++i) {
-    if (i < static_exec_waitable_->get_number_of_clients()) {
+    if (i < entities_collector_->get_number_of_clients()) {
       if (wait_set_.clients[i]) {
-        execute_client(static_exec_waitable_->get_client(i));
+        execute_client(entities_collector_->get_client(i));
       }
     }
   }
   // Execute all the ready waitables
-  for (size_t i = 0; i < static_exec_waitable_->get_number_of_waitables(); ++i) {
-    if (static_exec_waitable_->get_waitable(i)->is_ready(&wait_set_)) {
-      static_exec_waitable_->get_waitable(i)->execute();
+  for (size_t i = 0; i < entities_collector_->get_number_of_waitables(); ++i) {
+    if (entities_collector_->get_waitable(i)->is_ready(&wait_set_)) {
+      entities_collector_->get_waitable(i)->execute();
     }
   }
 }
