@@ -39,7 +39,7 @@ StaticExecutorEntitiesCollector::init(
        StaticExecutorEntitiesCollector::SharedPtr this_shared_ptr)
 {
   // Empty initialize executable list
-  executor::ExecutableList exec_list_();
+  exec_list_ = executor::ExecutableList();
   // Get executor's wait_set_ pointer
   p_wait_set_ = p_wait_set;
   // Get executor's memory strategy ptr
@@ -58,15 +58,15 @@ void
 StaticExecutorEntitiesCollector::execute()
 {
   // Fill memory strategy with entities comming from weak_nodes_
-  get_memory_strategy();
+  fill_memory_strategy();
   // Fill exec_list_ with entities comming from weak_nodes_ (same as memory strategy)
-  get_executable_list();
+  fill_executable_list();
   // Resize the wait_set_ based on memory_strategy handles (rcl_wait_set_resize)
   prepare_wait_set();
 }
 
 void
-StaticExecutorEntitiesCollector::get_memory_strategy()
+StaticExecutorEntitiesCollector::fill_memory_strategy()
 {
   memory_strategy_->clear_handles();
   bool has_invalid_weak_nodes = memory_strategy_->collect_entities(weak_nodes_);
@@ -88,7 +88,7 @@ StaticExecutorEntitiesCollector::get_memory_strategy()
 }
 
 void
-StaticExecutorEntitiesCollector::get_executable_list()
+StaticExecutorEntitiesCollector::fill_executable_list()
 {
   exec_list_.clear();
 
@@ -199,11 +199,7 @@ StaticExecutorEntitiesCollector::add_to_wait_set(rcl_wait_set_t * wait_set)
 {
   // Add waitable guard conditions (one for each registered node) into the wait set.
   for (const auto & gc : guard_conditions_) {
-    if (!gc) {
-      throw std::runtime_error("Failed to get waitable guard condition");
-    }
     rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, gc, NULL);
-
     if (ret != RCL_RET_OK) {
       throw std::runtime_error("Executor waitable: couldn't add guard condition to wait set");
     }

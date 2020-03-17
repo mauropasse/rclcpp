@@ -44,11 +44,11 @@ public:
 
   RCLCPP_PUBLIC
   void
-  get_memory_strategy();
+  fill_memory_strategy();
 
   RCLCPP_PUBLIC
   void
-  get_executable_list();
+  fill_executable_list();
 
   /// Function to reallocate space for entities in the wait set.
   RCLCPP_PUBLIC
@@ -137,7 +137,7 @@ private:
   /// Memory strategy: an interface for handling user-defined memory allocation strategies.
   memory_strategy::MemoryStrategy::SharedPtr memory_strategy_;
 
-  /// Executable list
+  /// List of weak nodes registered in the static executor
   std::list<rclcpp::node_interfaces::NodeBaseInterface::WeakPtr> weak_nodes_;
 
   /// Wait set for managing entities that the rmw layer waits on.
