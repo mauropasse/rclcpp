@@ -20,7 +20,9 @@ namespace rclcpp
 namespace executors
 {
 
-class StaticExecutorEntitiesCollector : public rclcpp::Waitable
+class StaticExecutorEntitiesCollector :
+ public rclcpp::Waitable,
+ public std::enable_shared_from_this<StaticExecutorEntitiesCollector>
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(StaticExecutorEntitiesCollector)
@@ -35,8 +37,7 @@ public:
   RCLCPP_PUBLIC
   void
   init(rcl_wait_set_t* p_wait_set,
-       memory_strategy::MemoryStrategy::SharedPtr& memory_strategy,
-       StaticExecutorEntitiesCollector::SharedPtr this_shared_ptr);
+       memory_strategy::MemoryStrategy::SharedPtr& memory_strategy);
 
   RCLCPP_PUBLIC
   void
@@ -145,9 +146,6 @@ private:
 
   /// Executable list: timers, subscribers, clients, services and waitables
   executor::ExecutableList exec_list_;
-
-  /// Shared pointer to this StaticExecutorEntitiesCollector
-  StaticExecutorEntitiesCollector::SharedPtr this_shared_ptr_;
 };
 
 }  // namespace executors

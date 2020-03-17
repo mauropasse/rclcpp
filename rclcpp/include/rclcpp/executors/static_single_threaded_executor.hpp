@@ -139,9 +139,7 @@ public:
     std::chrono::nanoseconds timeout_left = timeout_ns;
 
     entities_collector_ = std::make_shared<StaticExecutorEntitiesCollector>();
-    entities_collector_->init(&wait_set_, memory_strategy_, entities_collector_);
-    // Collect entities and clean any invalid nodes.
-    entities_collector_->execute();
+    entities_collector_->init(&wait_set_, memory_strategy_);
 
     while (rclcpp::ok(this->context_)) {
       // Do one set of work.

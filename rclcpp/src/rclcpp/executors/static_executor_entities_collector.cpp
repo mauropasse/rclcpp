@@ -35,8 +35,7 @@ StaticExecutorEntitiesCollector::~StaticExecutorEntitiesCollector()
 void
 StaticExecutorEntitiesCollector::init(
        rcl_wait_set_t* p_wait_set,
-       memory_strategy::MemoryStrategy::SharedPtr& memory_strategy,
-       StaticExecutorEntitiesCollector::SharedPtr this_shared_ptr)
+       memory_strategy::MemoryStrategy::SharedPtr& memory_strategy)
 {
   // Empty initialize executable list
   exec_list_ = executor::ExecutableList();
@@ -47,8 +46,6 @@ StaticExecutorEntitiesCollector::init(
     throw std::runtime_error("Received NULL memory strategy in executor waitable.");
   }
   memory_strategy_ = memory_strategy;
-  // Get this StaticExecutorEntitiesCollector shared pointer
-  this_shared_ptr_ = this_shared_ptr;
 
   // Get memory strategy and executable list. Prepare wait_set_
   execute();
@@ -84,7 +81,7 @@ StaticExecutorEntitiesCollector::fill_memory_strategy()
   }
 
   // Add the static executor waitable to the memory strategy
-  memory_strategy_->add_waitable_handle(this_shared_ptr_);
+  memory_strategy_->add_waitable_handle(this->shared_from_this());
 }
 
 void
@@ -143,7 +140,7 @@ StaticExecutorEntitiesCollector::fill_executable_list()
   }
 
   // Add the executor's waitable to the executable list
-  exec_list_.add_waitable(this_shared_ptr_);
+  exec_list_.add_waitable(shared_from_this());
 }
 
 void
