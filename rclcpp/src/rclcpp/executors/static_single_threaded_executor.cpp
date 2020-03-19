@@ -39,7 +39,7 @@ StaticSingleThreadedExecutor::spin()
 
   while (rclcpp::ok(this->context_) && spinning.load()) {
     // Refresh wait set and wait for work
-    entities_collector_->refresh_wait_set(timeout);
+    entities_collector_->refresh_wait_set();
     execute_ready_executables();
   }
 }
@@ -102,7 +102,7 @@ StaticSingleThreadedExecutor::remove_node(std::shared_ptr<rclcpp::Node> node_ptr
 }
 
 void
-StaticSingleThreadedExecutor::execute_ready_executables(std::chrono::nanoseconds timeout)
+StaticSingleThreadedExecutor::execute_ready_executables()
 {
   // Execute all the ready subscriptions
   for (size_t i = 0; i < wait_set_.size_of_subscriptions; ++i) {
