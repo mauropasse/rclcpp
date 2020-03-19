@@ -54,9 +54,9 @@ StaticExecutorEntitiesCollector::init(
 void
 StaticExecutorEntitiesCollector::execute()
 {
-  // Fill memory strategy with entities comming from weak_nodes_
+  // Fill memory strategy with entities coming from weak_nodes_
   fill_memory_strategy();
-  // Fill exec_list_ with entities comming from weak_nodes_ (same as memory strategy)
+  // Fill exec_list_ with entities coming from weak_nodes_ (same as memory strategy)
   fill_executable_list();
   // Resize the wait_set_ based on memory_strategy handles (rcl_wait_set_resize)
   prepare_wait_set();
