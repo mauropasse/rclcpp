@@ -62,7 +62,6 @@ StaticExecutorEntitiesCollector::init(
 void
 StaticExecutorEntitiesCollector::execute()
 {
-
   // Fill memory strategy with entities coming from weak_nodes_
   fill_memory_strategy();
   // Fill exec_list_ with entities coming from weak_nodes_ (same as memory strategy)
@@ -199,7 +198,14 @@ void
 StaticExecutorEntitiesCollector::rclcpp_wait(std::chrono::nanoseconds timeout)
 {
 
-  // * * * * * * NEW * * * * * *
+  // ready_items: Represent the amount of ready to work entities for each type
+  ready_items[SUBSCRIBER] = 0;
+  ready_items[TIMER] = 0;
+  ready_items[SERVICE] = 0;
+  ready_items[CLIENT] = 0;
+
+  // clear wait set (memeset to '0' all wait_set_ entities
+  // but keeps the wait_set_ number of entities)
   if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
     throw std::runtime_error("Couldn't clear wait set");
   }
@@ -217,7 +223,14 @@ StaticExecutorEntitiesCollector::rclcpp_wait(std::chrono::nanoseconds timeout)
   }
 
   rcl_ret_t status =
-    rcl_wait(p_wait_set_, std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count());
+    rcl_wait(
+      p_wait_set_,
+      std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count(),
+      ready_subscriber,
+      ready_timer,
+      ready_service,
+      ready_client,
+      ready_items);
 
   if (status == RCL_RET_WAIT_SET_EMPTY) {
     RCUTILS_LOG_WARN_NAMED(

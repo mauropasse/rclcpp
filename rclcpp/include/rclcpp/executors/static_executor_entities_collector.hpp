@@ -144,6 +144,28 @@ public:
   rclcpp::Waitable::SharedPtr
   get_waitable(size_t i) {return exec_list_.waitable[i];}
 
+// How many entities shall we support?
+// For a single empty node, we have 6 services and 1 subscription
+// For cedar topology (~10 nodes) in a sigle executor, that is 60 services.
+// Lets use 100 to be sure now
+#define MAX_ENTITIES (100)
+  size_t ready_subscriber[MAX_ENTITIES];
+  size_t ready_timer[MAX_ENTITIES];
+  size_t ready_service[MAX_ENTITIES];
+  size_t ready_client[MAX_ENTITIES];
+
+enum ENTITY
+{
+  SUBSCRIBER,
+  TIMER,
+  SERVICE,
+  CLIENT,
+  NUM_ENTITIES
+};
+
+// ready_items: How many entities have work to do for each type?
+size_t ready_items[NUM_ENTITIES];
+
 private:
   /// Nodes guard conditions which trigger this waitable
   std::list<const rcl_guard_condition_t *> guard_conditions_;
