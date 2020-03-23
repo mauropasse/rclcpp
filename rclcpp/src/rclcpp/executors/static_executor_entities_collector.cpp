@@ -35,7 +35,8 @@ StaticExecutorEntitiesCollector::~StaticExecutorEntitiesCollector()
 void
 StaticExecutorEntitiesCollector::init(
        rcl_wait_set_t* p_wait_set,
-       memory_strategy::MemoryStrategy::SharedPtr& memory_strategy)
+       memory_strategy::MemoryStrategy::SharedPtr& memory_strategy,
+       rcl_guard_condition_t* executor_guard_condition)
 {
   // Empty initialize executable list
   exec_list_ = executor::ExecutableList();
@@ -46,6 +47,9 @@ StaticExecutorEntitiesCollector::init(
     throw std::runtime_error("Received NULL memory strategy in executor waitable.");
   }
   memory_strategy_ = memory_strategy;
+
+  // Add executor's guard condition
+  guard_conditions_.push_back(executor_guard_condition);
 
   // Get memory strategy and executable list. Prepare wait_set_
   execute();
@@ -210,9 +214,8 @@ size_t StaticExecutorEntitiesCollector::get_number_of_ready_guard_conditions()
 }
 
 void
-StaticExecutorEntitiesCollector::add_node_and_guard_condition(
-  rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr,
-  rcl_guard_condition_t * node_guard_condition)
+StaticExecutorEntitiesCollector::add_node(
+  rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr)
 {
   // Check to ensure node not already added
   for (auto & weak_node : weak_nodes_) {
@@ -224,25 +227,29 @@ StaticExecutorEntitiesCollector::add_node_and_guard_condition(
   }
 
   weak_nodes_.push_back(node_ptr);
-  guard_conditions_.push_back(node_guard_condition);
+  guard_conditions_.push_back(node_ptr->get_notify_guard_condition());
 }
 
-void
-StaticExecutorEntitiesCollector::remove_node_and_guard_condition(
+bool
+StaticExecutorEntitiesCollector::remove_node(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr)
 {
   auto node_it = weak_nodes_.begin();
   auto gc_it = guard_conditions_.begin();
+
   while (node_it != weak_nodes_.end()) {
     bool matched = (node_it->lock() == node_ptr);
     if (matched) {
       node_it = weak_nodes_.erase(node_it);
       gc_it = guard_conditions_.erase(gc_it);
+      return true;
     } else {
       ++node_it;
       ++gc_it;
     }
   }
+
+  return false;
 }
 
 bool

@@ -35,7 +35,7 @@ StaticSingleThreadedExecutor::spin()
 
   // Set memory_strategy_ and exec_list_ based on weak_nodes_
   // Prepare wait_set_ based on memory_strategy_
-  entities_collector_->init(&wait_set_, memory_strategy_);
+  entities_collector_->init(&wait_set_, memory_strategy_, &interrupt_guard_condition_);
 
   while (rclcpp::ok(this->context_) && spinning.load()) {
     // Refresh wait set and wait for work
@@ -48,14 +48,20 @@ void
 StaticSingleThreadedExecutor::add_node(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr, bool notify)
 {
-  (void)notify;
   // If the node already has an executor
   std::atomic_bool & has_executor = node_ptr->get_associated_with_executor_atomic();
   if (has_executor.exchange(true)) {
     throw std::runtime_error("Node has already been added to an executor.");
   }
 
-  entities_collector_->add_node_and_guard_condition(node_ptr, node_ptr->get_notify_guard_condition());
+  if (notify) {
+    // Interrupt waiting to handle new node
+    if (rcl_trigger_guard_condition(&interrupt_guard_condition_) != RCL_RET_OK) {
+      throw std::runtime_error(rcl_get_error_string().str);
+    }
+  }
+
+  entities_collector_->add_node(node_ptr);
 }
 
 void
@@ -68,23 +74,19 @@ void
 StaticSingleThreadedExecutor::remove_node(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr, bool notify)
 {
-  (void)notify;
-  {
-    auto node_it = weak_nodes_.begin();
-    while (node_it != weak_nodes_.end()) {
-      bool matched = (node_it->lock() == node_ptr);
-      if (matched) {
-        node_it = weak_nodes_.erase(node_it);
-      } else {
-        ++node_it;
+  bool node_removed = entities_collector_->remove_node(node_ptr);
+
+  if (notify) {
+    // If the node was matched and removed, interrupt waiting
+    if (node_removed) {
+      if (rcl_trigger_guard_condition(&interrupt_guard_condition_) != RCL_RET_OK) {
+        throw std::runtime_error(rcl_get_error_string().str);
       }
     }
   }
 
   std::atomic_bool & has_executor = node_ptr->get_associated_with_executor_atomic();
   has_executor.store(false);
-
-  entities_collector_->remove_node_and_guard_condition(node_ptr);
 }
 
 void

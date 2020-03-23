@@ -37,7 +37,8 @@ public:
   RCLCPP_PUBLIC
   void
   init(rcl_wait_set_t* p_wait_set,
-       memory_strategy::MemoryStrategy::SharedPtr& memory_strategy);
+       memory_strategy::MemoryStrategy::SharedPtr& memory_strategy,
+       rcl_guard_condition_t* executor_guard_condition);
 
   RCLCPP_PUBLIC
   void
@@ -72,13 +73,12 @@ public:
 
   RCLCPP_PUBLIC
   void
-  add_node_and_guard_condition(
-    rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr,
-    rcl_guard_condition_t * node_guard_condition);
+  add_node(
+    rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr);
 
   RCLCPP_PUBLIC
-  void
-  remove_node_and_guard_condition(
+  bool
+  remove_node(
     rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr);
 
   /// Complete all available queued work without blocking.

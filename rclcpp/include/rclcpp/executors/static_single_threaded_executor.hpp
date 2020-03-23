@@ -76,30 +76,34 @@ public:
   /**
    * An executor can have zero or more nodes which provide work during `spin` functions.
    * \param[in] node_ptr Shared pointer to the node to be added.
-   * \param[in] notify Not used in static executor.
+   * \param[in] notify True to trigger the interrupt guard condition during this function. If
+   * the executor is blocked at the rmw layer while waiting for work and it is notified that a new
+   * node was added, it will wake up.
    */
   RCLCPP_PUBLIC
   void
-  add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr, bool notify = false) override;
+  add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr, bool notify = true) override;
 
   /// Convenience function which takes Node and forwards NodeBaseInterface.
   RCLCPP_PUBLIC
   void
-  add_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify = false) override;
+  add_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify = true) override;
 
   /// Remove a node from the executor.
   /**
    * \param[in] node_ptr Shared pointer to the node to remove.
-   * \param[in] notify Not used in static executor.
+   * \param[in] notify True to trigger the interrupt guard condition and wake up the executor.
+   * This is useful if the last node was removed from the executor while the executor was blocked
+   * waiting for work in another thread, because otherwise the executor would never be notified.
    */
   RCLCPP_PUBLIC
   void
-  remove_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr, bool notify = false) override;
+  remove_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr, bool notify = true) override;
 
   /// Convenience function which takes Node and forwards NodeBaseInterface.
   RCLCPP_PUBLIC
   void
-  remove_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify = false) override;
+  remove_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify = true) override;
 
   /// Spin (blocking) until the future is complete, it times out waiting, or rclcpp is interrupted.
   /**
@@ -139,7 +143,7 @@ public:
     std::chrono::nanoseconds timeout_left = timeout_ns;
 
     entities_collector_ = std::make_shared<StaticExecutorEntitiesCollector>();
-    entities_collector_->init(&wait_set_, memory_strategy_);
+    entities_collector_->init(&wait_set_, memory_strategy_, &interrupt_guard_condition_);
 
     while (rclcpp::ok(this->context_)) {
       // Do one set of work.
