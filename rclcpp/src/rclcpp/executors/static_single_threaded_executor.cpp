@@ -54,14 +54,6 @@ StaticSingleThreadedExecutor::add_node(
   if (has_executor.exchange(true)) {
     throw std::runtime_error("Node has already been added to an executor.");
   }
-  // Check to ensure node not already added
-  for (auto & weak_node : weak_nodes_) {
-    auto node = weak_node.lock();
-    if (node == node_ptr) {
-      // TODO(jacquelinekay): Use a different error here?
-      throw std::runtime_error("Cannot add node to executor, node already added.");
-    }
-  }
 
   entities_collector_->add_node_and_guard_condition(node_ptr, node_ptr->get_notify_guard_condition());
 }

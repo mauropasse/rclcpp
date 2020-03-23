@@ -214,6 +214,15 @@ StaticExecutorEntitiesCollector::add_node_and_guard_condition(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr,
   rcl_guard_condition_t * node_guard_condition)
 {
+  // Check to ensure node not already added
+  for (auto & weak_node : weak_nodes_) {
+    auto node = weak_node.lock();
+    if (node == node_ptr) {
+      // TODO(jacquelinekay): Use a different error here?
+      throw std::runtime_error("Cannot add node to executor, node already added.");
+    }
+  }
+
   weak_nodes_.push_back(node_ptr);
   guard_conditions_.push_back(node_guard_condition);
 }
