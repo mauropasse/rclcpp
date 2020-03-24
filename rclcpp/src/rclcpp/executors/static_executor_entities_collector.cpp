@@ -249,7 +249,8 @@ StaticExecutorEntitiesCollector::remove_node(
         weak_nodes_.erase(node_it);
         return true;
       }
-      return false;
+
+      throw std::runtime_error("Didn't find guard condition associated with node.");
 
     } else {
       ++node_it;
