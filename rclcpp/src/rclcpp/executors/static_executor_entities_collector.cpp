@@ -235,17 +235,24 @@ StaticExecutorEntitiesCollector::remove_node(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr)
 {
   auto node_it = weak_nodes_.begin();
-  auto gc_it = guard_conditions_.begin();
 
   while (node_it != weak_nodes_.end()) {
     bool matched = (node_it->lock() == node_ptr);
     if (matched) {
-      node_it = weak_nodes_.erase(node_it);
-      gc_it = guard_conditions_.erase(gc_it);
-      return true;
+      // Find and remove node and its guard condition
+      auto gc_it = std::find(guard_conditions_.begin(),
+                             guard_conditions_.end(),
+                             node_ptr->get_notify_guard_condition());
+
+      if (gc_it != guard_conditions_.end()) {
+        guard_conditions_.erase(gc_it);
+        weak_nodes_.erase(node_it);
+        return true;
+      }
+      return false;
+
     } else {
       ++node_it;
-      ++gc_it;
     }
   }
 
