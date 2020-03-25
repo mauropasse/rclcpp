@@ -68,13 +68,13 @@ public:
   /// Function to reallocate space for entities in the wait set.
   RCLCPP_PUBLIC
   void
-  prepare_wait_set();
+  fill_rcl_wait_set();
 
   /// Function to add_handles_to_wait_set and wait for work and
   // block until the wait set is ready or until the timeout has been exceeded.
   RCLCPP_PUBLIC
   void
-  refresh_wait_set(std::chrono::nanoseconds timeout = std::chrono::nanoseconds(-1));
+  rclcpp_wait(std::chrono::nanoseconds timeout = std::chrono::nanoseconds(-1));
 
   RCLCPP_PUBLIC
   bool

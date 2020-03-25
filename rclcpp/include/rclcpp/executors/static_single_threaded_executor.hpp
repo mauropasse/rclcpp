@@ -154,7 +154,7 @@ public:
 
     while (rclcpp::ok(this->context_)) {
       // Do one set of work.
-      entities_collector_->refresh_wait_set(timeout_left);
+      entities_collector_->rclcpp_wait(timeout_left);
       execute_ready_executables();
       // Check if the future is set, return SUCCESS if it is.
       status = future.wait_for(std::chrono::seconds(0));

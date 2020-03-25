@@ -62,12 +62,13 @@ StaticExecutorEntitiesCollector::init(
 void
 StaticExecutorEntitiesCollector::execute()
 {
+
   // Fill memory strategy with entities coming from weak_nodes_
   fill_memory_strategy();
   // Fill exec_list_ with entities coming from weak_nodes_ (same as memory strategy)
   fill_executable_list();
   // Resize the wait_set_ based on memory_strategy handles (rcl_wait_set_resize)
-  prepare_wait_set();
+  fill_rcl_wait_set();
 }
 
 void
@@ -152,7 +153,7 @@ StaticExecutorEntitiesCollector::fill_executable_list()
 }
 
 void
-StaticExecutorEntitiesCollector::prepare_wait_set()
+StaticExecutorEntitiesCollector::fill_rcl_wait_set()
 {
   // clear wait set
   if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
@@ -170,18 +171,48 @@ StaticExecutorEntitiesCollector::prepare_wait_set()
     throw std::runtime_error(
             std::string("Couldn't resize the wait set : ") + rcl_get_error_string().str);
   }
-}
 
-void
-StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeout)
-{
-  // clear wait set (memeset to '0' all wait_set_ entities
-  // but keeps the wait_set_ number of entities)
+  if (!memory_strategy_->add_handles_to_wait_set(p_wait_set_)) {
+    throw std::runtime_error("Couldn't fill wait set");
+  }
+
+  // * * * * * * NEW * * * * * *
   if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
     throw std::runtime_error("Couldn't clear wait set");
   }
 
+  if (rcl_rmw_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
+    throw std::runtime_error("Couldn't clear wait set");
+  }
+
   if (!memory_strategy_->add_handles_to_wait_set(p_wait_set_)) {
+    throw std::runtime_error("Couldn't fill wait set");
+  }
+
+  if (!memory_strategy_->add_handles_to_rmw_wait_set(p_wait_set_)) {
+    throw std::runtime_error("Couldn't fill wait set");
+  }
+
+}
+
+void
+StaticExecutorEntitiesCollector::rclcpp_wait(std::chrono::nanoseconds timeout)
+{
+
+  // * * * * * * NEW * * * * * *
+  if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
+    throw std::runtime_error("Couldn't clear wait set");
+  }
+
+  if (rcl_rmw_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
+    throw std::runtime_error("Couldn't clear wait set");
+  }
+
+  if (!memory_strategy_->add_handles_to_wait_set(p_wait_set_)) {
+    throw std::runtime_error("Couldn't fill wait set");
+  }
+
+  if (!memory_strategy_->add_handles_to_rmw_wait_set(p_wait_set_)) {
     throw std::runtime_error("Couldn't fill wait set");
   }
 

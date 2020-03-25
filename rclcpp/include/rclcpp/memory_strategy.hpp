@@ -58,6 +58,7 @@ public:
 
   virtual void add_waitable_handle(const rclcpp::Waitable::SharedPtr & waitable) = 0;
   virtual bool add_handles_to_wait_set(rcl_wait_set_t * wait_set) = 0;
+  virtual bool add_handles_to_rmw_wait_set(rcl_wait_set_t * wait_set) = 0;
   virtual void clear_handles() = 0;
   virtual void remove_null_handles(rcl_wait_set_t * wait_set) = 0;
 

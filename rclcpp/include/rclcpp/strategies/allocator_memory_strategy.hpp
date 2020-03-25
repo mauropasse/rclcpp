@@ -261,6 +261,47 @@ public:
     return true;
   }
 
+  bool add_handles_to_rmw_wait_set(rcl_wait_set_t * wait_set) override
+  {
+    for (auto subscription : subscription_handles_) {
+      if (rcl_rmw_wait_set_add_subscription(wait_set, subscription.get()) != RCL_RET_OK) {
+        RCUTILS_LOG_ERROR_NAMED(
+          "rclcpp",
+          "Couldn't add subscription to wait set: %s", rcl_get_error_string().str);
+        return false;
+      }
+    }
+
+    for (auto client : client_handles_) {
+      if (rcl_rmw_wait_set_add_client(wait_set, client.get()) != RCL_RET_OK) {
+        RCUTILS_LOG_ERROR_NAMED(
+          "rclcpp",
+          "Couldn't add client to wait set: %s", rcl_get_error_string().str);
+        return false;
+      }
+    }
+
+    for (auto service : service_handles_) {
+      if (rcl_rmw_wait_set_add_service(wait_set, service.get()) != RCL_RET_OK) {
+        RCUTILS_LOG_ERROR_NAMED(
+          "rclcpp",
+          "Couldn't add service to wait set: %s", rcl_get_error_string().str);
+        return false;
+      }
+    }
+
+    for (auto guard_condition : guard_conditions_) {
+      if (rcl_rmw_wait_set_add_guard_condition(wait_set, guard_condition) != RCL_RET_OK) {
+        RCUTILS_LOG_ERROR_NAMED(
+          "rclcpp",
+          "Couldn't add guard_condition to wait set: %s",
+          rcl_get_error_string().str);
+        return false;
+      }
+    }
+    return true;
+  }
+
   void
   get_next_subscription(
     executor::AnyExecutable & any_exec,
