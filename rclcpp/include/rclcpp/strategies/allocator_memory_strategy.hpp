@@ -202,10 +202,10 @@ public:
     waitable_handles_.push_back(waitable);
   }
 
-  bool add_handles_to_wait_set(rcl_wait_set_t * wait_set) override
+  bool add_handles_to_wait_set(rcl_wait_set_t * wait_set, bool add_to_rcl_wait_set = true) override
   {
     for (auto subscription : subscription_handles_) {
-      if (rcl_wait_set_add_subscription(wait_set, subscription.get(), NULL) != RCL_RET_OK) {
+      if (rcl_wait_set_add_subscription(wait_set, subscription.get(), NULL, add_to_rcl_wait_set) != RCL_RET_OK) {
         RCUTILS_LOG_ERROR_NAMED(
           "rclcpp",
           "Couldn't add subscription to wait set: %s", rcl_get_error_string().str);
@@ -214,7 +214,7 @@ public:
     }
 
     for (auto client : client_handles_) {
-      if (rcl_wait_set_add_client(wait_set, client.get(), NULL) != RCL_RET_OK) {
+      if (rcl_wait_set_add_client(wait_set, client.get(), NULL, add_to_rcl_wait_set) != RCL_RET_OK) {
         RCUTILS_LOG_ERROR_NAMED(
           "rclcpp",
           "Couldn't add client to wait set: %s", rcl_get_error_string().str);
@@ -223,7 +223,7 @@ public:
     }
 
     for (auto service : service_handles_) {
-      if (rcl_wait_set_add_service(wait_set, service.get(), NULL) != RCL_RET_OK) {
+      if (rcl_wait_set_add_service(wait_set, service.get(), NULL, add_to_rcl_wait_set) != RCL_RET_OK) {
         RCUTILS_LOG_ERROR_NAMED(
           "rclcpp",
           "Couldn't add service to wait set: %s", rcl_get_error_string().str);
@@ -231,17 +231,19 @@ public:
       }
     }
 
-    for (auto timer : timer_handles_) {
-      if (rcl_wait_set_add_timer(wait_set, timer.get(), NULL) != RCL_RET_OK) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add timer to wait set: %s", rcl_get_error_string().str);
-        return false;
+    if(add_to_rcl_wait_set == true) {
+      for (auto timer : timer_handles_) {
+        if (rcl_wait_set_add_timer(wait_set, timer.get(), NULL) != RCL_RET_OK) {
+          RCUTILS_LOG_ERROR_NAMED(
+            "rclcpp",
+            "Couldn't add timer to wait set: %s", rcl_get_error_string().str);
+          return false;
+        }
       }
     }
 
     for (auto guard_condition : guard_conditions_) {
-      if (rcl_wait_set_add_guard_condition(wait_set, guard_condition, NULL) != RCL_RET_OK) {
+      if (rcl_wait_set_add_guard_condition(wait_set, guard_condition, NULL, add_to_rcl_wait_set) != RCL_RET_OK) {
         RCUTILS_LOG_ERROR_NAMED(
           "rclcpp",
           "Couldn't add guard_condition to wait set: %s",
@@ -250,53 +252,14 @@ public:
       }
     }
 
-    for (auto waitable : waitable_handles_) {
-      if (!waitable->add_to_wait_set(wait_set)) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add waitable to wait set: %s", rcl_get_error_string().str);
-        return false;
-      }
-    }
-    return true;
-  }
-
-  bool add_handles_to_rmw_wait_set(rcl_wait_set_t * wait_set) override
-  {
-    for (auto subscription : subscription_handles_) {
-      if (rcl_rmw_wait_set_add_subscription(wait_set, subscription.get()) != RCL_RET_OK) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add subscription to wait set: %s", rcl_get_error_string().str);
-        return false;
-      }
-    }
-
-    for (auto client : client_handles_) {
-      if (rcl_rmw_wait_set_add_client(wait_set, client.get()) != RCL_RET_OK) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add client to wait set: %s", rcl_get_error_string().str);
-        return false;
-      }
-    }
-
-    for (auto service : service_handles_) {
-      if (rcl_rmw_wait_set_add_service(wait_set, service.get()) != RCL_RET_OK) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add service to wait set: %s", rcl_get_error_string().str);
-        return false;
-      }
-    }
-
-    for (auto guard_condition : guard_conditions_) {
-      if (rcl_rmw_wait_set_add_guard_condition(wait_set, guard_condition) != RCL_RET_OK) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add guard_condition to wait set: %s",
-          rcl_get_error_string().str);
-        return false;
+    if(add_to_rcl_wait_set == true) {
+      for (auto waitable : waitable_handles_) {
+        if (!waitable->add_to_wait_set(wait_set)) {
+          RCUTILS_LOG_ERROR_NAMED(
+            "rclcpp",
+            "Couldn't add waitable to wait set: %s", rcl_get_error_string().str);
+          return false;
+        }
       }
     }
     return true;

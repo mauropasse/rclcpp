@@ -447,7 +447,7 @@ Executor::wait_for_work(std::chrono::nanoseconds timeout)
       }
     }
     // clear wait set
-    if (rcl_wait_set_clear(&wait_set_) != RCL_RET_OK) {
+    if (rcl_wait_set_clear(&wait_set_, true) != RCL_RET_OK) {
       throw std::runtime_error("Couldn't clear wait set");
     }
 

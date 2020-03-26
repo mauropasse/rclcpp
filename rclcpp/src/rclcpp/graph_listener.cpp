@@ -162,19 +162,19 @@ GraphListener::run_loop()
       }
     }
     // Clear the wait set.
-    ret = rcl_wait_set_clear(&wait_set_);
+    ret = rcl_wait_set_clear(&wait_set_, true);
     if (RCL_RET_OK != ret) {
       throw_from_rcl_error(ret, "failed to clear wait set");
     }
     // Put the interrupt guard condition in the wait set.
-    ret = rcl_wait_set_add_guard_condition(&wait_set_, &interrupt_guard_condition_, NULL);
+    ret = rcl_wait_set_add_guard_condition(&wait_set_, &interrupt_guard_condition_, NULL, true);
     if (RCL_RET_OK != ret) {
       throw_from_rcl_error(ret, "failed to add interrupt guard condition to wait set");
     }
     // Put the shutdown guard condition in the wait set.
     size_t shutdown_guard_condition_index = 0u;
     ret = rcl_wait_set_add_guard_condition(
-      &wait_set_, shutdown_guard_condition_, &shutdown_guard_condition_index);
+      &wait_set_, shutdown_guard_condition_, &shutdown_guard_condition_index, true);
     if (RCL_RET_OK != ret) {
       throw_from_rcl_error(ret, "failed to add shutdown guard condition to wait set");
     }
@@ -191,7 +191,7 @@ GraphListener::run_loop()
       if (!graph_gc) {
         throw_from_rcl_error(RCL_RET_ERROR, "failed to get graph guard condition");
       }
-      ret = rcl_wait_set_add_guard_condition(&wait_set_, graph_gc, &graph_gc_indexes[i]);
+      ret = rcl_wait_set_add_guard_condition(&wait_set_, graph_gc, &graph_gc_indexes[i], true);
       if (RCL_RET_OK != ret) {
         throw_from_rcl_error(ret, "failed to add graph guard condition to wait set");
       }
