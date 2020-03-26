@@ -153,6 +153,8 @@ public:
   size_t ready_timer[MAX_ENTITIES];
   size_t ready_service[MAX_ENTITIES];
   size_t ready_client[MAX_ENTITIES];
+  size_t ready_event[MAX_ENTITIES];
+  size_t ready_gc[MAX_ENTITIES];
 
 enum ENTITY
 {
@@ -160,6 +162,8 @@ enum ENTITY
   TIMER,
   SERVICE,
   CLIENT,
+  EVENT,
+  GC,
   NUM_ENTITIES
 };
 

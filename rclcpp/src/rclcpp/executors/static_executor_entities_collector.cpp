@@ -195,6 +195,8 @@ StaticExecutorEntitiesCollector::rclcpp_wait(std::chrono::nanoseconds timeout)
   ready_items[TIMER] = 0;
   ready_items[SERVICE] = 0;
   ready_items[CLIENT] = 0;
+  ready_items[EVENT] = 0;
+  ready_items[GC] = 0;
 
   rcl_ret_t status =
     rcl_wait(
@@ -204,6 +206,8 @@ StaticExecutorEntitiesCollector::rclcpp_wait(std::chrono::nanoseconds timeout)
       ready_timer,
       ready_service,
       ready_client,
+      ready_event,
+      ready_gc,
       ready_items);
 
   if (status == RCL_RET_WAIT_SET_EMPTY) {
@@ -285,18 +289,23 @@ StaticExecutorEntitiesCollector::remove_node(
 bool
 StaticExecutorEntitiesCollector::is_ready(rcl_wait_set_t * p_wait_set)
 {
-  // Check wait_set guard_conditions for added/removed entities to/from a node
-  for (size_t i = 0; i < p_wait_set->size_of_guard_conditions; ++i) {
-    if (p_wait_set->guard_conditions[i] != NULL) {
-      // Check if the guard condition triggered belongs to a node
-      auto it = std::find(
-        guard_conditions_.begin(), guard_conditions_.end(),
-        p_wait_set->guard_conditions[i]);
 
-      // If it does, we are ready to re-collect entities
-      if (it != guard_conditions_.end()) {
-        return true;
-      }
+  size_t num_triggered_gc = ready_items[GC];
+
+  // Check wait_set guard_conditions for:
+  // 1. Node has added or removed entities
+  // 2. Executor has added or removed nodes
+  for (size_t i = 0; i < num_triggered_gc; ++i) {
+    size_t gc_idx = ready_gc[i];
+
+    // Check if the guard condition triggered belongs to a node
+    auto it = std::find(guard_conditions_.begin(),
+                        guard_conditions_.end(),
+                        p_wait_set->guard_conditions[gc_idx]);
+
+    // If it does, we are ready to re-collect entities
+    if (it != guard_conditions_.end()) {
+      return true;
     }
   }
   // None of the guard conditions triggered belong to a registered node

@@ -107,6 +107,8 @@ StaticSingleThreadedExecutor::execute_ready_executables()
   size_t num_ready_timers      = entities_collector_->ready_items[TIMER];
   size_t num_ready_services    = entities_collector_->ready_items[SERVICE];
   size_t num_ready_clients     = entities_collector_->ready_items[CLIENT];
+  size_t num_ready_events      = entities_collector_->ready_items[EVENT]; //Not used
+  size_t num_ready_gc          = entities_collector_->ready_items[GC];
 
   // Execute all the ready subscriptions
   for (size_t i = 0; i < num_ready_subscribers; ++i){
