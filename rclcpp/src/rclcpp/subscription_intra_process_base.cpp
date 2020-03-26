@@ -17,11 +17,11 @@
 using rclcpp::experimental::SubscriptionIntraProcessBase;
 
 bool
-SubscriptionIntraProcessBase::add_to_wait_set(rcl_wait_set_t * wait_set)
+SubscriptionIntraProcessBase::add_to_wait_set(rcl_wait_set_t * wait_set, bool add_to_wait_set)
 {
   std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
 
-  rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, &gc_, NULL, true);
+  rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, &gc_, NULL, add_to_wait_set);
   return RCL_RET_OK == ret;
 }
 

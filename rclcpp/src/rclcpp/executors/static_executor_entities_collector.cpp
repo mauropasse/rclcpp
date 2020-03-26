@@ -221,11 +221,11 @@ StaticExecutorEntitiesCollector::rclcpp_wait(std::chrono::nanoseconds timeout)
 }
 
 bool
-StaticExecutorEntitiesCollector::add_to_wait_set(rcl_wait_set_t * wait_set)
+StaticExecutorEntitiesCollector::add_to_wait_set(rcl_wait_set_t * wait_set, bool add_to_wait_set)
 {
   // Add waitable guard conditions (one for each registered node) into the wait set.
   for (const auto & gc : guard_conditions_) {
-    rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, gc, NULL, true);
+    rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, gc, NULL, add_to_wait_set);
     if (ret != RCL_RET_OK) {
       throw std::runtime_error("Executor waitable: couldn't add guard condition to wait set");
     }
@@ -289,16 +289,13 @@ StaticExecutorEntitiesCollector::remove_node(
 bool
 StaticExecutorEntitiesCollector::is_ready(rcl_wait_set_t * p_wait_set)
 {
-
   size_t num_triggered_gc = ready_items[GC];
 
-  // Check wait_set guard_conditions for:
-  // 1. Node has added or removed entities
-  // 2. Executor has added or removed nodes
   for (size_t i = 0; i < num_triggered_gc; ++i) {
     size_t gc_idx = ready_gc[i];
 
-    // Check if the guard condition triggered belongs to a node
+    // Check if the guard conditions triggered belong to a node
+    // or the static executor
     auto it = std::find(guard_conditions_.begin(),
                         guard_conditions_.end(),
                         p_wait_set->guard_conditions[gc_idx]);
@@ -308,6 +305,6 @@ StaticExecutorEntitiesCollector::is_ready(rcl_wait_set_t * p_wait_set)
       return true;
     }
   }
-  // None of the guard conditions triggered belong to a registered node
+  // None of the guard conditions triggered belongs to us
   return false;
 }

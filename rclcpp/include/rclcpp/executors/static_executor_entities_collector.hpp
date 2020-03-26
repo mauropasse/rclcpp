@@ -78,7 +78,7 @@ public:
 
   RCLCPP_PUBLIC
   bool
-  add_to_wait_set(rcl_wait_set_t * wait_set) override;
+  add_to_wait_set(rcl_wait_set_t * wait_set, bool add_to_wait_set) override;
 
   RCLCPP_PUBLIC
   size_t
