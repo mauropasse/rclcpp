@@ -25,7 +25,6 @@
 
 #include "rclcpp/any_subscription_callback.hpp"
 #include "rclcpp/experimental/intra_process_manager.hpp"
-#include "rclcpp/experimental/subscription_intra_process_base.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp/qos.hpp"
 #include "rclcpp/qos_event.hpp"
@@ -190,8 +189,8 @@ public:
 
   /// Return the waitable for intra-process, or nullptr if intra-process is not setup.
   RCLCPP_PUBLIC
-  rclcpp::Waitable::SharedPtr
-  get_intra_process_waitable() const;
+  rclcpp::experimental::SubscriptionIntraProcessBase::SharedPtr
+  get_intra_process_subscription() const;
 
 protected:
   template<typename EventCallbackT>

@@ -99,10 +99,17 @@ NodeTopics::add_subscription(
     callback_group->add_waitable(subscription_event);
   }
 
-  auto intra_process_waitable = subscription->get_intra_process_waitable();
-  if (nullptr != intra_process_waitable) {
-    // Add to the callback group to be notified about intra-process msgs.
-    callback_group->add_waitable(intra_process_waitable);
+  auto intra_process_subscription = subscription->get_intra_process_subscription();
+
+  if (intra_process_subscription != nullptr) {
+    using rclcpp::experimental::SubscriptionIntraProcessBase;
+
+    //Start thread which monitor the subscription condition variable
+    std::thread subscription_thread = std::thread(
+      &SubscriptionIntraProcessBase::consume_messages_task,
+      intra_process_subscription);
+
+    subscription_thread.detach();
   }
 
   // Notify the executor that a new subscription was created using the parent Node.

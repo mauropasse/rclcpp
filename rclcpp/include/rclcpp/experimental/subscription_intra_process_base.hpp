@@ -22,6 +22,7 @@
 #include <mutex>
 #include <string>
 #include <utility>
+#include <condition_variable>
 
 #include "rcl/error_handling.h"
 
@@ -33,7 +34,7 @@ namespace rclcpp
 namespace experimental
 {
 
-class SubscriptionIntraProcessBase : public rclcpp::Waitable
+class SubscriptionIntraProcessBase
 {
 public:
   RCLCPP_SMART_PTR_ALIASES_ONLY(SubscriptionIntraProcessBase)
@@ -44,17 +45,6 @@ public:
   {}
 
   virtual ~SubscriptionIntraProcessBase() = default;
-
-  RCLCPP_PUBLIC
-  size_t
-  get_number_of_ready_guard_conditions() {return 1;}
-
-  RCLCPP_PUBLIC
-  bool
-  add_to_wait_set(rcl_wait_set_t * wait_set, bool add_to_wait_set);
-
-  virtual bool
-  is_ready(rcl_wait_set_t * wait_set) = 0;
 
   virtual void
   execute() = 0;
@@ -70,13 +60,16 @@ public:
   rmw_qos_profile_t
   get_actual_qos() const;
 
+  virtual void
+  consume_messages_task() = 0;
+
 protected:
-  std::recursive_mutex reentrant_mutex_;
-  rcl_guard_condition_t gc_;
+  std::mutex m_;
+  std::condition_variable cv_;
 
 private:
   virtual void
-  trigger_guard_condition() = 0;
+  trigger_condition_variable() = 0;
 
   std::string topic_name_;
   rmw_qos_profile_t qos_profile_;
