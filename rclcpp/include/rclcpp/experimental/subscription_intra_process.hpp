@@ -72,23 +72,13 @@ public:
       throw std::runtime_error("SubscriptionIntraProcess wrong callback type");
     }
 
+    (void)context;
+
     // Create the intra-process buffer.
     buffer_ = rclcpp::experimental::create_intra_process_buffer<MessageT, Alloc, Deleter>(
       buffer_type,
       qos_profile,
       allocator);
-
-    // Create the guard condition.
-    rcl_guard_condition_options_t guard_condition_options =
-      rcl_guard_condition_get_default_options();
-
-    gc_ = rcl_get_zero_initialized_guard_condition();
-    rcl_ret_t ret = rcl_guard_condition_init(
-      &gc_, context->get_rcl_context().get(), guard_condition_options);
-
-    if (RCL_RET_OK != ret) {
-      throw std::runtime_error("SubscriptionIntraProcess init error initializing guard condition");
-    }
 
     TRACEPOINT(
       rclcpp_subscription_callback_added,
@@ -102,13 +92,6 @@ public:
 #endif
   }
 
-  bool
-  is_ready(rcl_wait_set_t * wait_set)
-  {
-    (void)wait_set;
-    return buffer_->has_data();
-  }
-
   void execute()
   {
     execute_impl<CallbackMessageT>();
@@ -118,14 +101,14 @@ public:
   provide_intra_process_message(ConstMessageSharedPtr message)
   {
     buffer_->add_shared(std::move(message));
-    trigger_guard_condition();
+    trigger_condition_variable();
   }
 
   void
   provide_intra_process_message(MessageUniquePtr message)
   {
     buffer_->add_unique(std::move(message));
-    trigger_guard_condition();
+    trigger_condition_variable();
   }
 
   bool
@@ -134,12 +117,27 @@ public:
     return buffer_->use_take_shared_method();
   }
 
+  void consume_messages_task() override
+  {
+    while(rclcpp::ok()){
+      std::unique_lock<std::mutex> lock(m_);
+
+      // Check condition variable, if triggered check buffer for data
+      cv_.wait(lock, [this]{return buffer_->has_data();});
+      lock.unlock();
+
+      // Process the message
+      execute();
+    }
+  }
+
 private:
   void
-  trigger_guard_condition()
+  trigger_condition_variable()
   {
-    rcl_ret_t ret = rcl_trigger_guard_condition(&gc_);
-    (void)ret;
+    // Publisher pushed message into the buffer.
+    // Notify subscription thread
+    cv_.notify_one();
   }
 
   template<typename T>
