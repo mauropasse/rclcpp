@@ -22,7 +22,6 @@
 #include <mutex>
 #include <string>
 #include <utility>
-#include <condition_variable>
 
 #include "rcl/error_handling.h"
 
@@ -34,7 +33,7 @@ namespace rclcpp
 namespace experimental
 {
 
-class SubscriptionIntraProcessBase
+class SubscriptionIntraProcessBase : public rclcpp::Waitable
 {
 public:
   RCLCPP_SMART_PTR_ALIASES_ONLY(SubscriptionIntraProcessBase)
@@ -48,7 +47,7 @@ public:
 
   RCLCPP_PUBLIC
   size_t
-  get_number_of_ready_guard_conditions() {return 1;}
+  get_number_of_ready_guard_conditions() {return 0;} // QUICK HACK to avoid allocating space in the executor
 
   virtual void
   execute() = 0;
@@ -68,12 +67,13 @@ public:
   consume_messages_task() = 0;
 
 protected:
-  std::mutex m_;
-  std::condition_variable cv_;
+  std::recursive_mutex reentrant_mutex_;
+  rcl_guard_condition_t gc_;
+  rcl_wait_set_t wait_set_;
 
 private:
   virtual void
-  trigger_condition_variable() = 0;
+  trigger_guard_condition() = 0;
 
   std::string topic_name_;
   rmw_qos_profile_t qos_profile_;

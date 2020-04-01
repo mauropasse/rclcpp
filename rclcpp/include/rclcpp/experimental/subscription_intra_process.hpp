@@ -72,13 +72,30 @@ public:
       throw std::runtime_error("SubscriptionIntraProcess wrong callback type");
     }
 
-    (void)context;
-
     // Create the intra-process buffer.
     buffer_ = rclcpp::experimental::create_intra_process_buffer<MessageT, Alloc, Deleter>(
       buffer_type,
       qos_profile,
       allocator);
+
+    // Create the guard condition.
+    rcl_guard_condition_options_t guard_condition_options =
+      rcl_guard_condition_get_default_options();
+
+    gc_ = rcl_get_zero_initialized_guard_condition();
+    rcl_ret_t ret = rcl_guard_condition_init(
+      &gc_, context->get_rcl_context().get(), guard_condition_options);
+
+    if (RCL_RET_OK != ret) {
+      throw std::runtime_error("SubscriptionIntraProcess init error initializing guard condition");
+    }
+
+    wait_set_ = rcl_get_zero_initialized_wait_set();
+    ret = rcl_wait_set_init(&wait_set_, 0, 1, 0, 0, 0, 0, context->get_rcl_context().get(), rcl_get_default_allocator());
+
+    if (RCL_RET_OK != ret) {
+      throw std::runtime_error("SubscriptionIntraProcess init error initializing wait set");
+    }
 
     TRACEPOINT(
       rclcpp_subscription_callback_added,
@@ -92,6 +109,13 @@ public:
 #endif
   }
 
+  bool
+  is_ready(rcl_wait_set_t * wait_set)
+  {
+    (void)wait_set;
+    return buffer_->has_data();
+  }
+
   void execute()
   {
     execute_impl<CallbackMessageT>();
@@ -101,14 +125,14 @@ public:
   provide_intra_process_message(ConstMessageSharedPtr message)
   {
     buffer_->add_shared(std::move(message));
-    trigger_condition_variable();
+    trigger_guard_condition();
   }
 
   void
   provide_intra_process_message(MessageUniquePtr message)
   {
     buffer_->add_unique(std::move(message));
-    trigger_condition_variable();
+    trigger_guard_condition();
   }
 
   bool
@@ -119,25 +143,33 @@ public:
 
   void consume_messages_task() override
   {
-    while(rclcpp::ok()){
-      std::unique_lock<std::mutex> lock(m_);
+    rcl_ret_t ret;
+    do {
+      ret = rcl_wait_set_clear(&wait_set_);
+      ret = rcl_wait_set_add_guard_condition(&wait_set_, &gc_, NULL);
 
-      // Check condition variable, if triggered check buffer for data
-      cv_.wait(lock, [this]{return buffer_->has_data();});
-      lock.unlock();
+      // Wait until guard condition is triggered
+      ret = rcl_wait(&wait_set_, -1);
 
-      // Process the message
-      execute();
-    }
+      // If guard condition is triggered, check buffer for data
+      while (is_ready(&wait_set_)) {
+          // Process the message
+          execute();
+      }
+    } while (rclcpp::ok());
+
+    ret = rcl_wait_set_fini(&wait_set_);
+    (void)ret;
   }
 
 private:
   void
-  trigger_condition_variable()
+  trigger_guard_condition()
   {
     // Publisher pushed message into the buffer.
-    // Notify subscription thread
-    cv_.notify_one();
+    // Notify subscription context
+    rcl_ret_t ret = rcl_trigger_guard_condition(&gc_);
+    (void)ret;
   }
 
   template<typename T>

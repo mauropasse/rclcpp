@@ -16,6 +16,18 @@
 
 using rclcpp::experimental::SubscriptionIntraProcessBase;
 
+bool
+SubscriptionIntraProcessBase::add_to_wait_set(rcl_wait_set_t * wait_set)
+{
+  // QUICK HACK: commented out to avoid adding this to the executor wait set
+  (void)wait_set;
+  //std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
+  //rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, &gc_, NULL);
+  //return RCL_RET_OK == ret;
+  return true;
+}
+
 const char *
 SubscriptionIntraProcessBase::get_topic_name() const
 {

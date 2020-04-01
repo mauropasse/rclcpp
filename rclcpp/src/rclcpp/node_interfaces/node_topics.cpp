@@ -101,10 +101,13 @@ NodeTopics::add_subscription(
 
   auto intra_process_subscription = subscription->get_intra_process_subscription();
 
-  if (intra_process_subscription != nullptr) {
+  if (nullptr != intra_process_subscription) {
     using rclcpp::experimental::SubscriptionIntraProcessBase;
 
-    //Start thread which monitor the subscription condition variable
+    // TODO:
+    // - the thread should be explicitly created by the user
+    // - this should be part of the intra-process executor
+    //Start thread which executes subscription callback whenever an intra-process message is received
     std::thread subscription_thread = std::thread(
       &SubscriptionIntraProcessBase::consume_messages_task,
       intra_process_subscription);

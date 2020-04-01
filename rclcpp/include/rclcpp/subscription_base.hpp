@@ -25,6 +25,7 @@
 
 #include "rclcpp/any_subscription_callback.hpp"
 #include "rclcpp/experimental/intra_process_manager.hpp"
+#include "rclcpp/experimental/subscription_intra_process_base.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp/qos.hpp"
 #include "rclcpp/qos_event.hpp"
