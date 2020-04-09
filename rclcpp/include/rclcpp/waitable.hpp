@@ -15,6 +15,8 @@
 #ifndef RCLCPP__WAITABLE_HPP_
 #define RCLCPP__WAITABLE_HPP_
 
+#include <condition_variable>
+
 #include "rclcpp/macros.hpp"
 #include "rclcpp/visibility_control.hpp"
 
@@ -146,6 +148,11 @@ public:
   virtual
   void
   execute() = 0;
+
+  /// Set condition variable based on std::condition_variable
+  virtual
+  void
+  set_condition_variable(std::shared_ptr<std::condition_variable>) = 0;
 };  // class Waitable
 
 }  // namespace rclcpp

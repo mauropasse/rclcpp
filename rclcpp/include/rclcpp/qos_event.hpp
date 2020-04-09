@@ -97,6 +97,10 @@ public:
   bool
   is_ready(rcl_wait_set_t * wait_set) override;
 
+  RCLCPP_PUBLIC
+  void
+  set_condition_variable(std::shared_ptr<std::condition_variable>) override {};
+
 protected:
   rcl_event_t event_handle_;
   size_t wait_set_event_index_;

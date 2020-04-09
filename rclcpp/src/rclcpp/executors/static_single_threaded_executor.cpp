@@ -26,6 +26,8 @@ StaticSingleThreadedExecutor::StaticSingleThreadedExecutor(
 : executor::Executor(args)
 {
   entities_collector_ = std::make_shared<StaticExecutorEntitiesCollector>();
+  // Init executor's condition variable
+  cv_ = std::make_shared<std::condition_variable>();
 }
 
 StaticSingleThreadedExecutor::~StaticSingleThreadedExecutor() {}
@@ -139,6 +141,98 @@ StaticSingleThreadedExecutor::execute_ready_executables()
   for (size_t i = 0; i < entities_collector_->get_number_of_waitables(); ++i) {
     if (entities_collector_->get_waitable(i)->is_ready(&wait_set_)) {
       entities_collector_->get_waitable(i)->execute();
+    }
+  }
+}
+
+
+void
+StaticSingleThreadedExecutor::intra_process_spin()
+{
+  // Check if executor was already spinning
+  if (spinning.exchange(true)) {
+    throw std::runtime_error("spin() called while already spinning");
+  }
+  RCLCPP_SCOPE_EXIT(this->spinning.store(false); );
+
+  // Init executable lists
+  entities_collector_->init(&wait_set_, memory_strategy_, &interrupt_guard_condition_);
+
+  // Add this executor condition variable to intra-process subscriptions
+  provide_condition_variable();
+
+  // Start the publisher timers
+  auto timer_it = timers_map_.begin();
+  while (timer_it != timers_map_.end())
+  {
+      timer_it++->second->start();
+  }
+
+  while (rclcpp::ok() && spinning.load()) {
+    std::unique_lock<std::mutex> lock(m_);
+
+    // Check condition variable
+    cv_->wait(lock, [this]{return subscriptions_ready_to_work();});
+
+    // Find ready subscriptions and execute them
+    execute_ready_subscriptions();
+
+    lock.unlock();
+  }
+}
+
+void
+StaticSingleThreadedExecutor::provide_condition_variable()
+{
+  // Provide executor's condition variablel to intra-process subscriptions
+  for (size_t i = 0; i < entities_collector_->get_number_of_ip_waitables(); i++) {
+    entities_collector_->get_ip_waitable(i)->set_condition_variable(cv_);
+  }
+}
+
+
+bool
+StaticSingleThreadedExecutor::subscriptions_ready_to_work()
+{
+  // Execute all the ready waitables (intra process subscriptions)
+  for (size_t i = 0; i < entities_collector_->get_number_of_ip_waitables(); i++) {
+    if (entities_collector_->get_ip_waitable(i)->is_ready(nullptr)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void
+StaticSingleThreadedExecutor::execute_ready_subscriptions()
+{
+  // Execute all the ready waitables (intra process subscriptions)
+  for (size_t i = 0; i < entities_collector_->get_number_of_ip_waitables(); i++) {
+    if (entities_collector_->get_ip_waitable(i)->is_ready(nullptr)) {
+      entities_collector_->get_ip_waitable(i)->execute();
+    }
+  }
+}
+
+void
+StaticSingleThreadedExecutor::add_callbacks(
+  std::vector<std::pair<
+    std::function<void()>,
+    std::chrono::microseconds>> callbacks)
+{
+  // Gather node callbacks with same period under same timer
+  for (const auto& callback : callbacks){
+    auto period = callback.second;
+    //Look for existing timers with that period
+    auto timer_it = timers_map_.find(period);
+    if (timer_it != timers_map_.end()) {
+      // There's a timer with that period, add callback to it
+      timer_it->second->add_callback(std::move(callback.first));
+    } else {
+      // There's not a timer with that period, create one and add callback
+      auto timer = this->create_std_wall_timer(std::move(callback.first), period);
+      timers_map_[period] = timer;
     }
   }
 }

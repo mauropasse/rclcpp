@@ -70,13 +70,23 @@ public:
   rmw_qos_profile_t
   get_actual_qos() const;
 
+  RCLCPP_PUBLIC
+  virtual void
+  set_condition_variable(std::shared_ptr<std::condition_variable>) = 0;
+
 protected:
   std::recursive_mutex reentrant_mutex_;
   rcl_guard_condition_t gc_;
 
+  /// Condition variable for signaling the executor
+  std::shared_ptr<std::condition_variable> intra_process_cv_ = std::make_shared<std::condition_variable>();
+
 private:
   virtual void
   trigger_guard_condition() = 0;
+
+  virtual void
+  trigger_condition_variable() = 0;
 
   std::string topic_name_;
   rmw_qos_profile_t qos_profile_;

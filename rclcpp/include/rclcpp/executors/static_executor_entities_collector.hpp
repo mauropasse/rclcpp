@@ -86,6 +86,10 @@ public:
 
   RCLCPP_PUBLIC
   void
+  set_condition_variable(std::shared_ptr<std::condition_variable>) override {};
+
+  RCLCPP_PUBLIC
+  void
   add_node(
     rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr);
 
@@ -125,6 +129,10 @@ public:
   get_number_of_waitables() {return exec_list_.number_of_waitables;}
 
   RCLCPP_PUBLIC
+  size_t
+  get_number_of_ip_waitables() {return ip_exec_list_.number_of_waitables;}
+
+  RCLCPP_PUBLIC
   rclcpp::SubscriptionBase::SharedPtr
   get_subscription(size_t i) {return exec_list_.subscription[i];}
 
@@ -144,6 +152,10 @@ public:
   rclcpp::Waitable::SharedPtr
   get_waitable(size_t i) {return exec_list_.waitable[i];}
 
+  RCLCPP_PUBLIC
+  rclcpp::Waitable::SharedPtr
+  get_ip_waitable(size_t i) {return ip_exec_list_.waitable[i];}
+
 private:
   /// Nodes guard conditions which trigger this waitable
   std::list<const rcl_guard_condition_t *> guard_conditions_;
@@ -159,6 +171,9 @@ private:
 
   /// Executable list: timers, subscribers, clients, services and waitables
   rclcpp::executor::ExecutableList exec_list_;
+
+  /// Intra-process executable list: just waitables
+  rclcpp::executor::ExecutableList ip_exec_list_;
 };
 
 }  // namespace executors

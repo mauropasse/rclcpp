@@ -32,6 +32,7 @@
 #include "rclcpp/rate.hpp"
 #include "rclcpp/utilities.hpp"
 #include "rclcpp/visibility_control.hpp"
+#include "rclcpp/wall_timer.hpp"
 
 namespace rclcpp
 {
@@ -74,6 +75,39 @@ public:
   RCLCPP_PUBLIC
   void
   spin() override;
+
+  /// Intra process implementation of spin.
+  RCLCPP_PUBLIC
+  void
+  intra_process_spin();
+
+  RCLCPP_PUBLIC
+  virtual void
+  add_callbacks(std::vector<std::pair<std::function<void()>,std::chrono::microseconds>>);
+
+  RCLCPP_PUBLIC
+  void
+  provide_condition_variable();
+
+  RCLCPP_PUBLIC
+  void
+  execute_ready_subscriptions();
+
+  RCLCPP_PUBLIC
+  bool
+  subscriptions_ready_to_work();
+
+  template<typename DurationRepT, typename DurationT, typename CallbackT>
+  std::shared_ptr<WallTimer<CallbackT>>
+  create_std_wall_timer(
+    CallbackT callback,
+    std::chrono::duration<DurationRepT, DurationT> period)
+  {
+    auto timer = std::make_shared<WallTimer<CallbackT>>(
+      std::chrono::duration_cast<PeriodT>(period),
+      std::move(callback));
+    return timer;
+  }
 
   /// Add a node to the executor.
   /**
@@ -192,6 +226,19 @@ private:
   RCLCPP_DISABLE_COPY(StaticSingleThreadedExecutor)
 
   StaticExecutorEntitiesCollector::SharedPtr entities_collector_;
+
+  /// Condition variable for signaling the intra-process subscriptions
+  std::shared_ptr<std::condition_variable> cv_;
+
+  // Mutex
+  std::mutex m_;
+
+  typedef std::function<void()> FunctorT;
+  typedef std::chrono::microseconds PeriodT;
+  typedef std::shared_ptr<WallTimer<FunctorT>> WallTimerSharedPtr;
+
+  // Timers mapped by callback period
+  std::map<PeriodT, WallTimerSharedPtr> timers_map_;
 };
 
 }  // namespace executors
