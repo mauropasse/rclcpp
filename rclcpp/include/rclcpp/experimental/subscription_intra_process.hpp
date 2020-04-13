@@ -118,14 +118,20 @@ public:
   provide_intra_process_message(ConstMessageSharedPtr message)
   {
     buffer_->add_shared(std::move(message));
-    trigger_guard_condition();
+    trigger_condition_variable();
   }
 
   void
   provide_intra_process_message(MessageUniquePtr message)
   {
     buffer_->add_unique(std::move(message));
-    trigger_guard_condition();
+    trigger_condition_variable();
+  }
+
+  std::shared_ptr<std::condition_variable>
+  get_condition_variable() override
+  {
+    return intra_process_cv_;
   }
 
   bool
@@ -140,6 +146,12 @@ private:
   {
     rcl_ret_t ret = rcl_trigger_guard_condition(&gc_);
     (void)ret;
+  }
+
+  void
+  trigger_condition_variable() override
+  {
+    intra_process_cv_->notify_one();
   }
 
   template<typename T>

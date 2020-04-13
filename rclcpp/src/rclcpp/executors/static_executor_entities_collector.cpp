@@ -32,6 +32,7 @@ StaticExecutorEntitiesCollector::~StaticExecutorEntitiesCollector()
     }
   }
   exec_list_.clear();
+  ip_exec_list_.clear();
   weak_nodes_.clear();
   guard_conditions_.clear();
 }
@@ -44,6 +45,8 @@ StaticExecutorEntitiesCollector::init(
 {
   // Empty initialize executable list
   exec_list_ = executor::ExecutableList();
+  // Empty initialize intra-process executable list
+  ip_exec_list_ = executor::ExecutableList();
   // Get executor's wait_set_ pointer
   p_wait_set_ = p_wait_set;
   // Get executor's memory strategy ptr
@@ -96,6 +99,7 @@ void
 StaticExecutorEntitiesCollector::fill_executable_list()
 {
   exec_list_.clear();
+  ip_exec_list_.clear();
 
   for (auto & weak_node : weak_nodes_) {
     auto node = weak_node.lock();
@@ -141,6 +145,7 @@ StaticExecutorEntitiesCollector::fill_executable_list()
         [this](const rclcpp::Waitable::SharedPtr & waitable) {
           if (waitable) {
             exec_list_.add_waitable(waitable);
+            ip_exec_list_.add_waitable(waitable);
           }
           return false;
         });

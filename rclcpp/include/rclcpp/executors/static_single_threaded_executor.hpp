@@ -75,6 +75,23 @@ public:
   void
   spin() override;
 
+  /// Intra process implementation of spin.
+  RCLCPP_PUBLIC
+  virtual void
+  intra_process_spin();
+
+  RCLCPP_PUBLIC
+  virtual void
+  add_publisher_tasks(std::vector<std::pair<std::function<void()>,std::chrono::microseconds>>);
+
+  RCLCPP_PUBLIC
+  virtual void
+  start_subscription_threads();
+
+  RCLCPP_PUBLIC
+  virtual void
+  start_timer_threads();
+
   /// Add a node to the executor.
   /**
    * An executor can have zero or more nodes which provide work during `spin` functions.
@@ -192,6 +209,12 @@ private:
   RCLCPP_DISABLE_COPY(StaticSingleThreadedExecutor)
 
   StaticExecutorEntitiesCollector::SharedPtr entities_collector_;
+
+  typedef std::function<void()> FunctorT;
+  typedef std::chrono::microseconds PeriodT;
+
+  // Vector of pairs: callback-timers
+  std::vector<std::pair<FunctorT, PeriodT>> timers_;
 };
 
 }  // namespace executors

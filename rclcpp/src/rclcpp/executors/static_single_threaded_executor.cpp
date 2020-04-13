@@ -142,3 +142,81 @@ StaticSingleThreadedExecutor::execute_ready_executables()
     }
   }
 }
+
+void
+StaticSingleThreadedExecutor::intra_process_spin()
+{
+  // Check if executor was already spinning
+  if (spinning.exchange(true)) {
+    throw std::runtime_error("spin() called while already spinning");
+  }
+  RCLCPP_SCOPE_EXIT(this->spinning.store(false); );
+
+  // Init executable lists
+  entities_collector_->init(&wait_set_, memory_strategy_, &interrupt_guard_condition_);
+
+  // Start subscription threads:
+  start_subscription_threads();
+
+  // Start timer/publisher threads
+  start_timer_threads();
+}
+
+void
+StaticSingleThreadedExecutor::start_subscription_threads()
+{
+  for (size_t i = 0; i < entities_collector_->get_number_of_ip_waitables(); i++) {
+
+    auto subscription = entities_collector_->get_ip_waitable(i);
+
+    // Thread waiting for condition variable for execute subscription
+    std::thread([subscription](){
+      // Get condition variable from intra-process subscription
+      auto cv = subscription->get_condition_variable();
+
+      // Mutex
+      std::mutex m_;
+
+      while (rclcpp::ok()) {
+        std::unique_lock<std::mutex> lock(m_);
+        // Check condition variable
+        cv->wait(lock, [subscription]{return subscription->is_ready(nullptr);});
+        // Find ready subscriptions and execute them
+        subscription->execute();
+        lock.unlock();
+      }
+    }).detach();
+  }
+}
+
+void
+StaticSingleThreadedExecutor::start_timer_threads()
+{
+  for (const auto& timer : timers_) {
+    std::thread([timer]()
+    {
+      auto callback = timer.first;
+      auto period = timer.second;
+
+      while(rclcpp::ok()) {
+        auto wake_up_time = std::chrono::steady_clock::now() + period;
+        callback();
+        std::this_thread::sleep_until(wake_up_time);
+      }
+    }).detach();
+  }
+}
+
+void
+StaticSingleThreadedExecutor::add_publisher_tasks(
+  std::vector<std::pair<
+    std::function<void()>,
+    std::chrono::microseconds>> timers)
+{
+  for (const auto& timer : timers){
+    auto callback = timer.first;
+    auto period = timer.second;
+
+    timers_.emplace_back(callback, period);
+  }
+}
