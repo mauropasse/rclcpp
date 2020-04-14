@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "rclcpp/executors/static_single_threaded_executor.hpp"
+#include "rclcpp/experimental/subscription_intra_process_base.hpp"
 
 #include <memory>
 
@@ -20,6 +21,7 @@
 
 using rclcpp::executors::StaticSingleThreadedExecutor;
 using rclcpp::executor::ExecutableList;
+using rclcpp::experimental::SubscriptionIntraProcessBase;
 
 StaticSingleThreadedExecutor::StaticSingleThreadedExecutor(
   const rclcpp::executor::ExecutorArgs & args)
@@ -165,27 +167,30 @@ StaticSingleThreadedExecutor::intra_process_spin()
 void
 StaticSingleThreadedExecutor::start_subscription_threads()
 {
-  for (size_t i = 0; i < entities_collector_->get_number_of_ip_waitables(); i++) {
+  for (size_t i = 0; i < entities_collector_->get_number_of_waitables(); i++) {
 
-    auto subscription = entities_collector_->get_ip_waitable(i);
+    auto waitable = entities_collector_->get_waitable(i);
 
-    // Thread waiting for condition variable for execute subscription
-    std::thread([subscription](){
-      // Get condition variable from intra-process subscription
-      auto cv = subscription->get_condition_variable();
+    if(auto ip_subscription = std::dynamic_pointer_cast<SubscriptionIntraProcessBase>(waitable)) {
 
-      // Mutex
-      std::mutex m_;
+      // Thread waiting for condition variable to execute subscription
+      std::thread([ip_subscription](){
+        // Get condition variable from intra-process subscription
+        auto cv = ip_subscription->get_condition_variable();
 
-      while (rclcpp::ok()) {
-        std::unique_lock<std::mutex> lock(m_);
-        // Check condition variable
-        cv->wait(lock, [subscription]{return subscription->is_ready(nullptr);});
-        // Find ready subscriptions and execute them
-        subscription->execute();
-        lock.unlock();
-      }
-    }).detach();
+        // Mutex
+        std::mutex m_;
+
+        while(rclcpp::ok()) {
+          std::unique_lock<std::mutex> lock(m_);
+          // Check condition variable
+          cv->wait(lock, [ip_subscription]{return ip_subscription->is_ready(nullptr);});
+          // Find ready subscriptions and execute them
+          ip_subscription->execute();
+          lock.unlock();
+        }
+      }).detach();
+    }
   }
 }
 
