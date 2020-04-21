@@ -105,7 +105,7 @@ public:
   RCLCPP_PUBLIC
   virtual
   bool
-  add_to_wait_set(rcl_wait_set_t * wait_set) = 0;
+  add_to_wait_set(rcl_wait_set_t * wait_set, bool add_to_wait_set) = 0;
 
   /// Check if the Waitable is ready.
   /**

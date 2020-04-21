@@ -277,7 +277,8 @@ protected:
       auto time_left_to_wait_ns = this->calculate_time_left_to_wait(time_to_wait_ns, start);
 
       // Then wait for entities to become ready.
-      rcl_ret_t ret = rcl_wait(&rcl_wait_set, time_left_to_wait_ns.count());
+      size_t * dummy;
+      rcl_ret_t ret = rcl_wait(&rcl_wait_set, time_left_to_wait_ns.count(), dummy, dummy, dummy, dummy, dummy, dummy, dummy);
       if (RCL_RET_OK == ret) {
         // Something has become ready in the wait set, and since this class
         // did not add anything to it, it is a user entity that is ready.

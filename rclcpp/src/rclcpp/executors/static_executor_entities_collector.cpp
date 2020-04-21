@@ -70,7 +70,7 @@ StaticExecutorEntitiesCollector::execute()
   // Fill exec_list_ with entities coming from weak_nodes_ (same as memory strategy)
   fill_executable_list();
   // Resize the wait_set_ based on memory_strategy handles (rcl_wait_set_resize)
-  prepare_wait_set();
+  fill_rcl_wait_set();
 }
 
 void
@@ -155,10 +155,10 @@ StaticExecutorEntitiesCollector::fill_executable_list()
 }
 
 void
-StaticExecutorEntitiesCollector::prepare_wait_set()
+StaticExecutorEntitiesCollector::fill_rcl_wait_set()
 {
-  // clear wait set
-  if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
+  // Clear RCL and RMW wait set
+  if (rcl_wait_set_clear(p_wait_set_, true) != RCL_RET_OK) {
     throw std::runtime_error("Couldn't clear wait set");
   }
 
@@ -173,23 +173,45 @@ StaticExecutorEntitiesCollector::prepare_wait_set()
     throw std::runtime_error(
             std::string("Couldn't resize the wait set : ") + rcl_get_error_string().str);
   }
+
+  // Fill RCL and RMW wait set from memory strategy.
+  if (!memory_strategy_->add_handles_to_wait_set(p_wait_set_, true)) {
+    throw std::runtime_error("Couldn't fill wait set");
+  }
 }
 
 void
-StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeout)
+StaticExecutorEntitiesCollector::rclcpp_wait(std::chrono::nanoseconds timeout)
 {
-  // clear wait set (memeset to '0' all wait_set_ entities
-  // but keeps the wait_set_ number of entities)
-  if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
+  // Clear ONLY the rmw wait set
+  if (rcl_wait_set_clear(p_wait_set_, false) != RCL_RET_OK) {
     throw std::runtime_error("Couldn't clear wait set");
   }
 
-  if (!memory_strategy_->add_handles_to_wait_set(p_wait_set_)) {
+  // Fill ONLY rmw wait set from memory strategy. Room for improvements here!
+  if (!memory_strategy_->add_handles_to_wait_set(p_wait_set_, false)) {
     throw std::runtime_error("Couldn't fill wait set");
   }
 
+  // Reset ready_items: Represent the amount of entities ready to work for each type
+  ready_items[SUBSCRIBER] = 0;
+  ready_items[TIMER] = 0;
+  ready_items[SERVICE] = 0;
+  ready_items[CLIENT] = 0;
+  ready_items[EVENT] = 0;
+  ready_items[GC] = 0;
+
   rcl_ret_t status =
-    rcl_wait(p_wait_set_, std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count());
+    rcl_wait(
+      p_wait_set_,
+      std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count(),
+      ready_subscriber,
+      ready_timer,
+      ready_service,
+      ready_client,
+      ready_event,
+      ready_gc,
+      ready_items);
 
   if (status == RCL_RET_WAIT_SET_EMPTY) {
     RCUTILS_LOG_WARN_NAMED(
@@ -202,11 +224,11 @@ StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeo
 }
 
 bool
-StaticExecutorEntitiesCollector::add_to_wait_set(rcl_wait_set_t * wait_set)
+StaticExecutorEntitiesCollector::add_to_wait_set(rcl_wait_set_t * wait_set, bool add_to_wait_set)
 {
   // Add waitable guard conditions (one for each registered node) into the wait set.
   for (const auto & gc : guard_conditions_) {
-    rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, gc, NULL);
+    rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, gc, NULL, add_to_wait_set);
     if (ret != RCL_RET_OK) {
       throw std::runtime_error("Executor waitable: couldn't add guard condition to wait set");
     }
@@ -270,20 +292,22 @@ StaticExecutorEntitiesCollector::remove_node(
 bool
 StaticExecutorEntitiesCollector::is_ready(rcl_wait_set_t * p_wait_set)
 {
-  // Check wait_set guard_conditions for added/removed entities to/from a node
-  for (size_t i = 0; i < p_wait_set->size_of_guard_conditions; ++i) {
-    if (p_wait_set->guard_conditions[i] != NULL) {
-      // Check if the guard condition triggered belongs to a node
-      auto it = std::find(
-        guard_conditions_.begin(), guard_conditions_.end(),
-        p_wait_set->guard_conditions[i]);
+  size_t num_triggered_gc = ready_items[GC];
 
-      // If it does, we are ready to re-collect entities
-      if (it != guard_conditions_.end()) {
-        return true;
-      }
+  for (size_t i = 0; i < num_triggered_gc; ++i) {
+    size_t gc_idx = ready_gc[i];
+
+    // Check if the guard conditions triggered belong to a node
+    // or the static executor
+    auto it = std::find(guard_conditions_.begin(),
+                        guard_conditions_.end(),
+                        p_wait_set->guard_conditions[gc_idx]);
+
+    // If it does, we are ready to re-collect entities
+    if (it != guard_conditions_.end()) {
+      return true;
     }
   }
-  // None of the guard conditions triggered belong to a registered node
+  // None of the guard conditions triggered belongs to us
   return false;
 }

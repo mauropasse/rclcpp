@@ -226,7 +226,7 @@ protected:
     // Now clear the wait set, but only if it was not resized, as resizing also
     // clears the wait set.
     if (!was_resized) {
-      rcl_ret_t ret = rcl_wait_set_clear(&rcl_wait_set_);
+      rcl_ret_t ret = rcl_wait_set_clear(&rcl_wait_set_, true);
       if (RCL_RET_OK != ret) {
         rclcpp::exceptions::throw_from_rcl_error(ret);
       }
@@ -373,7 +373,7 @@ protected:
         continue;
       }
       rclcpp::Waitable & waitable = *waitable_ptr_pair.second;
-      bool successful = waitable.add_to_wait_set(&rcl_wait_set_);
+      bool successful = waitable.add_to_wait_set(&rcl_wait_set_, true);
       if (!successful) {
         throw std::runtime_error("waitable unexpectedly failed to be added to wait set");
       }

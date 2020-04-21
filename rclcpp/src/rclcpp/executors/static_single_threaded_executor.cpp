@@ -44,7 +44,7 @@ StaticSingleThreadedExecutor::spin()
 
   while (rclcpp::ok(this->context_) && spinning.load()) {
     // Refresh wait set and wait for work
-    entities_collector_->refresh_wait_set();
+    entities_collector_->rclcpp_wait();
     execute_ready_executables();
   }
 }
@@ -103,38 +103,37 @@ StaticSingleThreadedExecutor::remove_node(std::shared_ptr<rclcpp::Node> node_ptr
 void
 StaticSingleThreadedExecutor::execute_ready_executables()
 {
+  size_t num_ready_subscribers = entities_collector_->ready_items[SUBSCRIBER];
+  size_t num_ready_timers      = entities_collector_->ready_items[TIMER];
+  size_t num_ready_services    = entities_collector_->ready_items[SERVICE];
+  size_t num_ready_clients     = entities_collector_->ready_items[CLIENT];
+
   // Execute all the ready subscriptions
-  for (size_t i = 0; i < wait_set_.size_of_subscriptions; ++i) {
-    if (i < entities_collector_->get_number_of_subscriptions()) {
-      if (wait_set_.subscriptions[i]) {
-        execute_subscription(entities_collector_->get_subscription(i));
-      }
-    }
+  for (size_t i = 0; i < num_ready_subscribers; ++i){
+    size_t n = entities_collector_->ready_subscriber[i];
+    execute_subscription(entities_collector_->get_subscription(n));
   }
+
   // Execute all the ready timers
-  for (size_t i = 0; i < wait_set_.size_of_timers; ++i) {
-    if (i < entities_collector_->get_number_of_timers()) {
-      if (wait_set_.timers[i] && entities_collector_->get_timer(i)->is_ready()) {
-        execute_timer(entities_collector_->get_timer(i));
-      }
+  for (size_t i = 0; i < num_ready_timers; ++i){
+    size_t n = entities_collector_->ready_timer[i];
+    if (entities_collector_->get_timer(n)->is_ready()) {
+      execute_timer(entities_collector_->get_timer(n));
     }
   }
+
   // Execute all the ready services
-  for (size_t i = 0; i < wait_set_.size_of_services; ++i) {
-    if (i < entities_collector_->get_number_of_services()) {
-      if (wait_set_.services[i]) {
-        execute_service(entities_collector_->get_service(i));
-      }
-    }
+  for (size_t i = 0; i < num_ready_services; ++i) {
+    size_t n = entities_collector_->ready_service[i];
+    execute_service(entities_collector_->get_service(n));
   }
+
   // Execute all the ready clients
-  for (size_t i = 0; i < wait_set_.size_of_clients; ++i) {
-    if (i < entities_collector_->get_number_of_clients()) {
-      if (wait_set_.clients[i]) {
-        execute_client(entities_collector_->get_client(i));
-      }
-    }
+  for (size_t i = 0; i < num_ready_clients; ++i) {
+    size_t n = entities_collector_->ready_client[i];
+    execute_client(entities_collector_->get_client(n));
   }
+
   // Execute all the ready waitables
   for (size_t i = 0; i < entities_collector_->get_number_of_waitables(); ++i) {
     if (entities_collector_->get_waitable(i)->is_ready(&wait_set_)) {

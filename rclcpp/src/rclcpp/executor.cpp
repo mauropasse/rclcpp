@@ -467,7 +467,7 @@ Executor::wait_for_work(std::chrono::nanoseconds timeout)
       }
     }
     // clear wait set
-    if (rcl_wait_set_clear(&wait_set_) != RCL_RET_OK) {
+    if (rcl_wait_set_clear(&wait_set_, true) != RCL_RET_OK) {
       throw std::runtime_error("Couldn't clear wait set");
     }
 
@@ -486,8 +486,10 @@ Executor::wait_for_work(std::chrono::nanoseconds timeout)
       throw std::runtime_error("Couldn't fill wait set");
     }
   }
+  size_t dummy[20];
+
   rcl_ret_t status =
-    rcl_wait(&wait_set_, std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count());
+    rcl_wait(&wait_set_, std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count(), dummy, dummy, dummy, dummy, dummy, dummy, dummy);
   if (status == RCL_RET_WAIT_SET_EMPTY) {
     RCUTILS_LOG_WARN_NAMED(
       "rclcpp",

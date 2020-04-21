@@ -297,7 +297,8 @@ protected:
       // It is ok to wait while not having the lock acquired, because the state
       // in the rcl wait set will not be updated until this method calls
       // rebuild_rcl_wait_set().
-      rcl_ret_t ret = rcl_wait(&rcl_wait_set, time_left_to_wait_ns.count());
+      size_t * dummy;
+      rcl_ret_t ret = rcl_wait(&rcl_wait_set, time_left_to_wait_ns.count(), dummy, dummy, dummy, dummy, dummy, dummy, dummy);
       if (RCL_RET_OK == ret) {
         // Something has become ready in the wait set, first check if it was
         // the guard condition added by this class and/or a user defined guard condition.
