@@ -103,14 +103,15 @@ StaticSingleThreadedExecutor::remove_node(std::shared_ptr<rclcpp::Node> node_ptr
 void
 StaticSingleThreadedExecutor::execute_ready_executables()
 {
+  size_t num_ready_subscribers = entities_collector_->ready_items[SUBSCRIBER];
+
   // Execute all the ready subscriptions
-  for (size_t i = 0; i < wait_set_.size_of_subscriptions; ++i) {
-    if (i < entities_collector_->get_number_of_subscriptions()) {
-      if (wait_set_.subscriptions[i]) {
-        execute_subscription(entities_collector_->get_subscription(i));
-      }
-    }
+  for (size_t i = 0; i < num_ready_subscribers; i++){
+    size_t n = entities_collector_->ready_subscriber[i];
+    std::cout << "Executing sub number: " << n + 1 << " of a max: " << entities_collector_->get_number_of_subscriptions() << std::endl;
+    execute_subscription(entities_collector_->get_subscription(n));
   }
+
   // Execute all the ready timers
   for (size_t i = 0; i < wait_set_.size_of_timers; ++i) {
     if (i < entities_collector_->get_number_of_timers()) {
@@ -119,25 +120,26 @@ StaticSingleThreadedExecutor::execute_ready_executables()
       }
     }
   }
-  // Execute all the ready services
-  for (size_t i = 0; i < wait_set_.size_of_services; ++i) {
-    if (i < entities_collector_->get_number_of_services()) {
-      if (wait_set_.services[i]) {
-        execute_service(entities_collector_->get_service(i));
-      }
-    }
-  }
-  // Execute all the ready clients
-  for (size_t i = 0; i < wait_set_.size_of_clients; ++i) {
-    if (i < entities_collector_->get_number_of_clients()) {
-      if (wait_set_.clients[i]) {
-        execute_client(entities_collector_->get_client(i));
-      }
-    }
-  }
+  // // Execute all the ready services
+  // for (size_t i = 0; i < wait_set_.size_of_services; ++i) {
+  //   if (i < entities_collector_->get_number_of_services()) {
+  //     if (wait_set_.services[i]) {
+  //       execute_service(entities_collector_->get_service(i));
+  //     }
+  //   }
+  // }
+  // // Execute all the ready clients
+  // for (size_t i = 0; i < wait_set_.size_of_clients; ++i) {
+  //   if (i < entities_collector_->get_number_of_clients()) {
+  //     if (wait_set_.clients[i]) {
+  //       execute_client(entities_collector_->get_client(i));
+  //     }
+  //   }
+  // }
   // Execute all the ready waitables
   for (size_t i = 0; i < entities_collector_->get_number_of_waitables(); ++i) {
     if (entities_collector_->get_waitable(i)->is_ready(&wait_set_)) {
+      std::cout << "Executing waitable number: " << i + 1 << " of a max of: " << entities_collector_->get_number_of_waitables() << std::endl;
       entities_collector_->get_waitable(i)->execute();
     }
   }

@@ -84,6 +84,8 @@ public:
   std::vector<rclcpp::Waitable::SharedPtr> waitable;
   // Contains the count of added waitables
   size_t number_of_waitables;
+
+  size_t elem;
 };
 
 }  // namespace executor

@@ -125,6 +125,7 @@ ament_target_dependencies(${PROJECT_NAME}
   "rcl_yaml_param_parser"
   "rcpputils"
   "rcutils"
+  "rmw"
   "builtin_interfaces"
   "rosgraph_msgs"
   "rosidl_typesupport_cpp"
@@ -151,6 +152,7 @@ ament_export_libraries(${PROJECT_NAME})
 
 ament_export_dependencies(libstatistics_collector)
 ament_export_dependencies(rcl)
+ament_export_dependencies(rmw)
 ament_export_dependencies(rcpputils)
 ament_export_dependencies(rcutils)
 ament_export_dependencies(builtin_interfaces)

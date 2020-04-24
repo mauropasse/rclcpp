@@ -151,6 +151,7 @@ StaticExecutorEntitiesCollector::fill_executable_list()
   }
 
   // Add the executor's waitable to the executable list
+  std::cout << "   Add waitable of entities collector" << std::endl;
   exec_list_.add_waitable(shared_from_this());
 }
 
@@ -191,6 +192,10 @@ StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeo
   rcl_ret_t status =
     rcl_wait(p_wait_set_, std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count());
 
+  CddsWaitset * dds_wait_set = static_cast<CddsWaitset *>(p_wait_set_->impl->rmw_wait_set->data);
+
+  get_executable_indexes(dds_wait_set);
+
   if (status == RCL_RET_WAIT_SET_EMPTY) {
     RCUTILS_LOG_WARN_NAMED(
       "rclcpp",
@@ -199,6 +204,116 @@ StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeo
     using rclcpp::exceptions::throw_from_rcl_error;
     throw_from_rcl_error(status, "rcl_wait() failed");
   }
+}
+
+void
+StaticExecutorEntitiesCollector::get_executable_indexes(CddsWaitset * ws)
+{
+  // Now we have a list with the indexes of triggered entities.
+  // We need to find out to which entity each index belong.
+
+  // ws->trigs has the list of triggered entities indexes.
+  // For example: ws->trigs = [0,3,5,9,-1]
+  // The last element is always -1 (where is this used?)
+
+  // Reset the ready items numbers for each entity.
+  ready_items[SUBSCRIBER] = 0;
+  ready_items[GC] = 0;
+  ready_items[SERVICE] = 0;
+  ready_items[CLIENT] = 0;
+  ready_items[EVENT] = 0;
+  ready_items[TIMER] = 0;
+
+  // If nothing was trigered: ws->trigs = [-1]
+  if (ws->trigs.size() == 1) {
+    return;
+  }
+  
+  // Debug size of trig
+  std::cout << "\nCollector: ws->trig_idxs.size() = " << ws->trigs.size() << std::endl;
+
+  // The last ws->trigs is set to '-1', so don't iterate over it
+  for (size_t i = 0; i < ws->trigs.size() - 1; i++)
+  {
+    size_t trig_idx = static_cast<size_t>(ws->trigs[i]);
+
+    // Debug index 
+    std::cout << "    trig_idx[" << i << "] = " << trig_idx << std::endl;
+      
+    // Here I'm following the same order of entities as in rmw_cyclonedds_cpp->rmw_node.cpp
+    // 1. SUBSCRIBER
+    // 2. GUARD CONDITIONS
+    // 3. SERVICE
+    // 4. CLIENT
+    // 5. EVENT  
+
+    // First we check if the indexes belong to subscriptions
+    if(trig_idx < get_number_of_subscriptions()) {
+      std::cout << "    belongs to a subscription" << std::endl;
+      ready_subscriber[ready_items[SUBSCRIBER]] = trig_idx;
+      ready_items[SUBSCRIBER]++;
+    }
+    // If trig_idx is bigger than number of subscriptions, they could be guard conditions, services, etc.
+    // Here we make sure that we manage guard_conditions
+    else // if(.. complete ..)
+    {
+      // Here we need to get the guards conditions number of each waitable,
+      // to know which waitable should be executed
+      //     Todo: Check if happens that guard conditions don't belong to waitables
+      // 
+      // For now I just want the guard conditions of the entities collector, the last waitable
+      // added to the executable_list (I assume that guard conditions only belong to waitables)
+      //
+      // *  Node1:              Waitable1 -> gc1, gc2, ...
+      //                        Waitable2 -> gc1, gc2, ...
+      //  
+      // *  Node2:              Waitable1 -> gc1, gc2, ...
+      //  
+      // The last waitable should be the entities collector:
+      //  
+      // * entities_collector: Waitable1 -> gc1, gc2, ...
+
+      // Example case of triggered indexes
+      // ws->trigs:
+      //   0, subscription
+      //   3, guard_condition of some waitable
+      //   5, guard condition associated with the entities collector
+      //   9, service, client, event ..
+      //   -1,
+
+
+      // Get number of total guard conditions
+      size_t total_guard_conditions = 0;
+
+      for (size_t i = 0; i < get_number_of_waitables(); i++) {
+        auto waitable = get_waitable(i);
+        total_guard_conditions += waitable->get_number_of_ready_guard_conditions();
+      }
+
+      size_t entitites_collector_gcs = get_number_of_ready_guard_conditions();
+
+      // So far trig_idx could be a gc, service, client, event
+      if (trig_idx < get_number_of_subscriptions() + total_guard_conditions){
+        //trig_idx is a gc
+        std::cout << "    belongs to a guard condition" << std::endl;
+
+        if (trig_idx >= get_number_of_subscriptions() + total_guard_conditions - entitites_collector_gcs){
+          //trig_idx is a gc belonging to the entities collector
+          std::cout << "    which belongs to the entities collector" << std::endl;
+          size_t guard_condition_index = trig_idx - get_number_of_subscriptions() - total_guard_conditions;
+          ready_gc[ready_items[GC]] = guard_condition_index;
+          ready_items[GC]++;
+        }
+        
+      }
+    }
+  }
+
+  std::cout << "Subscriptions ready: " << ready_items[SUBSCRIBER] << std::endl;
+  for (size_t i = 0; i < ready_items[SUBSCRIBER]; i++) {
+    std::cout << "  Sub index: " << ready_subscriber[i] << std::endl;
+  }
+
 }
 
 bool
@@ -270,20 +385,19 @@ StaticExecutorEntitiesCollector::remove_node(
 bool
 StaticExecutorEntitiesCollector::is_ready(rcl_wait_set_t * p_wait_set)
 {
-  // Check wait_set guard_conditions for added/removed entities to/from a node
-  for (size_t i = 0; i < p_wait_set->size_of_guard_conditions; ++i) {
-    if (p_wait_set->guard_conditions[i] != NULL) {
-      // Check if the guard condition triggered belongs to a node
-      auto it = std::find(
-        guard_conditions_.begin(), guard_conditions_.end(),
-        p_wait_set->guard_conditions[i]);
-
-      // If it does, we are ready to re-collect entities
-      if (it != guard_conditions_.end()) {
-        return true;
-      }
-    }
+  // At this point, only guard conditions of the entities collector
+  // are present in ready_items[GC];
+  (void)p_wait_set;
+  size_t num_triggered_gc = ready_items[GC];
+  
+  if(num_triggered_gc){
+    // return true; This is failing
   }
-  // None of the guard conditions triggered belong to a registered node
+
+  // for (size_t i = 0; i < num_triggered_gc; ++i) {
+  //   size_t gc_idx = ready_gc[i]; // do stuff ..
+  // }
+
+  // None of the guard conditions trig_idxgered belong to a registered node
   return false;
 }

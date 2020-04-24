@@ -27,11 +27,23 @@
 #include "rclcpp/memory_strategy.hpp"
 #include "rclcpp/visibility_control.hpp"
 #include "rclcpp/waitable.hpp"
+#include "rclcpp/executors/dependencies.hpp"
 
 namespace rclcpp
 {
 namespace executors
 {
+
+enum ENTITY
+{
+  SUBSCRIBER,
+  GC,
+  SERVICE,
+  CLIENT,
+  EVENT,
+  TIMER,
+  NUM_ENTITIES
+};
 
 class StaticExecutorEntitiesCollector final
   : public rclcpp::Waitable,
@@ -144,6 +156,22 @@ public:
   RCLCPP_PUBLIC
   rclcpp::Waitable::SharedPtr
   get_waitable(size_t i) {return exec_list_.waitable[i];}
+
+  RCLCPP_PUBLIC
+  void
+  get_executable_indexes(CddsWaitset * ws);
+
+#define MAX_ENTITIES (100)
+  size_t ready_subscriber[MAX_ENTITIES];
+  size_t ready_gc[MAX_ENTITIES];
+  size_t ready_service[MAX_ENTITIES];
+  size_t ready_client[MAX_ENTITIES];
+  size_t ready_event[MAX_ENTITIES];
+  size_t ready_timer[MAX_ENTITIES];
+
+  // ready_items: How many entities have work to do for each type?
+  size_t ready_items[NUM_ENTITIES];
+
 
 private:
   /// Nodes guard conditions which trigger this waitable
