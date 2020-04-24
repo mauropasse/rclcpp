@@ -54,7 +54,7 @@ NodeTopics::add_publisher(
   }
 
   for (auto & publisher_event : publisher->get_event_handlers()) {
-    callback_group->add_waitable(publisher_event);
+    //callback_group->add_waitable(publisher_event);
   }
 
   // Notify the executor that a new publisher was created using the parent Node.
@@ -96,7 +96,7 @@ NodeTopics::add_subscription(
   callback_group->add_subscription(subscription);
 
   for (auto & subscription_event : subscription->get_event_handlers()) {
-    callback_group->add_waitable(subscription_event);
+    // callback_group->add_waitable(subscription_event);
   }
 
   auto intra_process_waitable = subscription->get_intra_process_waitable();

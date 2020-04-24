@@ -173,11 +173,6 @@ StaticExecutorEntitiesCollector::prepare_wait_set()
     throw std::runtime_error(
             std::string("Couldn't resize the wait set : ") + rcl_get_error_string().str);
   }
-}
-
-void
-StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeout)
-{
   // clear wait set (memeset to '0' all wait_set_ entities
   // but keeps the wait_set_ number of entities)
   if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
@@ -187,9 +182,17 @@ StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeo
   if (!memory_strategy_->add_handles_to_wait_set(p_wait_set_)) {
     throw std::runtime_error("Couldn't fill wait set");
   }
+}
 
+void
+StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeout)
+{
   rcl_ret_t status =
     rcl_wait(p_wait_set_, std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count());
+
+  CddsWaitset * dds_wait_set = static_cast<CddsWaitset *>(p_wait_set_->impl->rmw_wait_set->data);
+
+  get_executable_indexes(dds_wait_set);
 
   if (status == RCL_RET_WAIT_SET_EMPTY) {
     RCUTILS_LOG_WARN_NAMED(
@@ -201,16 +204,58 @@ StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeo
   }
 }
 
+void
+StaticExecutorEntitiesCollector::get_executable_indexes(CddsWaitset * ws)
+{
+  // Now we have a list with the indexes of triggered entities.
+  // We need to find out to which entity each index belong.
+
+  // ws->trigs has the list of triggered entities indexes.
+  // For example: ws->trigs = [0,3,5,9,-1]
+  // The last element is always -1 (where is this used?)
+
+  // Reset the ready items numbers for each entity.
+  ready_items[SUBSCRIBER] = 0;
+  ready_items[GC] = 0;
+
+  // If nothing was trigered: ws->trigs = [-1]
+  if (ws->trigs.size() == 1) {
+    return;
+  }
+
+  // The last ws->trigs is set to '-1', so don't iterate over it
+  for (size_t i = 0; i < ws->trigs.size() - 1; i++)
+  {
+    size_t trig_idx = static_cast<size_t>(ws->trigs[i]);
+
+    // Here I'm following the same order of entities as in rmw_cyclonedds_cpp->rmw_node.cpp
+    // 1. SUBSCRIBER
+    // 2. GUARD CONDITIONS
+    // 3. SERVICE
+    // 4. CLIENT
+    // 5. EVENT
+
+    // First we check if the indexes belong to subscriptions
+    if(trig_idx < get_number_of_subscriptions()) {
+      ready_subscriber[ready_items[SUBSCRIBER]] = trig_idx;
+      ready_items[SUBSCRIBER]++;
+    }
+    // If trig_idx is bigger than number of subscriptions, they could be guard conditions, services, etc.
+    // The 'else' makes sure that we manage the rest of entities
+    // else {}(.. complete, not supported yet ..)
+  }
+}
+
 bool
 StaticExecutorEntitiesCollector::add_to_wait_set(rcl_wait_set_t * wait_set)
 {
   // Add waitable guard conditions (one for each registered node) into the wait set.
-  for (const auto & gc : guard_conditions_) {
-    rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, gc, NULL);
-    if (ret != RCL_RET_OK) {
-      throw std::runtime_error("Executor waitable: couldn't add guard condition to wait set");
-    }
-  }
+  // for (const auto & gc : guard_conditions_) {
+  //   rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, gc, NULL);
+  //   if (ret != RCL_RET_OK) {
+  //     throw std::runtime_error("Executor waitable: couldn't add guard condition to wait set");
+  //   }
+  // }
   return true;
 }
 

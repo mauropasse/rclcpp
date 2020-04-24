@@ -103,14 +103,14 @@ StaticSingleThreadedExecutor::remove_node(std::shared_ptr<rclcpp::Node> node_ptr
 void
 StaticSingleThreadedExecutor::execute_ready_executables()
 {
+  size_t num_ready_subscribers = entities_collector_->ready_items[SUBSCRIBER];
+
   // Execute all the ready subscriptions
-  for (size_t i = 0; i < wait_set_.size_of_subscriptions; ++i) {
-    if (i < entities_collector_->get_number_of_subscriptions()) {
-      if (wait_set_.subscriptions[i]) {
-        execute_subscription(entities_collector_->get_subscription(i));
-      }
-    }
+  for (size_t i = 0; i < num_ready_subscribers; i++){
+    size_t n = entities_collector_->ready_subscriber[i];
+    execute_subscription(entities_collector_->get_subscription(n));
   }
+
   // Execute all the ready timers
   for (size_t i = 0; i < wait_set_.size_of_timers; ++i) {
     if (i < entities_collector_->get_number_of_timers()) {
