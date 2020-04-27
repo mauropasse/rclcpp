@@ -151,7 +151,7 @@ StaticExecutorEntitiesCollector::fill_executable_list()
   }
 
   // Add the executor's waitable to the executable list
-  std::cout << "   Add waitable of entities collector" << std::endl;
+  std::cout << "Add waitable of entities collector" << std::endl;
   exec_list_.add_waitable(shared_from_this());
 }
 
@@ -170,24 +170,29 @@ StaticExecutorEntitiesCollector::prepare_wait_set()
     memory_strategy_->number_of_ready_clients(), memory_strategy_->number_of_ready_services(),
     memory_strategy_->number_of_ready_events());
 
+  std::cout << "\nprepare_wait_set, resize. Number of gc: " << memory_strategy_->number_of_guard_conditions() << std::endl;
+
   if (RCL_RET_OK != ret) {
     throw std::runtime_error(
             std::string("Couldn't resize the wait set : ") + rcl_get_error_string().str);
+  }
+  // clear wait set (memeset to '0' all wait_set_ entities
+  // but keeps the wait_set_ number of entities)
+  std::cout << "\n rcl_wait_set_clear" << std::endl;
+  if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
+    throw std::runtime_error("Couldn't clear wait set");
+  }
+
+  std::cout << "\n memory_strategy_->add_handles_to_wait_set" << std::endl;
+  if (!memory_strategy_->add_handles_to_wait_set(p_wait_set_)) {
+    throw std::runtime_error("Couldn't fill wait set");
   }
 }
 
 void
 StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeout)
 {
-  // clear wait set (memeset to '0' all wait_set_ entities
-  // but keeps the wait_set_ number of entities)
-  if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
-    throw std::runtime_error("Couldn't clear wait set");
-  }
-
-  if (!memory_strategy_->add_handles_to_wait_set(p_wait_set_)) {
-    throw std::runtime_error("Couldn't fill wait set");
-  }
+  std::cout << "\n rcl_wait" << std::endl;
 
   rcl_ret_t status =
     rcl_wait(p_wait_set_, std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count());
@@ -209,6 +214,7 @@ StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeo
 void
 StaticExecutorEntitiesCollector::get_executable_indexes(CddsWaitset * ws)
 {
+  std::cout << "\n get_executable_indexes" << std::endl;
   // Now we have a list with the indexes of triggered entities.
   // We need to find out to which entity each index belong.
 
@@ -257,6 +263,7 @@ StaticExecutorEntitiesCollector::get_executable_indexes(CddsWaitset * ws)
     // Here we make sure that we manage guard_conditions
     else // if(.. complete ..)
     {
+      // Following: WRONG! FIX It's different.
       // Here we need to get the guards conditions number of each waitable,
       // to know which waitable should be executed
       //     Todo: Check if happens that guard conditions don't belong to waitables
@@ -283,37 +290,33 @@ StaticExecutorEntitiesCollector::get_executable_indexes(CddsWaitset * ws)
 
 
       // Get number of total guard conditions
-      size_t total_guard_conditions = 0;
+      // size_t total_guard_conditions = 0;
 
-      for (size_t i = 0; i < get_number_of_waitables(); i++) {
-        auto waitable = get_waitable(i);
-        total_guard_conditions += waitable->get_number_of_ready_guard_conditions();
-      }
+      // for (size_t i = 0; i < get_number_of_waitables(); i++) {
+      //   auto waitable = get_waitable(i);
+      //   total_guard_conditions += waitable->get_number_of_ready_guard_conditions();
+      // }
 
-      size_t entitites_collector_gcs = get_number_of_ready_guard_conditions();
+      // size_t entitites_collector_gcs = get_number_of_ready_guard_conditions();
 
-      // So far trig_idx could be a gc, service, client, event
-      if (trig_idx < get_number_of_subscriptions() + total_guard_conditions){
-        //trig_idx is a gc
-        std::cout << "    belongs to a guard condition" << std::endl;
+      // // So far trig_idx could be a gc, service, client, event
+      // if (trig_idx < get_number_of_subscriptions() + total_guard_conditions){
+      //   //trig_idx is a gc
+      //   std::cout << "    belongs to a guard condition" << std::endl;
 
-        if (trig_idx >= get_number_of_subscriptions() + total_guard_conditions - entitites_collector_gcs){
-          //trig_idx is a gc belonging to the entities collector
-          std::cout << "    which belongs to the entities collector" << std::endl;
-          size_t guard_condition_index = trig_idx - get_number_of_subscriptions() - total_guard_conditions;
-          ready_gc[ready_items[GC]] = guard_condition_index;
-          ready_items[GC]++;
-        }
-        
-      }
+      //   if (trig_idx >= get_number_of_subscriptions() + total_guard_conditions - entitites_collector_gcs){
+      //     //trig_idx is a gc belonging to the entities collector
+      //     std::cout << "    which belongs to the entities collector" << std::endl;
+      //     size_t guard_condition_index = trig_idx - get_number_of_subscriptions() - total_guard_conditions;
+      //     ready_gc[ready_items[GC]] = guard_condition_index;
+      //     ready_items[GC]++;
+      //   }
+
+      // } else {
+      //   std::cout << "    who belongs to?" << std::endl;
+      // }
     }
   }
-
-  std::cout << "Subscriptions ready: " << ready_items[SUBSCRIBER] << std::endl;
-  for (size_t i = 0; i < ready_items[SUBSCRIBER]; i++) {
-    std::cout << "  Sub index: " << ready_subscriber[i] << std::endl;
-  }
-
 }
 
 bool
@@ -321,6 +324,7 @@ StaticExecutorEntitiesCollector::add_to_wait_set(rcl_wait_set_t * wait_set)
 {
   // Add waitable guard conditions (one for each registered node) into the wait set.
   for (const auto & gc : guard_conditions_) {
+    std::cout << "\nEntities collector: rcl_wait_set_add_guard_condition: " << gc << std::endl;
     rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, gc, NULL);
     if (ret != RCL_RET_OK) {
       throw std::runtime_error("Executor waitable: couldn't add guard condition to wait set");

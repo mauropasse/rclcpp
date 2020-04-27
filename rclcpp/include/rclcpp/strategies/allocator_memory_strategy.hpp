@@ -17,6 +17,7 @@
 
 #include <memory>
 #include <vector>
+#include <iostream>
 
 #include "rcl/allocator.h"
 
@@ -63,6 +64,7 @@ public:
 
   void add_guard_condition(const rcl_guard_condition_t * guard_condition) override
   {
+    std::cout << "AllocatorMemoryStrategy add_guard_condition: " << guard_condition << std::endl;
     for (const auto & existing_guard_condition : guard_conditions_) {
       if (existing_guard_condition == guard_condition) {
         return;
@@ -186,6 +188,7 @@ public:
           });
         group->find_waitable_ptrs_if(
           [this](const rclcpp::Waitable::SharedPtr & waitable) {
+            std::cout << "add waitable handle to memory strategy: " << waitable << std::endl;
             waitable_handles_.push_back(waitable);
             return false;
           });
@@ -199,12 +202,16 @@ public:
     if (nullptr == waitable) {
       throw std::runtime_error("waitable object unexpectedly nullptr");
     }
+    std::cout << "\nadd waitable handle (manually) to memory strategy: " << waitable << std::endl;
     waitable_handles_.push_back(waitable);
   }
 
   bool add_handles_to_wait_set(rcl_wait_set_t * wait_set) override
   {
+    std::cout << "allocator_memory_strategy: Add_handles_to_wait_set " << std::endl;
+
     for (auto subscription : subscription_handles_) {
+      std::cout << "\n  Add subscription: " << subscription << " .get: " << subscription.get() << std::endl;
       if (rcl_wait_set_add_subscription(wait_set, subscription.get(), NULL) != RCL_RET_OK) {
         RCUTILS_LOG_ERROR_NAMED(
           "rclcpp",
@@ -214,6 +221,7 @@ public:
     }
 
     for (auto client : client_handles_) {
+      std::cout << "\n  Add client: " << client << " .get: " << client.get() << std::endl;
       if (rcl_wait_set_add_client(wait_set, client.get(), NULL) != RCL_RET_OK) {
         RCUTILS_LOG_ERROR_NAMED(
           "rclcpp",
@@ -223,6 +231,7 @@ public:
     }
 
     for (auto service : service_handles_) {
+      std::cout << "\n  Add service: " << service << " .get: " << service.get() << std::endl;
       if (rcl_wait_set_add_service(wait_set, service.get(), NULL) != RCL_RET_OK) {
         RCUTILS_LOG_ERROR_NAMED(
           "rclcpp",
@@ -232,6 +241,7 @@ public:
     }
 
     for (auto timer : timer_handles_) {
+      std::cout << "\n  Add timer: " << timer << " .get: " << timer.get() << std::endl;
       if (rcl_wait_set_add_timer(wait_set, timer.get(), NULL) != RCL_RET_OK) {
         RCUTILS_LOG_ERROR_NAMED(
           "rclcpp",
@@ -241,6 +251,7 @@ public:
     }
 
     for (auto guard_condition : guard_conditions_) {
+      std::cout << "\n  Add guard_condition: " << guard_condition << std::endl;
       if (rcl_wait_set_add_guard_condition(wait_set, guard_condition, NULL) != RCL_RET_OK) {
         RCUTILS_LOG_ERROR_NAMED(
           "rclcpp",
@@ -251,6 +262,7 @@ public:
     }
 
     for (auto waitable : waitable_handles_) {
+      std::cout << "\nallocator_memory_strategy: add_to_wait_set waitable: " << waitable << std::endl;
       if (!waitable->add_to_wait_set(wait_set)) {
         RCUTILS_LOG_ERROR_NAMED(
           "rclcpp",

@@ -53,7 +53,7 @@ ExecutableList::clear()
 void
 ExecutableList::add_subscription(rclcpp::SubscriptionBase::SharedPtr subscription)
 {
-  std::cout << "add_subscription. elem: " << elem++ << std::endl;
+  std::cout << "add_subscription. elem: " << elem++ << ". addr: " << subscription->get_subscription_handle() << std::endl;
 
   this->subscription.push_back(std::move(subscription));
   this->number_of_subscriptions++;
@@ -62,7 +62,8 @@ ExecutableList::add_subscription(rclcpp::SubscriptionBase::SharedPtr subscriptio
 void
 ExecutableList::add_timer(rclcpp::TimerBase::SharedPtr timer)
 {
-  std::cout << "add_timer" << std::endl;
+  std::cout << "add_timer: " << timer->get_timer_handle()<< std::endl;
+
   this->timer.push_back(std::move(timer));
   this->number_of_timers++;
 }
@@ -70,7 +71,7 @@ ExecutableList::add_timer(rclcpp::TimerBase::SharedPtr timer)
 void
 ExecutableList::add_service(rclcpp::ServiceBase::SharedPtr service)
 {
-  std::cout << "add_service. elem: " << elem++ << std::endl;
+  std::cout << "add_service. elem: " << elem++ << ". addr: " << service->get_service_handle() << std::endl;
   this->service.push_back(std::move(service));
   this->number_of_services++;
 }
@@ -78,7 +79,7 @@ ExecutableList::add_service(rclcpp::ServiceBase::SharedPtr service)
 void
 ExecutableList::add_client(rclcpp::ClientBase::SharedPtr client)
 {
-  std::cout << "add_client. elem: " << elem++ << std::endl;
+  std::cout << "add_client. elem: " << elem++ << ". addr: " << client->get_client_handle() << std::endl;
   this->client.push_back(std::move(client));
   this->number_of_clients++;
 }
@@ -88,7 +89,7 @@ ExecutableList::add_waitable(rclcpp::Waitable::SharedPtr waitable)
 {
   std::cout << "add_waitable. GCs: " << waitable->get_number_of_ready_guard_conditions() << std::endl;
   for (size_t i = 0; i < waitable->get_number_of_ready_guard_conditions(); i++){
-      std::cout << "    gc " << i << ". elem: " << elem++ << std::endl;
+      std::cout << "    gc " << i << ". elem: " << elem++ << ". addr: - " << std::endl;
   }
 
   this->waitable.push_back(std::move(waitable));

@@ -54,10 +54,10 @@ QOSEventHandlerBase::get_number_of_ready_events()
 bool
 QOSEventHandlerBase::add_to_wait_set(rcl_wait_set_t * wait_set)
 {
-  // rcl_ret_t ret = rcl_wait_set_add_event(wait_set, &event_handle_, &wait_set_event_index_);
-  // if (RCL_RET_OK != ret) {
-  //   exceptions::throw_from_rcl_error(ret, "Couldn't add event to wait set");
-  // }
+  rcl_ret_t ret = rcl_wait_set_add_event(wait_set, &event_handle_, &wait_set_event_index_);
+  if (RCL_RET_OK != ret) {
+    exceptions::throw_from_rcl_error(ret, "Couldn't add event to wait set");
+  }
   return true;
 }
 
@@ -65,8 +65,7 @@ QOSEventHandlerBase::add_to_wait_set(rcl_wait_set_t * wait_set)
 bool
 QOSEventHandlerBase::is_ready(rcl_wait_set_t * wait_set)
 {
-  return false;
-  //return wait_set->events[wait_set_event_index_] == &event_handle_;
+  return wait_set->events[wait_set_event_index_] == &event_handle_;
 }
 
 }  // namespace rclcpp

@@ -250,6 +250,7 @@ Context::get_interrupt_guard_condition(rcl_wait_set_t * wait_set)
       rclcpp::exceptions::throw_from_rcl_error(ret, "Couldn't initialize guard condition");
     }
     interrupt_guard_cond_handles_.emplace(wait_set, handle);
+    std::cout << "Interrupt gc*: " << &interrupt_guard_cond_handles_[wait_set] << std::endl;
     return &interrupt_guard_cond_handles_[wait_set];
   }
 }

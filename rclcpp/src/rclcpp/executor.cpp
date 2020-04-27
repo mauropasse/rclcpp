@@ -49,10 +49,12 @@ Executor::Executor(const ExecutorArgs & args)
   // and one for the executor's guard cond (interrupt_guard_condition_)
 
   // Put the global ctrl-c guard condition in
+  std::cout << "Executor add_guard_condition : ctrl-c: " << std::endl;
   memory_strategy_->add_guard_condition(args.context->get_interrupt_guard_condition(&wait_set_));
 
   // Put the executor's guard condition in
-  memory_strategy_->add_guard_condition(&interrupt_guard_condition_);
+  // std::cout << "Executor add_guard_condition: executor guard condition" << &interrupt_guard_condition_ << std::endl;
+  // memory_strategy_->add_guard_condition(&interrupt_guard_condition_);
   rcl_allocator_t allocator = memory_strategy_->get_allocator();
 
   // Store the context for later use.
@@ -60,7 +62,7 @@ Executor::Executor(const ExecutorArgs & args)
 
   ret = rcl_wait_set_init(
     &wait_set_,
-    0, 2, 0, 0, 0, 0,
+    0, 1, 0, 0, 0, 0,
     context_->get_rcl_context().get(),
     allocator);
   if (RCL_RET_OK != ret) {
