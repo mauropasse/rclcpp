@@ -315,6 +315,7 @@ StaticExecutorEntitiesCollector::remove_node(
 bool
 StaticExecutorEntitiesCollector::is_ready(rcl_wait_set_t * p_wait_set)
 {
+  return false;
   // Check wait_set guard_conditions for added/removed entities to/from a node
   for (size_t i = 0; i < p_wait_set->size_of_guard_conditions; ++i) {
     if (p_wait_set->guard_conditions[i] != NULL) {

@@ -52,7 +52,7 @@ Executor::Executor(const ExecutorArgs & args)
   memory_strategy_->add_guard_condition(args.context->get_interrupt_guard_condition(&wait_set_));
 
   // Put the executor's guard condition in
-  memory_strategy_->add_guard_condition(&interrupt_guard_condition_);
+  //memory_strategy_->add_guard_condition(&interrupt_guard_condition_);
   rcl_allocator_t allocator = memory_strategy_->get_allocator();
 
   // Store the context for later use.
@@ -60,7 +60,7 @@ Executor::Executor(const ExecutorArgs & args)
 
   ret = rcl_wait_set_init(
     &wait_set_,
-    0, 2, 0, 0, 0, 0,
+    0, 1, 0, 0, 0, 0,
     context_->get_rcl_context().get(),
     allocator);
   if (RCL_RET_OK != ret) {
