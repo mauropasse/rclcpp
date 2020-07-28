@@ -84,6 +84,7 @@ public:
   void clear_handles() override
   {
     subscription_handles_.clear();
+    ros2_subscription_handles_.clear();
     service_handles_.clear();
     client_handles_.clear();
     timer_handles_.clear();
@@ -129,6 +130,11 @@ public:
       subscription_handles_.end()
     );
 
+    ros2_subscription_handles_.erase(
+      std::remove(ros2_subscription_handles_.begin(), ros2_subscription_handles_.end(), nullptr),
+      ros2_subscription_handles_.end()
+    );
+
     service_handles_.erase(
       std::remove(service_handles_.begin(), service_handles_.end(), nullptr),
       service_handles_.end()
@@ -167,6 +173,8 @@ public:
         group->find_subscription_ptrs_if(
           [this](const rclcpp::SubscriptionBase::SharedPtr & subscription) {
             subscription_handles_.push_back(subscription->get_subscription_handle());
+            ros2_subscription_handles_.push_back(static_cast<void*>(subscription.get()));
+            //std::cout << "allocator_mem_strategy: Pushing subscription pointer to vector: " << subscription.get() << std::endl;
             return false;
           });
         group->find_service_ptrs_if(
@@ -204,12 +212,25 @@ public:
 
   bool add_handles_to_wait_set(rcl_wait_set_t * wait_set) override
   {
-    for (auto subscription : subscription_handles_) {
-      if (rcl_wait_set_add_subscription(wait_set, subscription.get(), NULL) != RCL_RET_OK) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add subscription to wait set: %s", rcl_get_error_string().str);
-        return false;
+    auto it_subscription = subscription_handles_.begin();
+    auto it_ros2_handle = ros2_subscription_handles_.begin();
+
+    //std::cout << "allocator_mem_strategy: Adding handles to wait set." << std::endl;
+
+    while(it_subscription != subscription_handles_.end() || it_ros2_handle != ros2_subscription_handles_.end())
+    {
+      if(it_subscription != subscription_handles_.end() && it_ros2_handle != ros2_subscription_handles_.end())
+      {
+        //std::cout << "allocator_mem_strategy: Add subscription pointer to rcl: " << *it_ros2_handle << std::endl;
+        if (rcl_wait_set_add_subscription(wait_set, (*it_subscription).get(), *it_ros2_handle, NULL) != RCL_RET_OK) {
+          RCUTILS_LOG_ERROR_NAMED(
+            "rclcpp",
+            "Couldn't add subscription to wait set: %s", rcl_get_error_string().str);
+          return false;
+        }
+
+        it_subscription++;
+        it_ros2_handle++;
       }
     }
 
@@ -503,6 +524,7 @@ private:
 
   VectorRebind<const rcl_guard_condition_t *> guard_conditions_;
 
+  std::vector<void *> ros2_subscription_handles_;
   VectorRebind<std::shared_ptr<const rcl_subscription_t>> subscription_handles_;
   VectorRebind<std::shared_ptr<const rcl_service_t>> service_handles_;
   VectorRebind<std::shared_ptr<const rcl_client_t>> client_handles_;

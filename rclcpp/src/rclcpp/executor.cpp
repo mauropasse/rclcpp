@@ -65,6 +65,19 @@ Executor::Executor(const rclcpp::ExecutorOptions & options)
     0, 2, 0, 0, 0, 0,
     context_->get_rcl_context().get(),
     allocator);
+
+  void * data = rcl_get_custom_wait_set_info(&wait_set_);
+
+  typedef struct CustomWaitsetInfo
+  {
+    std::condition_variable condition;
+    std::mutex condition_mutex;
+  } CustomWaitsetInfo;
+
+  CustomWaitsetInfo * wait_set_info = static_cast<CustomWaitsetInfo *>(data);
+  execConditionMutex = &wait_set_info->condition_mutex;
+  execConditionVariable = &wait_set_info->condition;
+
   if (RCL_RET_OK != ret) {
     RCUTILS_LOG_ERROR_NAMED(
       "rclcpp",

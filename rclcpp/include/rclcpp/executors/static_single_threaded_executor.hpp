@@ -232,6 +232,11 @@ protected:
   void
   execute_ready_executables();
 
+  /// Execute events in the queue until is empty
+  RCLCPP_PUBLIC
+  void
+  execute_events();
+
 private:
   RCLCPP_DISABLE_COPY(StaticSingleThreadedExecutor)
 

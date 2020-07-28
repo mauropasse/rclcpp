@@ -369,6 +369,11 @@ protected:
 
   std::list<rclcpp::node_interfaces::NodeBaseInterface::WeakPtr> weak_nodes_;
   std::list<const rcl_guard_condition_t *> guard_conditions_;
+
+  // Mutex and condition variable uniques to the rmw_wait_set->data, that is the
+  // lower level wait set in the RMW implementation. Now testing FastRTPS
+  std::mutex * execConditionMutex;
+  std::condition_variable * execConditionVariable;
 };
 
 namespace executor

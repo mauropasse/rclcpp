@@ -14,6 +14,9 @@
 
 #include "rclcpp/executors/static_single_threaded_executor.hpp"
 
+#include "rcpputils/event_queue.hpp"
+//#include "rcutils/event_queue.h"
+
 #include <memory>
 
 #include "rclcpp/scope_exit.hpp"
@@ -42,11 +45,15 @@ StaticSingleThreadedExecutor::spin()
   // Prepare wait_set_ based on memory_strategy_
   entities_collector_->init(&wait_set_, memory_strategy_, &interrupt_guard_condition_);
 
+  std::thread t_exec_events(&StaticSingleThreadedExecutor::execute_events, this);
+
   while (rclcpp::ok(this->context_) && spinning.load()) {
     // Refresh wait set and wait for work
     entities_collector_->refresh_wait_set();
     execute_ready_executables();
   }
+
+  t_exec_events.join();
 }
 
 void
@@ -140,5 +147,51 @@ StaticSingleThreadedExecutor::execute_ready_executables()
     if (entities_collector_->get_waitable(i)->is_ready(&wait_set_)) {
       entities_collector_->get_waitable(i)->execute();
     }
+  }
+}
+
+void
+StaticSingleThreadedExecutor::execute_events()
+{
+  while(spinning.load())
+  {
+    // Protect the queue
+    std::cout << "StaticSingleThreadedExecutor: Wait condition variable: " << execConditionVariable << std::endl;
+    std::unique_lock<std::mutex> lock(*execConditionMutex);
+
+    auto predicate = []() {
+      std::cout << "predicate: Check queue is empty? " << std::endl;
+      return !rcpputils::queue_is_empty();
+    };
+
+    // We wait here until something has been pushed to the executable queue.
+    execConditionVariable->wait(lock, predicate);
+    std::cout << "StaticSingleThreadedExecutor: cv triggered. Execute events " << std::endl;
+
+    // Todo: It'd be better to take the event and execute in other thread?
+    do
+    {
+      rcpputils::Event event = rcpputils::rcpputils_get_next_event();
+
+      switch(event.type)
+      {
+
+      case rcpputils::SUBSCRIPTION_EVENT:
+        std::cout << "SUBSCRIPTION_EVENT: " << event.entity << std::endl;
+
+        // auto subscription = static_cast<rclcpp::SubscriptionBase::SharedPtr*>(event.entity);
+        // execute_subscription(subscription);
+        break;
+
+      case rcpputils::SERVICE_EVENT:
+        std::cout << "SERVICE_EVENT: " << event.entity << std::endl;
+
+        // auto service = static_cast<rclcpp::ServiceBase::SharedPtr*>(event.entity);
+        // execute_service(event.entity);
+        break;
+
+      }
+    } while (!rcpputils::queue_is_empty());
+    std::cout <<"\n\n\n"<< std::endl;
   }
 }
