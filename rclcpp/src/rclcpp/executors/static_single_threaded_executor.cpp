@@ -48,9 +48,10 @@ StaticSingleThreadedExecutor::spin()
 
   std::thread t_exec_events(&StaticSingleThreadedExecutor::execute_events, this);
 
+
   while (rclcpp::ok(this->context_) && spinning.load()) {
-    // Refresh wait set and wait for work
     entities_collector_->refresh_wait_set();
+    // Refresh wait set and wait for work
     execute_ready_executables();
   }
 
@@ -111,42 +112,12 @@ StaticSingleThreadedExecutor::remove_node(std::shared_ptr<rclcpp::Node> node_ptr
 void
 StaticSingleThreadedExecutor::execute_ready_executables()
 {
-  // Execute all the ready subscriptions
-  // for (size_t i = 0; i < wait_set_.size_of_subscriptions; ++i) {
-  //   if (i < entities_collector_->get_number_of_subscriptions()) {
-  //     if (wait_set_.subscriptions[i]) {
-  //       execute_subscription(entities_collector_->get_subscription(i));
-  //     }
-  //   }
-  // }
   // Execute all the ready timers
   for (size_t i = 0; i < wait_set_.size_of_timers; ++i) {
     if (i < entities_collector_->get_number_of_timers()) {
       if (wait_set_.timers[i] && entities_collector_->get_timer(i)->is_ready()) {
         execute_timer(entities_collector_->get_timer(i));
       }
-    }
-  }
-  // Execute all the ready services
-  for (size_t i = 0; i < wait_set_.size_of_services; ++i) {
-    if (i < entities_collector_->get_number_of_services()) {
-      if (wait_set_.services[i]) {
-        execute_service(entities_collector_->get_service(i));
-      }
-    }
-  }
-  // Execute all the ready clients
-  for (size_t i = 0; i < wait_set_.size_of_clients; ++i) {
-    if (i < entities_collector_->get_number_of_clients()) {
-      if (wait_set_.clients[i]) {
-        execute_client(entities_collector_->get_client(i));
-      }
-    }
-  }
-  // Execute all the ready waitables
-  for (size_t i = 0; i < entities_collector_->get_number_of_waitables(); ++i) {
-    if (entities_collector_->get_waitable(i)->is_ready(&wait_set_)) {
-      entities_collector_->get_waitable(i)->execute();
     }
   }
 }
