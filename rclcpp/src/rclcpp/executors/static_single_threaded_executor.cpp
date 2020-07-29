@@ -15,6 +15,7 @@
 #include "rclcpp/executors/static_single_threaded_executor.hpp"
 
 #include "rcpputils/event_queue.hpp"
+#include <queue>
 //#include "rcutils/event_queue.h"
 
 #include <memory>
@@ -111,13 +112,13 @@ void
 StaticSingleThreadedExecutor::execute_ready_executables()
 {
   // Execute all the ready subscriptions
-  for (size_t i = 0; i < wait_set_.size_of_subscriptions; ++i) {
-    if (i < entities_collector_->get_number_of_subscriptions()) {
-      if (wait_set_.subscriptions[i]) {
-        execute_subscription(entities_collector_->get_subscription(i));
-      }
-    }
-  }
+  // for (size_t i = 0; i < wait_set_.size_of_subscriptions; ++i) {
+  //   if (i < entities_collector_->get_number_of_subscriptions()) {
+  //     if (wait_set_.subscriptions[i]) {
+  //       execute_subscription(entities_collector_->get_subscription(i));
+  //     }
+  //   }
+  // }
   // Execute all the ready timers
   for (size_t i = 0; i < wait_set_.size_of_timers; ++i) {
     if (i < entities_collector_->get_number_of_timers()) {
@@ -153,45 +154,43 @@ StaticSingleThreadedExecutor::execute_ready_executables()
 void
 StaticSingleThreadedExecutor::execute_events()
 {
+  auto predicate = []() { return !rcpputils::queue_is_empty(); };
+
+  std::queue<rcpputils::Event> local_event_queue;
+
   while(spinning.load())
   {
-    // Protect the queue
-    std::cout << "StaticSingleThreadedExecutor: Wait condition variable: " << execConditionVariable << std::endl;
-    std::unique_lock<std::mutex> lock(*execConditionMutex);
-
-    auto predicate = []() {
-      std::cout << "predicate: Check queue is empty? " << std::endl;
-      return !rcpputils::queue_is_empty();
-    };
-
-    // We wait here until something has been pushed to the executable queue.
-    execConditionVariable->wait(lock, predicate);
-    std::cout << "StaticSingleThreadedExecutor: cv triggered. Execute events " << std::endl;
-
-    // Todo: It'd be better to take the event and execute in other thread?
-    do
+    // Scope block for the mutex, otherwise we get a deadlock
+    // when trying to execute subscription
     {
-      rcpputils::Event event = rcpputils::rcpputils_get_next_event();
+      // We wait here until something has been pushed to the executable queue.
+      std::unique_lock<std::mutex> lock(*execConditionMutex);
+      execConditionVariable->wait(lock, predicate);
+
+      while (!rcpputils::queue_is_empty()) {
+        local_event_queue.push(rcpputils::rcpputils_get_next_event());
+      }
+    }
+
+    // Process the events
+    while (!local_event_queue.empty())
+    {
+      rcpputils::Event event = local_event_queue.front();
 
       switch(event.type)
       {
-
       case rcpputils::SUBSCRIPTION_EVENT:
-        std::cout << "SUBSCRIPTION_EVENT: " << event.entity << std::endl;
-
-        // auto subscription = static_cast<rclcpp::SubscriptionBase::SharedPtr*>(event.entity);
-        // execute_subscription(subscription);
+        {
+          execute_subscription(std::move(entities_collector_->get_subscription_by_handle(event.entity)));
+        }
         break;
 
       case rcpputils::SERVICE_EVENT:
         std::cout << "SERVICE_EVENT: " << event.entity << std::endl;
-
-        // auto service = static_cast<rclcpp::ServiceBase::SharedPtr*>(event.entity);
-        // execute_service(event.entity);
         break;
-
       }
-    } while (!rcpputils::queue_is_empty());
-    std::cout <<"\n\n\n"<< std::endl;
+
+      local_event_queue.pop();
+    }
   }
 }

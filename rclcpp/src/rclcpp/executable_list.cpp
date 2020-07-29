@@ -55,6 +55,17 @@ ExecutableList::add_subscription(rclcpp::SubscriptionBase::SharedPtr subscriptio
   this->number_of_subscriptions++;
 }
 
+rclcpp::SubscriptionBase::SharedPtr
+ExecutableList::get_subscription(void * subscription_handler)
+{
+  for(const auto& sub : subscription) {
+    if (sub.get() == subscription_handler) {
+      return sub;
+    }
+  }
+  return nullptr;
+}
+
 void
 ExecutableList::add_timer(rclcpp::TimerBase::SharedPtr timer)
 {

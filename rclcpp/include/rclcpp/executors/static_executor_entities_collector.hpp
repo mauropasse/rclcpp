@@ -180,6 +180,10 @@ public:
   rclcpp::SubscriptionBase::SharedPtr
   get_subscription(size_t i) {return exec_list_.subscription[i];}
 
+  RCLCPP_PUBLIC
+  rclcpp::SubscriptionBase::SharedPtr
+  get_subscription_by_handle(void * handle);
+
   /** Return a TimerBase Sharedptr by index.
    * \param[in] i The index of the TimerBase
    * \return a TimerBase shared pointer

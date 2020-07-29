@@ -287,3 +287,9 @@ StaticExecutorEntitiesCollector::is_ready(rcl_wait_set_t * p_wait_set)
   // None of the guard conditions triggered belong to a registered node
   return false;
 }
+
+rclcpp::SubscriptionBase::SharedPtr
+StaticExecutorEntitiesCollector::get_subscription_by_handle(void * handle)
+{
+  return exec_list_.get_subscription(handle);
+}

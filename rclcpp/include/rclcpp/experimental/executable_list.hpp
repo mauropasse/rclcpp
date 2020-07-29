@@ -49,6 +49,10 @@ public:
   add_subscription(rclcpp::SubscriptionBase::SharedPtr subscription);
 
   RCLCPP_PUBLIC
+  rclcpp::SubscriptionBase::SharedPtr
+  get_subscription(void * subscription_handle);
+
+  RCLCPP_PUBLIC
   void
   add_timer(rclcpp::TimerBase::SharedPtr timer);
 
