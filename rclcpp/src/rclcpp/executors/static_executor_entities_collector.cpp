@@ -173,16 +173,38 @@ StaticExecutorEntitiesCollector::prepare_wait_set()
     throw std::runtime_error(
             std::string("Couldn't resize the wait set : ") + rcl_get_error_string().str);
   }
-}
 
-void
-StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeout)
-{
+  // Perform the following code once to set everything, the we will
+  // clear and add handles to just a part of the waitset
   if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
     throw std::runtime_error("Couldn't clear wait set");
   }
 
   if (!memory_strategy_->add_handles_to_wait_set(p_wait_set_)) {
+    throw std::runtime_error("Couldn't fill wait set");
+  }
+
+  rcl_ret_t status =
+    rcl_wait(p_wait_set_, -1);
+
+  if (status == RCL_RET_WAIT_SET_EMPTY) {
+    RCUTILS_LOG_WARN_NAMED(
+      "rclcpp",
+      "empty wait set received in rcl_wait(). This should never happen.");
+  } else if (status != RCL_RET_OK && status != RCL_RET_TIMEOUT) {
+    using rclcpp::exceptions::throw_from_rcl_error;
+    throw_from_rcl_error(status, "rcl_wait() failed");
+  }
+}
+
+void
+StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeout)
+{
+  if (rcl_wait_set_clear_some(p_wait_set_) != RCL_RET_OK) {
+    throw std::runtime_error("Couldn't clear wait set");
+  }
+
+  if (!memory_strategy_->add_some_handles_to_wait_set(p_wait_set_)) {
     throw std::runtime_error("Couldn't fill wait set");
   }
 

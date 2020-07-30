@@ -282,8 +282,45 @@ public:
     return true;
   }
 
-  bool add_timers_to_wait_set(rcl_wait_set_t * wait_set) override
+  bool add_some_handles_to_wait_set(rcl_wait_set_t * wait_set) override
   {
+    // auto it_subscription = subscription_handles_.begin();
+    // auto it_ros2_handle = ros2_subscription_handles_.begin();
+
+    // while(it_subscription != subscription_handles_.end() || it_ros2_handle != ros2_subscription_handles_.end())
+    // {
+    //   if(it_subscription != subscription_handles_.end() && it_ros2_handle != ros2_subscription_handles_.end())
+    //   {
+    //     //std::cout << "allocator_mem_strategy: Add subscription pointer to rcl: " << *it_ros2_handle << std::endl;
+    //     if (rcl_wait_set_add_subscription(wait_set, (*it_subscription).get(), *it_ros2_handle, NULL) != RCL_RET_OK) {
+    //       RCUTILS_LOG_ERROR_NAMED(
+    //         "rclcpp",
+    //         "Couldn't add subscription to wait set: %s", rcl_get_error_string().str);
+    //       return false;
+    //     }
+
+    //     it_subscription++;
+    //     it_ros2_handle++;
+    //   }
+    // }
+
+    for (auto client : client_handles_) {
+      if (rcl_wait_set_add_client(wait_set, client.get(), NULL) != RCL_RET_OK) {
+        RCUTILS_LOG_ERROR_NAMED(
+          "rclcpp",
+          "Couldn't add client to wait set: %s", rcl_get_error_string().str);
+        return false;
+      }
+    }
+
+    for (auto service : service_handles_) {
+      if (rcl_wait_set_add_service(wait_set, service.get(), NULL) != RCL_RET_OK) {
+        RCUTILS_LOG_ERROR_NAMED(
+          "rclcpp",
+          "Couldn't add service to wait set: %s", rcl_get_error_string().str);
+        return false;
+      }
+    }
 
     for (auto timer : timer_handles_) {
       if (rcl_wait_set_add_timer(wait_set, timer.get(), NULL) != RCL_RET_OK) {
