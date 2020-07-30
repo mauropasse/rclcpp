@@ -120,6 +120,28 @@ StaticSingleThreadedExecutor::execute_ready_executables()
       }
     }
   }
+  // Execute all the ready services
+  for (size_t i = 0; i < wait_set_.size_of_services; ++i) {
+    if (i < entities_collector_->get_number_of_services()) {
+      if (wait_set_.services[i]) {
+        execute_service(entities_collector_->get_service(i));
+      }
+    }
+  }
+  // Execute all the ready clients
+  for (size_t i = 0; i < wait_set_.size_of_clients; ++i) {
+    if (i < entities_collector_->get_number_of_clients()) {
+      if (wait_set_.clients[i]) {
+        execute_client(entities_collector_->get_client(i));
+      }
+    }
+  }
+  // Execute all the ready waitables
+  for (size_t i = 0; i < entities_collector_->get_number_of_waitables(); ++i) {
+    if (entities_collector_->get_waitable(i)->is_ready(&wait_set_)) {
+      entities_collector_->get_waitable(i)->execute();
+    }
+  }
 }
 
 void

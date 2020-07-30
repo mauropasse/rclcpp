@@ -175,59 +175,27 @@ StaticExecutorEntitiesCollector::prepare_wait_set()
   }
 }
 
-static bool rmw_waitset_is_init = false;
-
 void
 StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeout)
 {
-  // clear wait set (memeset to '0' all wait_set_ entities
-  // but keeps the wait_set_ number of entities)
-  if (!rmw_waitset_is_init) {
-    // Do the following just the first time to initialize everything
+  if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
+    throw std::runtime_error("Couldn't clear wait set");
+  }
 
-    if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
-      throw std::runtime_error("Couldn't clear wait set");
-    }
+  if (!memory_strategy_->add_handles_to_wait_set(p_wait_set_)) {
+    throw std::runtime_error("Couldn't fill wait set");
+  }
 
-    if (!memory_strategy_->add_handles_to_wait_set(p_wait_set_)) {
-      throw std::runtime_error("Couldn't fill wait set");
-    }
+  rcl_ret_t status =
+    rcl_wait(p_wait_set_, std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count());
 
-    rcl_ret_t status =
-      rcl_wait(p_wait_set_, std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count());
-
-    if (status == RCL_RET_WAIT_SET_EMPTY) {
-      RCUTILS_LOG_WARN_NAMED(
-        "rclcpp",
-        "empty wait set received in rcl_wait(). This should never happen.");
-    } else if (status != RCL_RET_OK && status != RCL_RET_TIMEOUT) {
-      using rclcpp::exceptions::throw_from_rcl_error;
-      throw_from_rcl_error(status, "rcl_wait() failed");
-    }
-
-    rmw_waitset_is_init = true;
-
-  } else {
-    // Just take care of timers from now on
-    if (rcl_wait_set_clear_timers(p_wait_set_) != RCL_RET_OK) {
-      throw std::runtime_error("Couldn't clear wait set");
-    }
-
-    if (!memory_strategy_->add_timers_to_wait_set(p_wait_set_)) {
-      throw std::runtime_error("Couldn't fill wait set");
-    }
-
-    rcl_ret_t status =
-      rcl_wait(p_wait_set_, std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count());
-
-    if (status == RCL_RET_WAIT_SET_EMPTY) {
-      RCUTILS_LOG_WARN_NAMED(
-        "rclcpp",
-        "empty wait set received in rcl_wait(). This should never happen.");
-    } else if (status != RCL_RET_OK && status != RCL_RET_TIMEOUT) {
-      using rclcpp::exceptions::throw_from_rcl_error;
-      throw_from_rcl_error(status, "rcl_wait() failed");
-    }
+  if (status == RCL_RET_WAIT_SET_EMPTY) {
+    RCUTILS_LOG_WARN_NAMED(
+      "rclcpp",
+      "empty wait set received in rcl_wait(). This should never happen.");
+  } else if (status != RCL_RET_OK && status != RCL_RET_TIMEOUT) {
+    using rclcpp::exceptions::throw_from_rcl_error;
+    throw_from_rcl_error(status, "rcl_wait() failed");
   }
 }
 
