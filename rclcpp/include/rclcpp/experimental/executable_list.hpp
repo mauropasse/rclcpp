@@ -61,6 +61,10 @@ public:
   add_service(rclcpp::ServiceBase::SharedPtr service);
 
   RCLCPP_PUBLIC
+  rclcpp::ServiceBase::SharedPtr
+  get_service(void * service_handle);
+
+  RCLCPP_PUBLIC
   void
   add_client(rclcpp::ClientBase::SharedPtr client);
 

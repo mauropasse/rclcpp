@@ -66,6 +66,17 @@ ExecutableList::get_subscription(void * subscription_handler)
   return nullptr;
 }
 
+rclcpp::ServiceBase::SharedPtr
+ExecutableList::get_service(void * service_handler)
+{
+  for(const auto& srv : service) {
+    if (srv.get() == service_handler) {
+      return srv;
+    }
+  }
+  return nullptr;
+}
+
 void
 ExecutableList::add_timer(rclcpp::TimerBase::SharedPtr timer)
 {

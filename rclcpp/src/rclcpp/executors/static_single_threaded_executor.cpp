@@ -47,6 +47,7 @@ StaticSingleThreadedExecutor::spin()
   entities_collector_->init(&wait_set_, memory_strategy_, &interrupt_guard_condition_);
 
   std::thread t_exec_events(&StaticSingleThreadedExecutor::execute_events, this);
+  pthread_setname_np(t_exec_events.native_handle(), "execute_events_thread");
 
 
   while (rclcpp::ok(this->context_) && spinning.load()) {
@@ -121,13 +122,13 @@ StaticSingleThreadedExecutor::execute_ready_executables()
     }
   }
   // Execute all the ready services
-  for (size_t i = 0; i < wait_set_.size_of_services; ++i) {
-    if (i < entities_collector_->get_number_of_services()) {
-      if (wait_set_.services[i]) {
-        execute_service(entities_collector_->get_service(i));
-      }
-    }
-  }
+  // for (size_t i = 0; i < wait_set_.size_of_services; ++i) {
+  //   if (i < entities_collector_->get_number_of_services()) {
+  //     if (wait_set_.services[i]) {
+  //       execute_service(entities_collector_->get_service(i));
+  //     }
+  //   }
+  // }
   // Execute all the ready clients
   for (size_t i = 0; i < wait_set_.size_of_clients; ++i) {
     if (i < entities_collector_->get_number_of_clients()) {
@@ -179,7 +180,9 @@ StaticSingleThreadedExecutor::execute_events()
         break;
 
       case rcpputils::SERVICE_EVENT:
-        std::cout << "SERVICE_EVENT: " << event.entity << std::endl;
+        {
+          execute_service(std::move(entities_collector_->get_service_by_handle(event.entity)));
+        }
         break;
       }
 

@@ -313,3 +313,9 @@ StaticExecutorEntitiesCollector::get_subscription_by_handle(void * handle)
 {
   return exec_list_.get_subscription(handle);
 }
+
+rclcpp::ServiceBase::SharedPtr
+StaticExecutorEntitiesCollector::get_service_by_handle(void * handle)
+{
+  return exec_list_.get_service(handle);
+}

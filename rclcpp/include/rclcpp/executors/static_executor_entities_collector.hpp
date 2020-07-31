@@ -202,6 +202,10 @@ public:
   rclcpp::ServiceBase::SharedPtr
   get_service(size_t i) {return exec_list_.service[i];}
 
+  RCLCPP_PUBLIC
+  rclcpp::ServiceBase::SharedPtr
+  get_service_by_handle(void * handle);
+
   /** Return a ClientBase Sharedptr by index
    * \param[in] i The index of the ClientBase
    * \return a ClientBase shared pointer
