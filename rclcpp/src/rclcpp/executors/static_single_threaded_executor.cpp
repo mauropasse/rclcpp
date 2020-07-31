@@ -161,9 +161,9 @@ StaticSingleThreadedExecutor::execute_events()
       std::unique_lock<std::mutex> lock(*execConditionMutex);
       execConditionVariable->wait(lock, predicate);
 
-      while (!rcpputils::queue_is_empty()) {
+      do {
         local_event_queue.push(rcpputils::rcpputils_get_next_event());
-      }
+      } while (!rcpputils::queue_is_empty());
     }
 
     // Process the events
@@ -182,6 +182,12 @@ StaticSingleThreadedExecutor::execute_events()
       case rcpputils::SERVICE_EVENT:
         {
           execute_service(std::move(entities_collector_->get_service_by_handle(event.entity)));
+        }
+        break;
+
+      case rcpputils::CLIENT_EVENT:
+        {
+          execute_client(std::move(entities_collector_->get_client_by_handle(event.entity)));
         }
         break;
       }

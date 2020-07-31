@@ -238,12 +238,23 @@ public:
       }
     }
 
-    for (auto client : client_handles_) {
-      if (rcl_wait_set_add_client(wait_set, client.get(), NULL) != RCL_RET_OK) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add client to wait set: %s", rcl_get_error_string().str);
-        return false;
+    auto it_client = client_handles_.begin();
+    auto it_ros2_client_handle = ros2_client_handles_.begin();
+
+    while(it_client != client_handles_.end() || it_ros2_client_handle != ros2_client_handles_.end())
+    {
+      if(it_client != client_handles_.end() && it_ros2_client_handle != ros2_client_handles_.end())
+      {
+        //std::cout << "allocator_mem_strategy: Add subscription pointer to rcl: " << *it_ros2_client_handle << std::endl;
+        if (rcl_wait_set_add_client(wait_set, (*it_client).get(), *it_ros2_client_handle, NULL) != RCL_RET_OK) {
+          RCUTILS_LOG_ERROR_NAMED(
+            "rclcpp",
+            "Couldn't add client to wait set: %s", rcl_get_error_string().str);
+          return false;
+        }
+
+        it_client++;
+        it_ros2_client_handle++;
       }
     }
 
@@ -319,14 +330,14 @@ public:
     //   }
     // }
 
-    for (auto client : client_handles_) {
-      if (rcl_wait_set_add_client(wait_set, client.get(), NULL) != RCL_RET_OK) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add client to wait set: %s", rcl_get_error_string().str);
-        return false;
-      }
-    }
+    // for (auto client : client_handles_) {
+    //   if (rcl_wait_set_add_client(wait_set, client.get(), NULL) != RCL_RET_OK) {
+    //     RCUTILS_LOG_ERROR_NAMED(
+    //       "rclcpp",
+    //       "Couldn't add client to wait set: %s", rcl_get_error_string().str);
+    //     return false;
+    //   }
+    // }
 
     // for (auto service : service_handles_) {
     //   if (rcl_wait_set_add_service(wait_set, service.get(), NULL) != RCL_RET_OK) {
@@ -612,6 +623,7 @@ private:
 
   std::vector<void *> ros2_subscription_handles_;
   std::vector<void *> ros2_service_handles_;
+  std::vector<void *> ros2_client_handles_;
   VectorRebind<std::shared_ptr<const rcl_subscription_t>> subscription_handles_;
   VectorRebind<std::shared_ptr<const rcl_service_t>> service_handles_;
   VectorRebind<std::shared_ptr<const rcl_client_t>> client_handles_;

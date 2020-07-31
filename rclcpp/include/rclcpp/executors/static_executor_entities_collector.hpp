@@ -215,6 +215,10 @@ public:
   rclcpp::ClientBase::SharedPtr
   get_client(size_t i) {return exec_list_.client[i];}
 
+  RCLCPP_PUBLIC
+  rclcpp::ClientBase::SharedPtr
+  get_client_by_handle(void * handle);
+
   /** Return a Waitable Sharedptr by index
    * \param[in] i The index of the Waitable
    * \return a Waitable shared pointer

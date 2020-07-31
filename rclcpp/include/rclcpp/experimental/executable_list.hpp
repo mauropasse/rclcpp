@@ -69,6 +69,10 @@ public:
   add_client(rclcpp::ClientBase::SharedPtr client);
 
   RCLCPP_PUBLIC
+  rclcpp::ClientBase::SharedPtr
+  get_client(void * client_handle);
+
+  RCLCPP_PUBLIC
   void
   add_waitable(rclcpp::Waitable::SharedPtr waitable);
 

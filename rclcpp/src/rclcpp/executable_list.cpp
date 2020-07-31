@@ -98,6 +98,17 @@ ExecutableList::add_client(rclcpp::ClientBase::SharedPtr client)
   this->number_of_clients++;
 }
 
+rclcpp::ClientBase::SharedPtr
+ExecutableList::get_client(void * client_handler)
+{
+  for(const auto& cli : client) {
+    if (cli.get() == client_handler) {
+      return cli;
+    }
+  }
+  return nullptr;
+}
+
 void
 ExecutableList::add_waitable(rclcpp::Waitable::SharedPtr waitable)
 {
