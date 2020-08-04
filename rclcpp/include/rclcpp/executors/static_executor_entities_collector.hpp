@@ -60,7 +60,8 @@ public:
   init(
     rcl_wait_set_t * p_wait_set,
     rclcpp::memory_strategy::MemoryStrategy::SharedPtr & memory_strategy,
-    rcl_guard_condition_t * executor_guard_condition);
+    rcl_guard_condition_t * executor_guard_condition,
+    void * context, Event_callback cb);
 
   RCLCPP_PUBLIC
   void
@@ -243,6 +244,12 @@ private:
 
   /// Executable list: timers, subscribers, clients, services and waitables
   rclcpp::experimental::ExecutableList exec_list_;
+
+  /// Context (associated executor)
+  void * context_;
+
+  /// Event callback: push new events to queue
+  Event_callback event_cb_;
 };
 
 }  // namespace executors

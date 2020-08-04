@@ -20,8 +20,11 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <queue>
 
 #include "rmw/rmw.h"
+
+#include "rcutils/event_types.h"
 
 #include "rclcpp/executor.hpp"
 #include "rclcpp/executors/static_executor_entities_collector.hpp"
@@ -162,7 +165,7 @@ public:
     }
     std::chrono::nanoseconds timeout_left = timeout_ns;
 
-    entities_collector_->init(&wait_set_, memory_strategy_, &interrupt_guard_condition_);
+    entities_collector_->init(&wait_set_, memory_strategy_, &interrupt_guard_condition_, this, &this->push_event);
 
     while (rclcpp::ok(this->context_)) {
       // Do one set of work.
@@ -241,6 +244,28 @@ private:
   RCLCPP_DISABLE_COPY(StaticSingleThreadedExecutor)
 
   StaticExecutorEntitiesCollector::SharedPtr entities_collector_;
+
+  // Executor callback: Push new events into the queue and trigger cv.
+  static void
+  push_event(void * exec_context, EventQ event)
+  {
+    auto this_exec = static_cast<executors::StaticSingleThreadedExecutor*>(exec_context);
+
+    std::unique_lock<std::mutex> lock(this_exec->mutex_q_);
+
+    this_exec->event_queue.push(event);
+
+    // Notify that the event queue has some events in it.
+    lock.unlock();
+    this_exec->cond_var_q_.notify_one();
+  }
+
+  // Event queue
+  std::queue<EventQ> event_queue;
+
+  // Event queue mutex and condition variable
+  std::mutex mutex_q_;
+  std::condition_variable cond_var_q_;
 };
 
 }  // namespace executors

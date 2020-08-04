@@ -488,7 +488,9 @@ Executor::wait_for_work(std::chrono::nanoseconds timeout)
 
     // Collect the subscriptions and timers to be waited on
     memory_strategy_->clear_handles();
-    bool has_invalid_weak_nodes = memory_strategy_->collect_entities(weak_nodes_);
+    // NOTE: Commenting the following until a proper event-queue design is made.
+    //bool has_invalid_weak_nodes = memory_strategy_->collect_entities(weak_nodes_);
+    bool has_invalid_weak_nodes = false;
 
     // Clean up any invalid nodes, if they were detected
     if (has_invalid_weak_nodes) {

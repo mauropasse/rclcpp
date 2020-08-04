@@ -84,10 +84,11 @@ public:
   void clear_handles() override
   {
     subscription_handles_.clear();
-    ros2_subscription_handles_.clear();
+    subscription_hooks_.clear();
     service_handles_.clear();
-    ros2_service_handles_.clear();
+    service_hooks_.clear();
     client_handles_.clear();
+    client_hooks_.clear();
     timer_handles_.clear();
     waitable_handles_.clear();
   }
@@ -131,19 +132,9 @@ public:
       subscription_handles_.end()
     );
 
-    ros2_subscription_handles_.erase(
-      std::remove(ros2_subscription_handles_.begin(), ros2_subscription_handles_.end(), nullptr),
-      ros2_subscription_handles_.end()
-    );
-
     service_handles_.erase(
       std::remove(service_handles_.begin(), service_handles_.end(), nullptr),
       service_handles_.end()
-    );
-
-    ros2_service_handles_.erase(
-      std::remove(ros2_service_handles_.begin(), ros2_service_handles_.end(), nullptr),
-      ros2_service_handles_.end()
     );
 
     client_handles_.erase(
@@ -162,7 +153,7 @@ public:
     );
   }
 
-  bool collect_entities(const WeakNodeList & weak_nodes) override
+  bool collect_entities(const WeakNodeList & weak_nodes, void * exec_context, Event_callback cb)
   {
     bool has_invalid_weak_nodes = false;
     for (auto & weak_node : weak_nodes) {
@@ -177,20 +168,21 @@ public:
           continue;
         }
         group->find_subscription_ptrs_if(
-          [this](const rclcpp::SubscriptionBase::SharedPtr & subscription) {
+          [this, exec_context, cb](const rclcpp::SubscriptionBase::SharedPtr & subscription) {
             subscription_handles_.push_back(subscription->get_subscription_handle());
-            ros2_subscription_handles_.push_back(static_cast<void*>(subscription.get()));
+            subscription_hooks_.push_back({exec_context, subscription.get(), cb});
             return false;
           });
         group->find_service_ptrs_if(
-          [this](const rclcpp::ServiceBase::SharedPtr & service) {
+          [this, exec_context, cb](const rclcpp::ServiceBase::SharedPtr & service) {
             service_handles_.push_back(service->get_service_handle());
-            ros2_service_handles_.push_back(static_cast<void*>(service.get()));
+            service_hooks_.push_back({exec_context, service.get(), cb});
             return false;
           });
         group->find_client_ptrs_if(
-          [this](const rclcpp::ClientBase::SharedPtr & client) {
+          [this, exec_context, cb](const rclcpp::ClientBase::SharedPtr & client) {
             client_handles_.push_back(client->get_client_handle());
+            client_hooks_.push_back({exec_context, client.get(), cb});
             return false;
           });
         group->find_timer_ptrs_if(
@@ -219,14 +211,13 @@ public:
   bool add_handles_to_wait_set(rcl_wait_set_t * wait_set) override
   {
     auto it_subscription = subscription_handles_.begin();
-    auto it_ros2_subscription_handle = ros2_subscription_handles_.begin();
+    auto it_subscription_hook = subscription_hooks_.begin();
 
-    while(it_subscription != subscription_handles_.end() || it_ros2_subscription_handle != ros2_subscription_handles_.end())
+    while(it_subscription != subscription_handles_.end() || it_subscription_hook != subscription_hooks_.end())
     {
-      if(it_subscription != subscription_handles_.end() && it_ros2_subscription_handle != ros2_subscription_handles_.end())
+      if(it_subscription != subscription_handles_.end() && it_subscription_hook != subscription_hooks_.end())
       {
-        //std::cout << "allocator_mem_strategy: Add subscription pointer to rcl: " << *it_ros2_subscription_handle << std::endl;
-        if (rcl_wait_set_add_subscription(wait_set, (*it_subscription).get(), *it_ros2_subscription_handle, NULL) != RCL_RET_OK) {
+        if (rcl_wait_set_add_subscription(wait_set, (*it_subscription).get(), static_cast<void *>(&*it_subscription_hook), NULL) != RCL_RET_OK) {
           RCUTILS_LOG_ERROR_NAMED(
             "rclcpp",
             "Couldn't add subscription to wait set: %s", rcl_get_error_string().str);
@@ -234,19 +225,18 @@ public:
         }
 
         it_subscription++;
-        it_ros2_subscription_handle++;
+        it_subscription_hook++;
       }
     }
 
     auto it_client = client_handles_.begin();
-    auto it_ros2_client_handle = ros2_client_handles_.begin();
+    auto it_client_hook = client_hooks_.begin();
 
-    while(it_client != client_handles_.end() || it_ros2_client_handle != ros2_client_handles_.end())
+    while(it_client != client_handles_.end() || it_client_hook != client_hooks_.end())
     {
-      if(it_client != client_handles_.end() && it_ros2_client_handle != ros2_client_handles_.end())
+      if(it_client != client_handles_.end() && it_client_hook != client_hooks_.end())
       {
-        //std::cout << "allocator_mem_strategy: Add subscription pointer to rcl: " << *it_ros2_client_handle << std::endl;
-        if (rcl_wait_set_add_client(wait_set, (*it_client).get(), *it_ros2_client_handle, NULL) != RCL_RET_OK) {
+        if (rcl_wait_set_add_client(wait_set, (*it_client).get(), static_cast<void *>(&*it_client_hook), NULL) != RCL_RET_OK) {
           RCUTILS_LOG_ERROR_NAMED(
             "rclcpp",
             "Couldn't add client to wait set: %s", rcl_get_error_string().str);
@@ -254,19 +244,18 @@ public:
         }
 
         it_client++;
-        it_ros2_client_handle++;
+        it_client_hook++;
       }
     }
 
     auto it_service = service_handles_.begin();
-    auto it_ros2_service_handle = ros2_service_handles_.begin();
+    auto it_service_hook = service_hooks_.begin();
 
-    while(it_service != service_handles_.end() || it_ros2_service_handle != ros2_service_handles_.end())
+    while(it_service != service_handles_.end() || it_service_hook != service_hooks_.end())
     {
-      if(it_service != service_handles_.end() && it_ros2_service_handle != ros2_service_handles_.end())
+      if(it_service != service_handles_.end() && it_service_hook != service_hooks_.end())
       {
-        //std::cout << "allocator_mem_strategy: Add subscription pointer to rcl: " << *it_ros2_service_handle << std::endl;
-        if (rcl_wait_set_add_service(wait_set, (*it_service).get(), *it_ros2_service_handle, NULL) != RCL_RET_OK) {
+        if (rcl_wait_set_add_service(wait_set, (*it_service).get(), static_cast<void *>(&*it_service_hook), NULL) != RCL_RET_OK) {
           RCUTILS_LOG_ERROR_NAMED(
             "rclcpp",
             "Couldn't add service to wait set: %s", rcl_get_error_string().str);
@@ -274,7 +263,7 @@ public:
         }
 
         it_service++;
-        it_ros2_service_handle++;
+        it_service_hook++;
       }
     }
 
@@ -311,11 +300,11 @@ public:
   bool add_some_handles_to_wait_set(rcl_wait_set_t * wait_set) override
   {
     // auto it_subscription = subscription_handles_.begin();
-    // auto it_ros2_handle = ros2_subscription_handles_.begin();
+    // auto it_ros2_handle = subscription_hooks_.begin();
 
-    // while(it_subscription != subscription_handles_.end() || it_ros2_handle != ros2_subscription_handles_.end())
+    // while(it_subscription != subscription_handles_.end() || it_ros2_handle != subscription_hooks_.end())
     // {
-    //   if(it_subscription != subscription_handles_.end() && it_ros2_handle != ros2_subscription_handles_.end())
+    //   if(it_subscription != subscription_handles_.end() && it_ros2_handle != subscription_hooks_.end())
     //   {
     //     //std::cout << "allocator_mem_strategy: Add subscription pointer to rcl: " << *it_ros2_handle << std::endl;
     //     if (rcl_wait_set_add_subscription(wait_set, (*it_subscription).get(), *it_ros2_handle, NULL) != RCL_RET_OK) {
@@ -621,9 +610,9 @@ private:
 
   VectorRebind<const rcl_guard_condition_t *> guard_conditions_;
 
-  std::vector<void *> ros2_subscription_handles_;
-  std::vector<void *> ros2_service_handles_;
-  std::vector<void *> ros2_client_handles_;
+  std::vector<EventHook> subscription_hooks_;
+  std::vector<EventHook> service_hooks_;
+  std::vector<EventHook> client_hooks_;
   VectorRebind<std::shared_ptr<const rcl_subscription_t>> subscription_handles_;
   VectorRebind<std::shared_ptr<const rcl_service_t>> service_handles_;
   VectorRebind<std::shared_ptr<const rcl_client_t>> client_handles_;

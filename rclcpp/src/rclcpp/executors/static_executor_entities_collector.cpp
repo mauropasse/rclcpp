@@ -43,7 +43,9 @@ void
 StaticExecutorEntitiesCollector::init(
   rcl_wait_set_t * p_wait_set,
   rclcpp::memory_strategy::MemoryStrategy::SharedPtr & memory_strategy,
-  rcl_guard_condition_t * executor_guard_condition)
+  rcl_guard_condition_t * executor_guard_condition,
+  void * context,
+  Event_callback cb)
 {
   // Empty initialize executable list
   exec_list_ = rclcpp::experimental::ExecutableList();
@@ -57,6 +59,12 @@ StaticExecutorEntitiesCollector::init(
 
   // Add executor's guard condition
   guard_conditions_.push_back(executor_guard_condition);
+
+  // Set context (associated executor)
+  context_ = context;
+
+  // Set executor callback to push events into the event queue
+  event_cb_ = cb;
 
   // Get memory strategy and executable list. Prepare wait_set_
   execute();
@@ -77,7 +85,8 @@ void
 StaticExecutorEntitiesCollector::fill_memory_strategy()
 {
   memory_strategy_->clear_handles();
-  bool has_invalid_weak_nodes = memory_strategy_->collect_entities(weak_nodes_);
+
+  bool has_invalid_weak_nodes = memory_strategy_->collect_entities(weak_nodes_, context_, event_cb_);
 
   // Clean up any invalid nodes, if they were detected
   if (has_invalid_weak_nodes) {

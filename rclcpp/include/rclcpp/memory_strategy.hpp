@@ -27,6 +27,8 @@
 #include "rclcpp/visibility_control.hpp"
 #include "rclcpp/waitable.hpp"
 
+#include "rcutils/event_types.h"
+
 namespace rclcpp
 {
 namespace memory_strategy
@@ -46,8 +48,7 @@ public:
 
   virtual ~MemoryStrategy() = default;
 
-  virtual bool collect_entities(const WeakNodeList & weak_nodes) = 0;
-
+  virtual bool collect_entities(const WeakNodeList & weak_nodes, void * exec_context, Event_callback cb) = 0;
   virtual size_t number_of_ready_subscriptions() const = 0;
   virtual size_t number_of_ready_services() const = 0;
   virtual size_t number_of_ready_clients() const = 0;

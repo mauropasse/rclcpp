@@ -14,10 +14,6 @@
 
 #include "rclcpp/executors/static_single_threaded_executor.hpp"
 
-#include "rcpputils/event_queue.hpp"
-#include <queue>
-//#include "rcutils/event_queue.h"
-
 #include <memory>
 
 #include "rclcpp/scope_exit.hpp"
@@ -44,11 +40,12 @@ StaticSingleThreadedExecutor::spin()
 
   // Set memory_strategy_ and exec_list_ based on weak_nodes_
   // Prepare wait_set_ based on memory_strategy_
-  entities_collector_->init(&wait_set_, memory_strategy_, &interrupt_guard_condition_);
+  entities_collector_->init(&wait_set_, memory_strategy_, &interrupt_guard_condition_,
+                            this, &StaticSingleThreadedExecutor::push_event);
 
   std::thread t_exec_events(&StaticSingleThreadedExecutor::execute_events, this);
-  pthread_setname_np(t_exec_events.native_handle(), "execute_events_thread");
 
+  pthread_setname_np(t_exec_events.native_handle(), "execute_events_thread");
 
   while (rclcpp::ok(this->context_) && spinning.load()) {
     entities_collector_->refresh_wait_set();
@@ -148,51 +145,40 @@ StaticSingleThreadedExecutor::execute_ready_executables()
 void
 StaticSingleThreadedExecutor::execute_events()
 {
-  auto predicate = []() { return !rcpputils::queue_is_empty(); };
-
-  std::queue<rcpputils::Event> local_event_queue;
+  auto predicate = [this]() { return !event_queue.empty(); };
 
   while(spinning.load())
   {
-    // Scope block for the mutex, otherwise we get a deadlock
-    // when trying to execute subscription
-    {
-      // We wait here until something has been pushed to the executable queue.
-      std::unique_lock<std::mutex> lock(*execConditionMutex);
-      execConditionVariable->wait(lock, predicate);
+    // Wait until an event has been pushed to the queue.
+    std::unique_lock<std::mutex> lock(mutex_q_);
+    cond_var_q_.wait(lock, predicate);
 
-      do {
-        local_event_queue.push(rcpputils::rcpputils_get_next_event());
-      } while (!rcpputils::queue_is_empty());
-    }
+    do {
+      EventQ event = event_queue.front();
 
-    // Process the events
-    while (!local_event_queue.empty())
-    {
-      rcpputils::Event event = local_event_queue.front();
+      event_queue.pop();
 
       switch(event.type)
       {
-      case rcpputils::SUBSCRIPTION_EVENT:
+      case SUBSCRIPTION_EVENT:
         {
           execute_subscription(std::move(entities_collector_->get_subscription_by_handle(event.entity)));
         }
-        break;
+      break;
 
-      case rcpputils::SERVICE_EVENT:
+      case SERVICE_EVENT:
         {
           execute_service(std::move(entities_collector_->get_service_by_handle(event.entity)));
         }
-        break;
+      break;
 
-      case rcpputils::CLIENT_EVENT:
+      case CLIENT_EVENT:
         {
           execute_client(std::move(entities_collector_->get_client_by_handle(event.entity)));
         }
-        break;
-      }
+      break;
 
-      local_event_queue.pop();
-    }
+      }
+    } while (!event_queue.empty());
   }
 }
