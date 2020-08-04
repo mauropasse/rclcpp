@@ -256,8 +256,7 @@ private:
     this_exec->event_queue.push(event);
 
     // Notify that the event queue has some events in it.
-    lock.unlock();
-    this_exec->cond_var_q_.notify_one();
+    this_exec->cond_var_q_.notify_all();
   }
 
   // Event queue
