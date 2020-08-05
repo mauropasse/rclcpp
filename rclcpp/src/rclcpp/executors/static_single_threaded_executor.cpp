@@ -147,38 +147,47 @@ StaticSingleThreadedExecutor::execute_events()
 {
   auto predicate = [this]() { return !event_queue.empty(); };
 
+  std::queue<EventQ> local_event_queue;
+
   while(spinning.load())
   {
-    // Wait until an event has been pushed to the queue.
-    std::unique_lock<std::mutex> lock(mutex_q_);
-    cond_var_q_.wait(lock, predicate);
+    // Scope block for the mutex
+    {
+      // We wait here until something has been pushed to the event queue
+      std::unique_lock<std::mutex> lock(mutex_q_);
+      cond_var_q_.wait(lock, predicate);
 
+      // Swap queues
+      swap(local_event_queue, event_queue);
+    }
+
+    // Execute events
     do {
-      EventQ event = event_queue.front();
+      EventQ event = local_event_queue.front();
 
-      event_queue.pop();
+      local_event_queue.pop();
 
       switch(event.type)
       {
       case SUBSCRIPTION_EVENT:
         {
           execute_subscription(std::move(entities_collector_->get_subscription_by_handle(event.entity)));
+          break;
         }
-      break;
 
       case SERVICE_EVENT:
         {
           execute_service(std::move(entities_collector_->get_service_by_handle(event.entity)));
+          break;
         }
-      break;
 
       case CLIENT_EVENT:
         {
           execute_client(std::move(entities_collector_->get_client_by_handle(event.entity)));
+          break;
         }
-      break;
 
       }
-    } while (!event_queue.empty());
+    } while (!local_event_queue.empty());
   }
 }

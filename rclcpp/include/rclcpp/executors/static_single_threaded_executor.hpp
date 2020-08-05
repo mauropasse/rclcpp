@@ -251,12 +251,13 @@ private:
   {
     auto this_exec = static_cast<executors::StaticSingleThreadedExecutor*>(exec_context);
 
-    std::unique_lock<std::mutex> lock(this_exec->mutex_q_);
-
-    this_exec->event_queue.push(event);
+    {
+      std::unique_lock<std::mutex> lock(this_exec->mutex_q_);
+      this_exec->event_queue.push(event);
+    }
 
     // Notify that the event queue has some events in it.
-    this_exec->cond_var_q_.notify_all();
+    this_exec->cond_var_q_.notify_one();
   }
 
   // Event queue
