@@ -36,6 +36,8 @@
 #include "rclcpp/utilities.hpp"
 #include "rclcpp/visibility_control.hpp"
 
+using namespace std::chrono_literals;
+
 namespace rclcpp
 {
 namespace executors
@@ -247,21 +249,14 @@ private:
 
   // Executor callback: Push new events into the queue and trigger cv.
   static void
-  push_event(void * exec_context, EventQ event)
-  {
-    auto this_exec = static_cast<executors::StaticSingleThreadedExecutor*>(exec_context);
-
-    {
-      std::unique_lock<std::mutex> lock(this_exec->mutex_q_);
-      this_exec->event_queue.push(event);
-    }
-
-    // Notify that the event queue has some events in it.
-    this_exec->cond_var_q_.notify_one();
-  }
+  push_event(void * exec_context, EventQ event);
 
   // Event queue
-  std::queue<EventQ> event_queue;
+  typedef std::chrono::time_point<std::chrono::high_resolution_clock> TimePoint;
+
+  std::queue<std::pair<TimePoint, EventQ>> event_queue;
+
+  std::chrono::duration<double, std::micro> max_elapsed = 0ms;
 
   // Event queue mutex and condition variable
   std::mutex mutex_q_;

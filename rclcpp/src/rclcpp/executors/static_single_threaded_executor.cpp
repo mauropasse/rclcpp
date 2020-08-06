@@ -53,6 +53,14 @@ StaticSingleThreadedExecutor::spin()
     execute_ready_executables();
   }
 
+  // Print max elapsed time between push/pop into the queue
+  // during the whole benchmark
+  static std::mutex mutex_qq_;
+  {
+    std::unique_lock<std::mutex> lock(mutex_qq_);
+    std::cout << "Max: '" << max_elapsed.count() << "' us" << std::endl;
+  }
+
   t_exec_events.join();
 }
 
@@ -147,7 +155,8 @@ StaticSingleThreadedExecutor::execute_events()
 {
   auto predicate = [this]() { return !event_queue.empty(); };
 
-  std::queue<EventQ> local_event_queue;
+  // std::queue<EventQ> local_event_queue;
+  std::queue<std::pair<TimePoint, EventQ>> local_event_queue;
 
   while(spinning.load())
   {
@@ -163,31 +172,58 @@ StaticSingleThreadedExecutor::execute_events()
 
     // Execute events
     do {
-      EventQ event = local_event_queue.front();
+      //EventQ event = local_event_queue.front();
+      auto event = local_event_queue.front();
+
+      // Compute delta time between push/pop to queue
+      auto now = std::chrono::high_resolution_clock::now();
+
+      // Store delta if bigger than the maximum historic
+      if((now - event.first) > max_elapsed) {
+        max_elapsed = (now - event.first);
+      }
 
       local_event_queue.pop();
 
-      switch(event.type)
+      switch(event.second.type)
       {
       case SUBSCRIPTION_EVENT:
         {
-          execute_subscription(std::move(entities_collector_->get_subscription_by_handle(event.entity)));
+          execute_subscription(std::move(entities_collector_->get_subscription_by_handle(event.second.entity)));
           break;
         }
 
       case SERVICE_EVENT:
         {
-          execute_service(std::move(entities_collector_->get_service_by_handle(event.entity)));
+          execute_service(std::move(entities_collector_->get_service_by_handle(event.second.entity)));
           break;
         }
 
       case CLIENT_EVENT:
         {
-          execute_client(std::move(entities_collector_->get_client_by_handle(event.entity)));
+          execute_client(std::move(entities_collector_->get_client_by_handle(event.second.entity)));
           break;
         }
 
       }
     } while (!local_event_queue.empty());
   }
+}
+
+// Executor callback: Push new events into the queue and trigger cv.
+void
+StaticSingleThreadedExecutor::push_event(void * exec_context, EventQ event)
+{
+  auto this_exec = static_cast<executors::StaticSingleThreadedExecutor*>(exec_context);
+
+  {
+    std::unique_lock<std::mutex> lock(this_exec->mutex_q_);
+
+    auto timestamp = std::chrono::high_resolution_clock::now();
+
+    this_exec->event_queue.push({timestamp, event});
+  }
+
+  // Notify that the event queue has some events in it.
+  this_exec->cond_var_q_.notify_one();
 }
