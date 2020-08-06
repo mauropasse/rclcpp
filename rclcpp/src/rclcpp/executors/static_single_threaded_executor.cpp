@@ -48,8 +48,8 @@ StaticSingleThreadedExecutor::spin()
   pthread_setname_np(t_exec_events.native_handle(), "execute_events_thread");
 
   while (rclcpp::ok(this->context_) && spinning.load()) {
-    entities_collector_->refresh_wait_set();
     // Refresh wait set and wait for work
+    entities_collector_->refresh_wait_set();
     execute_ready_executables();
   }
 
