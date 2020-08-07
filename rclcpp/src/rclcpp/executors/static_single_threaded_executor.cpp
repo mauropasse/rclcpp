@@ -15,6 +15,7 @@
 #include "rclcpp/executors/static_single_threaded_executor.hpp"
 
 #include <memory>
+#include <iomanip>
 
 #include "rclcpp/scope_exit.hpp"
 
@@ -55,10 +56,14 @@ StaticSingleThreadedExecutor::spin()
 
   // Print max elapsed time between push/pop into the queue
   // during the whole benchmark
-  static std::mutex mutex_qq_;
+  static std::mutex mutex_executor_;
   {
-    std::unique_lock<std::mutex> lock(mutex_qq_);
-    std::cout << "Max: '" << max_elapsed.count() << "' us" << std::endl;
+    std::unique_lock<std::mutex> lock(mutex_executor_);
+    std::cout << "Event queue push/pop [min, max, avg] us = "
+              << std::setw(8) << min_elapsed.count() << ", "
+              << std::setw(8) << max_elapsed.count() << ", "
+              << std::setw(8) << (total_elapsed.count() / num_pops)
+              << std::endl;
   }
 
   t_exec_events.join();
@@ -153,6 +158,7 @@ StaticSingleThreadedExecutor::execute_ready_executables()
 void
 StaticSingleThreadedExecutor::execute_events()
 {
+  // When condition variable is notified, check this predicate to proceed
   auto predicate = [this]() { return !event_queue.empty(); };
 
   // std::queue<EventQ> local_event_queue;
@@ -178,10 +184,21 @@ StaticSingleThreadedExecutor::execute_events()
       // Compute delta time between push/pop to queue
       auto now = std::chrono::high_resolution_clock::now();
 
-      // Store delta if bigger than the maximum historic
-      if((now - event.first) > max_elapsed) {
-        max_elapsed = (now - event.first);
+      auto push_pop_elapsed_time = now - event.first;
+
+      // Store max push/pop elapsed time
+      if(push_pop_elapsed_time > max_elapsed) {
+        max_elapsed = push_pop_elapsed_time;
       }
+
+      // Store min push/pop elapsed time
+      if(push_pop_elapsed_time < min_elapsed) {
+        min_elapsed = push_pop_elapsed_time;
+      }
+
+      // Store total push/pop elapsed time
+      total_elapsed += push_pop_elapsed_time;
+      num_pops++;
 
       local_event_queue.pop();
 

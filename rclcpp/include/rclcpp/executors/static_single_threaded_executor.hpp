@@ -257,6 +257,11 @@ private:
   std::queue<std::pair<TimePoint, EventQ>> event_queue;
 
   std::chrono::duration<double, std::micro> max_elapsed = 0ms;
+  std::chrono::duration<double, std::micro> min_elapsed = 10s;
+  std::chrono::duration<double, std::micro> total_elapsed = 0us;
+
+  // Amount of pops from queue to compute average latency
+  uint64_t num_pops = 0;
 
   // Event queue mutex and condition variable
   std::mutex mutex_q_;
