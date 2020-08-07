@@ -226,21 +226,3 @@ StaticSingleThreadedExecutor::execute_events()
     } while (!local_event_queue.empty());
   }
 }
-
-// Executor callback: Push new events into the queue and trigger cv.
-void
-StaticSingleThreadedExecutor::push_event(void * exec_context, EventQ event)
-{
-  auto this_exec = static_cast<executors::StaticSingleThreadedExecutor*>(exec_context);
-
-  {
-    std::unique_lock<std::mutex> lock(this_exec->mutex_q_);
-
-    auto timestamp = std::chrono::high_resolution_clock::now();
-
-    this_exec->event_queue.push({timestamp, event});
-  }
-
-  // Notify that the event queue has some events in it.
-  this_exec->cond_var_q_.notify_one();
-}
