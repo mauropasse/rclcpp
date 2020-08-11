@@ -64,6 +64,9 @@ StaticSingleThreadedExecutor::spin()
               << std::setw(8) << max_elapsed.count() << ", "
               << std::setw(8) << (total_elapsed.count() / num_pops)
               << std::endl;
+
+    std::cout << "Execute subscriptions max time = " << sub_max_time.count()
+              << " us" << std::endl;
   }
 
   t_exec_events.join();
@@ -206,7 +209,18 @@ StaticSingleThreadedExecutor::execute_events()
       {
       case SUBSCRIPTION_EVENT:
         {
+          auto now = std::chrono::high_resolution_clock::now();
+
           execute_subscription(std::move(entities_collector_->get_subscription_by_handle(event.second.entity)));
+
+          auto then = std::chrono::high_resolution_clock::now();
+
+          auto sub_elapsed_time = then - now;
+
+          if(sub_elapsed_time > sub_max_time){
+            sub_max_time = sub_elapsed_time;
+          }
+
           break;
         }
 

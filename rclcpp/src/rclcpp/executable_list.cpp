@@ -63,6 +63,7 @@ ExecutableList::get_subscription(void * subscription_handler)
       return sub;
     }
   }
+  throw std::runtime_error("Couldn't get subscription!");
   return nullptr;
 }
 

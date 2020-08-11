@@ -277,6 +277,9 @@ private:
   // Amount of pops from queue to compute average latency
   uint64_t num_pops = 0;
 
+  // Subscription execution time
+  std::chrono::duration<double, std::micro> sub_max_time = 0ms;
+
   // Event queue mutex and condition variable
   std::mutex mutex_q_;
   std::condition_variable cond_var_q_;
