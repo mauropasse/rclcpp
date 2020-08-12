@@ -45,7 +45,8 @@ StaticExecutorEntitiesCollector::init(
   rclcpp::memory_strategy::MemoryStrategy::SharedPtr & memory_strategy,
   rcl_guard_condition_t * executor_guard_condition,
   void * context,
-  Event_callback cb)
+  Event_callback cb,
+  std::mutex * exec_list_mutex)
 {
   // Empty initialize executable list
   exec_list_ = rclcpp::experimental::ExecutableList();
@@ -65,6 +66,9 @@ StaticExecutorEntitiesCollector::init(
 
   // Set executor callback to push events into the event queue
   event_cb_ = cb;
+
+  // Init executable list mutex
+  exec_list_mutex_ = exec_list_mutex;
 
   // Get memory strategy and executable list. Prepare wait_set_
   execute();
@@ -107,6 +111,10 @@ StaticExecutorEntitiesCollector::fill_memory_strategy()
 void
 StaticExecutorEntitiesCollector::fill_executable_list()
 {
+  // Mutex to avoid clearing the executable list
+  // if we are in the middle of processing the event queue
+  std::unique_lock<std::mutex> lk(*exec_list_mutex_);
+
   exec_list_.clear();
 
   for (auto & weak_node : weak_nodes_) {
@@ -193,16 +201,11 @@ StaticExecutorEntitiesCollector::prepare_wait_set()
     throw std::runtime_error("Couldn't fill wait set");
   }
 
-  rcl_ret_t status =
-    rcl_wait(p_wait_set_, -1);
+  ret = rcl_attach_event_hook(p_wait_set_);
 
-  if (status == RCL_RET_WAIT_SET_EMPTY) {
-    RCUTILS_LOG_WARN_NAMED(
-      "rclcpp",
-      "empty wait set received in rcl_wait(). This should never happen.");
-  } else if (status != RCL_RET_OK && status != RCL_RET_TIMEOUT) {
+  if (ret != RCL_RET_OK) {
     using rclcpp::exceptions::throw_from_rcl_error;
-    throw_from_rcl_error(status, "rcl_wait() failed");
+    throw_from_rcl_error(ret, "rcl_attach_event_hook() failed");
   }
 }
 

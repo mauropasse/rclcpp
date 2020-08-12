@@ -167,7 +167,13 @@ public:
     }
     std::chrono::nanoseconds timeout_left = timeout_ns;
 
-    entities_collector_->init(&wait_set_, memory_strategy_, &interrupt_guard_condition_, this, &this->push_event);
+    entities_collector_->init(
+      &wait_set_,
+      memory_strategy_,
+      &interrupt_guard_condition_,
+      this,
+      &this->push_event,
+      &m_exec_list_mutex_);
 
     while (rclcpp::ok(this->context_)) {
       // Do one set of work.
@@ -283,6 +289,9 @@ private:
   // Event queue mutex and condition variable
   std::mutex mutex_q_;
   std::condition_variable cond_var_q_;
+
+  // Executable list mutex
+  std::mutex m_exec_list_mutex_;
 };
 
 }  // namespace executors

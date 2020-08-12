@@ -41,8 +41,13 @@ StaticSingleThreadedExecutor::spin()
 
   // Set memory_strategy_ and exec_list_ based on weak_nodes_
   // Prepare wait_set_ based on memory_strategy_
-  entities_collector_->init(&wait_set_, memory_strategy_, &interrupt_guard_condition_,
-                            this, &StaticSingleThreadedExecutor::push_event);
+  entities_collector_->init(
+    &wait_set_,
+    memory_strategy_,
+    &interrupt_guard_condition_,
+    this,
+    &StaticSingleThreadedExecutor::push_event,
+    &m_exec_list_mutex_);
 
   std::thread t_exec_events(&StaticSingleThreadedExecutor::execute_events, this);
 
@@ -63,10 +68,10 @@ StaticSingleThreadedExecutor::spin()
               << std::setw(8) << min_elapsed.count() << ", "
               << std::setw(8) << max_elapsed.count() << ", "
               << std::setw(8) << (total_elapsed.count() / num_pops)
-              << std::endl;
+              << "\n";
 
-    std::cout << "Execute subscriptions max time = " << sub_max_time.count()
-              << " us" << std::endl;
+    std::cout << "Execute subscriptions max time us = " << sub_max_time.count()
+              << std::endl;
   }
 
   t_exec_events.join();
@@ -134,22 +139,7 @@ StaticSingleThreadedExecutor::execute_ready_executables()
       }
     }
   }
-  // Execute all the ready services
-  // for (size_t i = 0; i < wait_set_.size_of_services; ++i) {
-  //   if (i < entities_collector_->get_number_of_services()) {
-  //     if (wait_set_.services[i]) {
-  //       execute_service(entities_collector_->get_service(i));
-  //     }
-  //   }
-  // }
-  // Execute all the ready clients
-  // for (size_t i = 0; i < wait_set_.size_of_clients; ++i) {
-  //   if (i < entities_collector_->get_number_of_clients()) {
-  //     if (wait_set_.clients[i]) {
-  //       execute_client(entities_collector_->get_client(i));
-  //     }
-  //   }
-  // }
+
   // Execute all the ready waitables
   for (size_t i = 0; i < entities_collector_->get_number_of_waitables(); ++i) {
     if (entities_collector_->get_waitable(i)->is_ready(&wait_set_)) {
@@ -178,6 +168,10 @@ StaticSingleThreadedExecutor::execute_events()
       // Swap queues
       swap(local_event_queue, event_queue);
     }
+
+    // Mutex to protect the executable list from being
+    // cleared while we still have events to process
+    std::unique_lock<std::mutex> lock(m_exec_list_mutex_);
 
     // Execute events
     do {

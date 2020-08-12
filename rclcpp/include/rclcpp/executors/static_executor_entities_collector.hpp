@@ -61,7 +61,8 @@ public:
     rcl_wait_set_t * p_wait_set,
     rclcpp::memory_strategy::MemoryStrategy::SharedPtr & memory_strategy,
     rcl_guard_condition_t * executor_guard_condition,
-    void * context, Event_callback cb);
+    void * context, Event_callback cb,
+    std::mutex * exec_list_mutex);
 
   RCLCPP_PUBLIC
   void
@@ -250,6 +251,9 @@ private:
 
   /// Event callback: push new events to queue
   Event_callback event_cb_;
+
+  /// Mutex to protect the executable list
+  std::mutex * exec_list_mutex_;
 };
 
 }  // namespace executors
