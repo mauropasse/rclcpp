@@ -201,11 +201,11 @@ StaticExecutorEntitiesCollector::prepare_wait_set()
     throw std::runtime_error("Couldn't fill wait set");
   }
 
-  ret = rcl_attach_event_hook(p_wait_set_);
+  ret = rcl_init_waitset(p_wait_set_);
 
   if (ret != RCL_RET_OK) {
     using rclcpp::exceptions::throw_from_rcl_error;
-    throw_from_rcl_error(ret, "rcl_attach_event_hook() failed");
+    throw_from_rcl_error(ret, "rcl_init_waitset() failed");
   }
 }
 
