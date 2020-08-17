@@ -89,6 +89,7 @@ public:
     service_hooks_.clear();
     client_handles_.clear();
     client_hooks_.clear();
+    guard_condition_hooks_.clear();
     timer_handles_.clear();
     waitable_handles_.clear();
   }
@@ -197,6 +198,17 @@ public:
           });
       }
     }
+    // Add guard conditions event hooks.
+    // These guard conditions are part of the memory strategy, but not part of any waitable.
+    // These guard condtiions are not used by the current executors more that for interrupting
+    // the rcl_wait and do nothing when it happens.
+    // My proposal: All used guard conditions should belong to waitables, so the ros2 handle for
+    // the event queue is the waitable handle, not the guard condition.
+    // If we take that approach, the code below won't be needed anymore because it'll be done
+    // by the waitables apis.
+    for (auto it = guard_conditions_.begin(); it != guard_conditions_.end(); ++it) {
+      guard_condition_hooks_.push_back({exec_context, static_cast<void *>(&*it), cb});
+    }
     return has_invalid_weak_nodes;
   }
 
@@ -276,13 +288,22 @@ public:
       }
     }
 
-    for (auto guard_condition : guard_conditions_) {
-      if (rcl_wait_set_add_guard_condition(wait_set, guard_condition, NULL) != RCL_RET_OK) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add guard_condition to wait set: %s",
-          rcl_get_error_string().str);
-        return false;
+    auto it_gc = guard_conditions_.begin();
+    auto it_gc_hook = guard_condition_hooks_.begin();
+
+    while(it_gc != guard_conditions_.end() || it_gc_hook != guard_condition_hooks_.end())
+    {
+      if(it_gc != guard_conditions_.end() && it_gc_hook != guard_condition_hooks_.end())
+      {
+        if (rcl_wait_set_add_guard_condition(wait_set, (*it_gc), static_cast<void *>(&*it_gc_hook), NULL) != RCL_RET_OK) {
+          RCUTILS_LOG_ERROR_NAMED(
+            "rclcpp",
+            "Couldn't add service to wait set: %s", rcl_get_error_string().str);
+          return false;
+        }
+
+        it_gc++;
+        it_gc_hook++;
       }
     }
 
@@ -346,24 +367,24 @@ public:
       }
     }
 
-    for (auto guard_condition : guard_conditions_) {
-      if (rcl_wait_set_add_guard_condition(wait_set, guard_condition, NULL) != RCL_RET_OK) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add guard_condition to wait set: %s",
-          rcl_get_error_string().str);
-        return false;
-      }
-    }
+    // for (auto guard_condition : guard_conditions_) {
+    //   if (rcl_wait_set_add_guard_condition(wait_set, guard_condition, NULL) != RCL_RET_OK) {
+    //     RCUTILS_LOG_ERROR_NAMED(
+    //       "rclcpp",
+    //       "Couldn't add guard_condition to wait set: %s",
+    //       rcl_get_error_string().str);
+    //     return false;
+    //   }
+    // }
 
-    for (auto waitable : waitable_handles_) {
-      if (!waitable->add_to_wait_set(wait_set)) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add waitable to wait set: %s", rcl_get_error_string().str);
-        return false;
-      }
-    }
+    // for (auto waitable : waitable_handles_) {
+    //   if (!waitable->add_to_wait_set(wait_set)) {
+    //     RCUTILS_LOG_ERROR_NAMED(
+    //       "rclcpp",
+    //       "Couldn't add waitable to wait set: %s", rcl_get_error_string().str);
+    //     return false;
+    //   }
+    // }
     return true;
   }
 
@@ -613,6 +634,7 @@ private:
   std::vector<EventHook> subscription_hooks_;
   std::vector<EventHook> service_hooks_;
   std::vector<EventHook> client_hooks_;
+  std::vector<EventHook> guard_condition_hooks_;
   VectorRebind<std::shared_ptr<const rcl_subscription_t>> subscription_handles_;
   VectorRebind<std::shared_ptr<const rcl_service_t>> service_handles_;
   VectorRebind<std::shared_ptr<const rcl_client_t>> client_handles_;

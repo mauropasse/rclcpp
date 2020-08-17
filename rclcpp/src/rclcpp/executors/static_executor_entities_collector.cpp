@@ -67,6 +67,12 @@ StaticExecutorEntitiesCollector::init(
   // Set executor callback to push events into the event queue
   event_cb_ = cb;
 
+  // Init even hook
+  // The event hook handler is the waitabe pointer (this)
+  // So if any guard condition attached to this waitable is triggered,
+  // we execute the waitable
+  event_hook = {context_, static_cast<void *>(this), event_cb_};
+
   // Init executable list mutex
   exec_list_mutex_ = exec_list_mutex;
 
@@ -237,8 +243,8 @@ bool
 StaticExecutorEntitiesCollector::add_to_wait_set(rcl_wait_set_t * wait_set)
 {
   // Add waitable guard conditions (one for each registered node) into the wait set.
-  for (const auto & gc : guard_conditions_) {
-    rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, gc, NULL);
+  for (auto & gc : guard_conditions_) {
+    rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, gc, static_cast<void*>(&event_hook), NULL);
     if (ret != RCL_RET_OK) {
       throw std::runtime_error("Executor waitable: couldn't add guard condition to wait set");
     }

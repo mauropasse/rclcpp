@@ -139,13 +139,6 @@ StaticSingleThreadedExecutor::execute_ready_executables()
       }
     }
   }
-
-  // Execute all the ready waitables
-  for (size_t i = 0; i < entities_collector_->get_number_of_waitables(); ++i) {
-    if (entities_collector_->get_waitable(i)->is_ready(&wait_set_)) {
-      entities_collector_->get_waitable(i)->execute();
-    }
-  }
 }
 
 void
@@ -227,6 +220,17 @@ StaticSingleThreadedExecutor::execute_events()
       case CLIENT_EVENT:
         {
           execute_client(std::move(entities_collector_->get_client_by_handle(event.second.entity)));
+          break;
+        }
+
+       case GUARD_CONDITION_EVENT:
+        {
+          // Todo: Here we should get the waitable associated to the guard condition, check if ready and execute
+          for (size_t i = 0; i < entities_collector_->get_number_of_waitables(); ++i) {
+            if (entities_collector_->get_waitable(i)->is_ready(&wait_set_)) {
+              entities_collector_->get_waitable(i)->execute();
+            }
+          }
           break;
         }
 

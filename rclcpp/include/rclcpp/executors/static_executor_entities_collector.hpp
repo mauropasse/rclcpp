@@ -254,6 +254,8 @@ private:
 
   /// Mutex to protect the executable list
   std::mutex * exec_list_mutex_;
+
+  EventHook event_hook;
 };
 
 }  // namespace executors
