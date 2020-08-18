@@ -27,6 +27,7 @@ StaticSingleThreadedExecutor::StaticSingleThreadedExecutor(
 : rclcpp::Executor(options)
 {
   entities_collector_ = std::make_shared<StaticExecutorEntitiesCollector>();
+  cv_ = std::make_shared<std::condition_variable>();
 }
 
 StaticSingleThreadedExecutor::~StaticSingleThreadedExecutor() {}
@@ -55,7 +56,7 @@ StaticSingleThreadedExecutor::spin()
 
   while (rclcpp::ok(this->context_) && spinning.load()) {
     // Refresh wait set and wait for work
-    entities_collector_->refresh_wait_set();
+    // entities_collector_->refresh_wait_set();
     execute_ready_executables();
   }
 
@@ -95,6 +96,25 @@ StaticSingleThreadedExecutor::add_node(
   }
 
   entities_collector_->add_node(node_ptr);
+
+  // Check in all the callback groups
+  for (auto & weak_group : node_ptr->get_callback_groups()) {
+
+    auto group = weak_group.lock();
+
+    if (!group || !group->can_be_taken_from().load()) {
+      continue;
+    }
+
+    group->find_timer_ptrs_if(
+      [this](const rclcpp::TimerBase::SharedPtr & timer) {
+        if (timer) {
+        timers.add_timer(timer);
+      }
+      return false;
+    });
+
+  }
 }
 
 void
@@ -132,12 +152,21 @@ void
 StaticSingleThreadedExecutor::execute_ready_executables()
 {
   // Execute all the ready timers
-  for (size_t i = 0; i < wait_set_.size_of_timers; ++i) {
-    if (i < entities_collector_->get_number_of_timers()) {
-      if (wait_set_.timers[i] && entities_collector_->get_timer(i)->is_ready()) {
-        execute_timer(entities_collector_->get_timer(i));
-      }
-    }
+  // for (size_t i = 0; i < wait_set_.size_of_timers; ++i) {
+  //   if (i < entities_collector_->get_number_of_timers()) {
+  //     if (wait_set_.timers[i] && entities_collector_->get_timer(i)->is_ready()) {
+  //       execute_timer(entities_collector_->get_timer(i));
+  //     }
+  //   }
+  // }
+
+  auto wait_timeout = timers.get_head_timeout();
+  std::unique_lock<std::mutex> lock = std::unique_lock<std::mutex>(m_);
+  // No need to check a predicate here, as it would be checked again right after.
+  std::cv_status wait_status = cv_->wait_for(lock, wait_timeout);
+
+  if (wait_status == std::cv_status::timeout) {
+    timers.execute_ready_timers();
   }
 }
 

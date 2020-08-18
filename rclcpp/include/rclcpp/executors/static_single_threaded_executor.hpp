@@ -16,6 +16,7 @@
 #define RCLCPP__EXECUTORS__STATIC_SINGLE_THREADED_EXECUTOR_HPP_
 
 #include <cassert>
+#include <condition_variable>
 #include <cstdlib>
 #include <memory>
 #include <vector>
@@ -28,6 +29,7 @@
 
 #include "rclcpp/executor.hpp"
 #include "rclcpp/executors/static_executor_entities_collector.hpp"
+#include "rclcpp/executors/timers_heap.hpp"
 #include "rclcpp/experimental/executable_list.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp/memory_strategies.hpp"
@@ -277,7 +279,7 @@ private:
   std::queue<std::pair<TimePoint, EventQ>> event_queue;
 
   std::chrono::duration<double, std::micro> max_elapsed = 0ms;
-  std::chrono::duration<double, std::micro> min_elapsed = 10s;
+  std::chrono::duration<double, std::micro> min_elapsed = std::chrono::microseconds::max();
   std::chrono::duration<double, std::micro> total_elapsed = 0us;
 
   // Amount of pops from queue to compute average latency
@@ -292,6 +294,11 @@ private:
 
   // Executable list mutex
   std::mutex m_exec_list_mutex_;
+
+  // Timers heap members
+  TimersHeap<30> timers;
+  std::shared_ptr<std::condition_variable> cv_;
+  std::mutex m_;
 };
 
 }  // namespace executors
