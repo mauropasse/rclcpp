@@ -278,15 +278,32 @@ private:
 
   std::queue<std::pair<TimePoint, EventQ>> event_queue;
 
-  std::chrono::duration<double, std::micro> max_elapsed = 0ms;
-  std::chrono::duration<double, std::micro> min_elapsed = std::chrono::microseconds::max();
-  std::chrono::duration<double, std::micro> total_elapsed = 0us;
+  TimePoint last_update = std::chrono::high_resolution_clock::now();
+
+  std::chrono::duration<double, std::micro> pp_max_elapsed = 0us;
+  std::chrono::duration<double, std::micro> pp_min_elapsed = std::chrono::microseconds::max();
+  std::chrono::duration<double, std::micro> pp_total_elapsed = 0us;
 
   // Amount of pops from queue to compute average latency
-  uint64_t num_pops = 0;
+  double num_pops = 0;
 
   // Subscription execution time
-  std::chrono::duration<double, std::micro> sub_max_time = 0ms;
+  std::chrono::duration<double, std::micro> s_max_elapsed = 0us;
+  std::chrono::duration<double, std::micro> s_min_elapsed = std::chrono::microseconds::max();
+  std::chrono::duration<double, std::micro> s_total_elapsed = 0us;
+
+  // Amount of subscriptions executed to compute average latency
+  double exec_sub_count = 0;
+
+  // Event queue execution time
+  std::chrono::duration<double, std::micro> eq_max_elapsed = 0us;
+  std::chrono::duration<double, std::micro> eq_min_elapsed = std::chrono::microseconds::max();
+  std::chrono::duration<double, std::micro> eq_total_elapsed = 0us;
+
+  // Amount of events executed to compute average latency
+  double eq_exec_count = 0;
+  double eq_max_size = 0;
+  double eq_size_total_count = 0;
 
   // Event queue mutex and condition variable
   std::mutex mutex_q_;

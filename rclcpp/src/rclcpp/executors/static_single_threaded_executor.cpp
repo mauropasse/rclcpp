@@ -52,27 +52,12 @@ StaticSingleThreadedExecutor::spin()
 
   std::thread t_exec_events(&StaticSingleThreadedExecutor::execute_events, this);
 
-  pthread_setname_np(t_exec_events.native_handle(), "execute_events_thread");
+  pthread_setname_np(t_exec_events.native_handle(), "E_Q");
 
   while (rclcpp::ok(this->context_) && spinning.load()) {
     // Refresh wait set and wait for work
     // entities_collector_->refresh_wait_set();
     execute_ready_executables();
-  }
-
-  // Print max elapsed time between push/pop into the queue
-  // during the whole benchmark
-  static std::mutex mutex_executor_;
-  {
-    std::unique_lock<std::mutex> lock(mutex_executor_);
-    std::cout << "Event queue push/pop [min, max, avg] us = "
-              << std::setw(8) << min_elapsed.count() << ", "
-              << std::setw(8) << max_elapsed.count() << ", "
-              << std::setw(8) << (total_elapsed.count() / num_pops)
-              << "\n";
-
-    std::cout << "Execute subscriptions max time us = " << sub_max_time.count()
-              << std::endl;
   }
 
   t_exec_events.join();
@@ -151,30 +136,26 @@ StaticSingleThreadedExecutor::remove_node(std::shared_ptr<rclcpp::Node> node_ptr
 void
 StaticSingleThreadedExecutor::execute_ready_executables()
 {
-  // Execute all the ready timers
-  // for (size_t i = 0; i < wait_set_.size_of_timers; ++i) {
-  //   if (i < entities_collector_->get_number_of_timers()) {
-  //     if (wait_set_.timers[i] && entities_collector_->get_timer(i)->is_ready()) {
-  //       execute_timer(entities_collector_->get_timer(i));
-  //     }
-  //   }
-  // }
-
   auto wait_timeout = timers.get_head_timeout();
-  std::unique_lock<std::mutex> lock = std::unique_lock<std::mutex>(m_);
-  // No need to check a predicate here, as it would be checked again right after.
-  std::cv_status wait_status = cv_->wait_for(lock, wait_timeout);
 
-  if (wait_status == std::cv_status::timeout) {
-    timers.execute_ready_timers();
-  }
+  std::this_thread::sleep_for(wait_timeout);
+
+  //std::cout << "\n\nTimer" << std::endl;
+  timers.execute_ready_timers();
 }
 
 void
 StaticSingleThreadedExecutor::execute_events()
 {
   // When condition variable is notified, check this predicate to proceed
-  auto predicate = [this]() { return !event_queue.empty(); };
+  auto predicate = [this]() {
+    if(!event_queue.empty()) {
+      return true;
+    } else {
+      std::cout << "Spurious wakeup!!!" << std::endl;
+    }
+    return false;
+  };
 
   // std::queue<EventQ> local_event_queue;
   std::queue<std::pair<TimePoint, EventQ>> local_event_queue;
@@ -195,6 +176,16 @@ StaticSingleThreadedExecutor::execute_events()
     // cleared while we still have events to process
     std::unique_lock<std::mutex> lock(m_exec_list_mutex_);
 
+    // Timestamp to compute total time of execution of events
+    auto eq_t0 = std::chrono::high_resolution_clock::now();
+
+    // Get stats of amount of elements in the queue
+    eq_size_total_count += local_event_queue.size();
+
+    if(local_event_queue.size() > eq_max_size) {
+      eq_max_size = local_event_queue.size();
+    }
+
     // Execute events
     do {
       //EventQ event = local_event_queue.front();
@@ -206,17 +197,17 @@ StaticSingleThreadedExecutor::execute_events()
       auto push_pop_elapsed_time = now - event.first;
 
       // Store max push/pop elapsed time
-      if(push_pop_elapsed_time > max_elapsed) {
-        max_elapsed = push_pop_elapsed_time;
+      if(push_pop_elapsed_time > pp_max_elapsed) {
+        pp_max_elapsed = push_pop_elapsed_time;
       }
 
       // Store min push/pop elapsed time
-      if(push_pop_elapsed_time < min_elapsed) {
-        min_elapsed = push_pop_elapsed_time;
+      if(push_pop_elapsed_time < pp_min_elapsed) {
+        pp_min_elapsed = push_pop_elapsed_time;
       }
 
       // Store total push/pop elapsed time
-      total_elapsed += push_pop_elapsed_time;
+      pp_total_elapsed += push_pop_elapsed_time;
       num_pops++;
 
       local_event_queue.pop();
@@ -225,17 +216,26 @@ StaticSingleThreadedExecutor::execute_events()
       {
       case SUBSCRIPTION_EVENT:
         {
-          auto now = std::chrono::high_resolution_clock::now();
+          auto t0 = std::chrono::high_resolution_clock::now();
 
           execute_subscription(std::move(entities_collector_->get_subscription_by_handle(event.second.entity)));
 
-          auto then = std::chrono::high_resolution_clock::now();
+          auto t1 = std::chrono::high_resolution_clock::now();
 
-          auto sub_elapsed_time = then - now;
+          auto sub_execution_time = t1 - t0;
 
-          if(sub_elapsed_time > sub_max_time){
-            sub_max_time = sub_elapsed_time;
+          // Store max execute subscription time
+          if(sub_execution_time > s_max_elapsed){
+            s_max_elapsed = sub_execution_time;
           }
+
+          // Store min execute subscription time
+          if(sub_execution_time < s_min_elapsed){
+            s_min_elapsed = sub_execution_time;
+          }
+
+          s_total_elapsed += sub_execution_time;
+          exec_sub_count++;
 
           break;
         }
@@ -265,5 +265,90 @@ StaticSingleThreadedExecutor::execute_events()
 
       }
     } while (!local_event_queue.empty());
+
+    auto eq_t1 = std::chrono::high_resolution_clock::now();
+
+    auto event_queue_execution_time = eq_t1 - eq_t0;
+
+    // Store max execute all events time
+    if(event_queue_execution_time > eq_max_elapsed){
+      eq_max_elapsed = event_queue_execution_time;
+    }
+
+    // Store min execute all events time
+    if(event_queue_execution_time < eq_min_elapsed){
+      eq_min_elapsed = event_queue_execution_time;
+    }
+
+    eq_total_elapsed += event_queue_execution_time;
+    eq_exec_count++;
+
+    // Each 10 seconds print max values
+    if((eq_t1 - last_update) > std::chrono::seconds(10))
+    {
+      static std::mutex mtx_;
+      static bool printed_ = false;
+      {
+        std::unique_lock<std::mutex> lock(mtx_);
+        last_update = eq_t1;
+
+        if(!printed_){
+        std::cout << std::setw(15) << "This"
+                  << std::setw(15) << "push/pop min"
+                  << std::setw(15) << "push/pop max"
+                  << std::setw(15) << "push/pop avg"
+                  << std::setw(15) << "exec ev min"
+                  << std::setw(15) << "exec ev max"
+                  << std::setw(15) << "exec ev avg"
+                  << std::setw(15) << "sub min t"
+                  << std::setw(15) << "sub max t"
+                  << std::setw(15) << "sub avg t"
+                  << std::setw(15) << "eq max size"
+                  << std::setw(15) << "eq avg size"
+                  << std::endl;
+          printed_ = true;
+        }
+
+        std::cout << std::setw(15) << this
+                  << std::setw(15) << pp_min_elapsed.count()
+                  << std::setw(15) << pp_max_elapsed.count()
+                  << std::setw(15) << (pp_total_elapsed.count() / num_pops)
+                  << std::setw(15) << eq_min_elapsed.count()
+                  << std::setw(15) << eq_max_elapsed.count()
+                  << std::setw(15) << (eq_total_elapsed.count() / eq_exec_count)
+                  << std::setw(15) << s_min_elapsed.count()
+                  << std::setw(15) << s_max_elapsed.count()
+                  << std::setw(15) << (s_total_elapsed.count() / exec_sub_count)
+                  << std::setw(15) << eq_max_size
+                  << std::setw(15) << (eq_size_total_count / eq_exec_count)
+                  << std::endl;
+
+        pp_max_elapsed = 0us;
+        pp_min_elapsed = std::chrono::microseconds::max();
+        pp_total_elapsed = 0us;
+
+        // Amount of pops from queue to compute average latency
+        num_pops = 0;
+
+        // Subscription execution time
+        s_max_elapsed = 0us;
+        s_min_elapsed = std::chrono::microseconds::max();
+        s_total_elapsed = 0us;
+
+        // Amount of subscriptions executed to compute average latency
+        exec_sub_count = 0;
+
+        // Event queue execution time
+        eq_max_elapsed = 0us;
+        eq_min_elapsed = std::chrono::microseconds::max();
+        eq_total_elapsed = 0us;
+
+        // Amount of events executed to compute average latency
+        eq_exec_count = 0;
+        eq_max_size = 0;
+        eq_size_total_count = 0;
+
+      }
+    }
   }
 }
