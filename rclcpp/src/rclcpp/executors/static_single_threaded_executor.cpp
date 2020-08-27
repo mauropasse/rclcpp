@@ -50,17 +50,26 @@ StaticSingleThreadedExecutor::spin()
     &StaticSingleThreadedExecutor::push_event,
     &m_exec_list_mutex_);
 
+  // ROS2 most efficient thread priorities based on ftraces:
+  // Timers > Listener > Event_queue
+
+  // Event queue thread: Set name and priority
   std::thread t_exec_events(&StaticSingleThreadedExecutor::execute_events, this);
-
   pthread_setname_np(t_exec_events.native_handle(), "E_Q");
+  sched_param param_event_queue;
+  param_event_queue.sched_priority = 1;
+  pthread_setschedparam(t_exec_events.native_handle(), SCHED_FIFO, &param_event_queue);
 
-  while (rclcpp::ok(this->context_) && spinning.load()) {
-    // Refresh wait set and wait for work
-    // entities_collector_->refresh_wait_set();
-    execute_ready_executables();
-  }
+  // Timers thread: Set name and priority
+  std::thread t_exec_timers(&StaticSingleThreadedExecutor::execute_ready_executables, this);
+  pthread_setname_np(t_exec_timers.native_handle(), "Timers");
+  sched_param param_timers;
+  param_timers.sched_priority = 3;
+  pthread_setschedparam(t_exec_timers.native_handle(), SCHED_FIFO, &param_timers);
+
 
   t_exec_events.join();
+  t_exec_timers.join();
 }
 
 void
@@ -136,12 +145,15 @@ StaticSingleThreadedExecutor::remove_node(std::shared_ptr<rclcpp::Node> node_ptr
 void
 StaticSingleThreadedExecutor::execute_ready_executables()
 {
-  auto wait_timeout = timers.get_head_timeout();
+  // Here we take care only of timers
+  while (rclcpp::ok(this->context_) && spinning.load()) {
 
-  std::this_thread::sleep_for(wait_timeout);
+    auto wait_timeout = timers.get_head_timeout();
 
-  //std::cout << "\n\nTimer" << std::endl;
-  timers.execute_ready_timers();
+    std::this_thread::sleep_for(wait_timeout);
+
+    timers.execute_ready_timers();
+  }
 }
 
 void
