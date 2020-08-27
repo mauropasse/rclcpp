@@ -264,9 +264,7 @@ private:
     {
       std::unique_lock<std::mutex> lock(this_exec->mutex_q_);
 
-      auto timestamp = std::chrono::high_resolution_clock::now();
-
-      this_exec->event_queue.push({timestamp, event});
+      this_exec->event_queue.push(event);
     }
 
     // Notify that the event queue has some events in it.
@@ -275,35 +273,7 @@ private:
 
   // Event queue
   typedef std::chrono::time_point<std::chrono::high_resolution_clock> TimePoint;
-
-  std::queue<std::pair<TimePoint, EventQ>> event_queue;
-
-  TimePoint last_update = std::chrono::high_resolution_clock::now();
-
-  std::chrono::duration<double, std::micro> pp_max_elapsed = 0us;
-  std::chrono::duration<double, std::micro> pp_min_elapsed = std::chrono::microseconds::max();
-  std::chrono::duration<double, std::micro> pp_total_elapsed = 0us;
-
-  // Amount of pops from queue to compute average latency
-  double num_pops = 0;
-
-  // Subscription execution time
-  std::chrono::duration<double, std::micro> s_max_elapsed = 0us;
-  std::chrono::duration<double, std::micro> s_min_elapsed = std::chrono::microseconds::max();
-  std::chrono::duration<double, std::micro> s_total_elapsed = 0us;
-
-  // Amount of subscriptions executed to compute average latency
-  double exec_sub_count = 0;
-
-  // Event queue execution time
-  std::chrono::duration<double, std::micro> eq_max_elapsed = 0us;
-  std::chrono::duration<double, std::micro> eq_min_elapsed = std::chrono::microseconds::max();
-  std::chrono::duration<double, std::micro> eq_total_elapsed = 0us;
-
-  // Amount of events executed to compute average latency
-  double eq_exec_count = 0;
-  double eq_max_size = 0;
-  double eq_size_total_count = 0;
+  std::queue<EventQ> event_queue;
 
   // Event queue mutex and condition variable
   std::mutex mutex_q_;
