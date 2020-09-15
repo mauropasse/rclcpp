@@ -209,13 +209,7 @@ StaticSingleThreadedExecutor::execute_events()
 
        case GUARD_CONDITION_EVENT:
         {
-          // Todo: Here we should get the waitable associated to the guard condition,
-          // check if ready (if necessary) and execute
-          for (size_t i = 0; i < entities_collector_->get_number_of_waitables(); ++i) {
-            if (entities_collector_->get_waitable(i)->is_ready(&wait_set_)) {
-              entities_collector_->get_waitable(i)->execute();
-            }
-          }
+          entities_collector_->get_waitable_by_handle(event.entity)->execute();
           break;
         }
 

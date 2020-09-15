@@ -116,3 +116,14 @@ ExecutableList::add_waitable(rclcpp::Waitable::SharedPtr waitable)
   this->waitable.push_back(std::move(waitable));
   this->number_of_waitables++;
 }
+
+rclcpp::Waitable::SharedPtr
+ExecutableList::get_waitable(void * waitable_handle)
+{
+  for(const auto& w : waitable) {
+    if (w.get() == waitable_handle) {
+      return w;
+    }
+  }
+  return nullptr;
+}

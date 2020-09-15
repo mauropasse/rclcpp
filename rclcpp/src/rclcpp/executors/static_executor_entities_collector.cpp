@@ -71,7 +71,7 @@ StaticExecutorEntitiesCollector::init(
   // The event hook handler is the waitabe pointer (this)
   // So if any guard condition attached to this waitable is triggered,
   // we execute the waitable
-  event_hook = {context_, static_cast<void *>(this), event_cb_};
+  event_hook_ = {context_, static_cast<void *>(this), event_cb_};
 
   // Init executable list mutex
   exec_list_mutex_ = exec_list_mutex;
@@ -111,7 +111,7 @@ StaticExecutorEntitiesCollector::fill_memory_strategy()
   }
 
   // Add the static executor waitable to the memory strategy
-  memory_strategy_->add_waitable_handle(this->shared_from_this());
+  memory_strategy_->add_waitable_handle(this->shared_from_this(), context_, event_cb_);
 }
 
 void
@@ -240,11 +240,11 @@ StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeo
 }
 
 bool
-StaticExecutorEntitiesCollector::add_to_wait_set(rcl_wait_set_t * wait_set)
+StaticExecutorEntitiesCollector::add_to_wait_set(rcl_wait_set_t * wait_set, void * event_hook)
 {
   // Add waitable guard conditions (one for each registered node) into the wait set.
   for (auto & gc : guard_conditions_) {
-    rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, gc, static_cast<void*>(&event_hook), NULL);
+    rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, gc, event_hook, NULL);
     if (ret != RCL_RET_OK) {
       throw std::runtime_error("Executor waitable: couldn't add guard condition to wait set");
     }
@@ -342,4 +342,10 @@ rclcpp::ClientBase::SharedPtr
 StaticExecutorEntitiesCollector::get_client_by_handle(void * handle)
 {
   return exec_list_.get_client(handle);
+}
+
+rclcpp::Waitable::SharedPtr
+StaticExecutorEntitiesCollector::get_waitable_by_handle(void * handle)
+{
+  return exec_list_.get_waitable(handle);
 }

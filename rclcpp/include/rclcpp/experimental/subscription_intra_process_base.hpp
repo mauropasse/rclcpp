@@ -51,7 +51,7 @@ public:
 
   RCLCPP_PUBLIC
   bool
-  add_to_wait_set(rcl_wait_set_t * wait_set);
+  add_to_wait_set(rcl_wait_set_t * wait_set, void * event_hook);
 
   virtual bool
   is_ready(rcl_wait_set_t * wait_set) = 0;

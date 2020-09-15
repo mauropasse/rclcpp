@@ -99,7 +99,7 @@ public:
    */
   RCLCPP_PUBLIC
   bool
-  add_to_wait_set(rcl_wait_set_t * wait_set) override;
+  add_to_wait_set(rcl_wait_set_t * wait_set, void * event_hook) override;
 
   RCLCPP_PUBLIC
   size_t
@@ -230,6 +230,10 @@ public:
   rclcpp::Waitable::SharedPtr
   get_waitable(size_t i) {return exec_list_.waitable[i];}
 
+  RCLCPP_PUBLIC
+  rclcpp::Waitable::SharedPtr
+  get_waitable_by_handle(void * handle);
+
 private:
   /// Nodes guard conditions which trigger this waitable
   std::list<const rcl_guard_condition_t *> guard_conditions_;
@@ -247,15 +251,13 @@ private:
   rclcpp::experimental::ExecutableList exec_list_;
 
   /// Context (associated executor)
-  void * context_;
+  void * context_ = nullptr;
 
   /// Event callback: push new events to queue
   Event_callback event_cb_;
 
   /// Mutex to protect the executable list
   std::mutex * exec_list_mutex_;
-
-  EventHook event_hook;
 };
 
 }  // namespace executors

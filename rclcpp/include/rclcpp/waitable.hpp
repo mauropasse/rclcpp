@@ -21,6 +21,7 @@
 #include "rclcpp/visibility_control.hpp"
 
 #include "rcl/wait.h"
+#include "rcutils/event_types.h"
 
 namespace rclcpp
 {
@@ -108,7 +109,7 @@ public:
   RCLCPP_PUBLIC
   virtual
   bool
-  add_to_wait_set(rcl_wait_set_t * wait_set) = 0;
+  add_to_wait_set(rcl_wait_set_t * wait_set, void * event_hook ) = 0;
 
   /// Check if the Waitable is ready.
   /**
@@ -164,6 +165,9 @@ public:
   RCLCPP_PUBLIC
   bool
   exchange_in_use_by_wait_set_state(bool in_use_state);
+
+  /// Event hook
+  EventHook event_hook_;
 
 private:
   std::atomic<bool> in_use_by_wait_set_{false};

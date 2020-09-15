@@ -92,6 +92,7 @@ public:
     guard_condition_hooks_.clear();
     timer_handles_.clear();
     waitable_handles_.clear();
+    waitable_hooks_.clear();
   }
 
   void remove_null_handles(rcl_wait_set_t * wait_set) override
@@ -192,8 +193,9 @@ public:
             return false;
           });
         group->find_waitable_ptrs_if(
-          [this](const rclcpp::Waitable::SharedPtr & waitable) {
+          [this, exec_context, cb](const rclcpp::Waitable::SharedPtr & waitable) {
             waitable_handles_.push_back(waitable);
+            waitable_hooks_.push_back({exec_context, waitable.get(), cb});
             return false;
           });
       }
@@ -212,12 +214,13 @@ public:
     return has_invalid_weak_nodes;
   }
 
-  void add_waitable_handle(const rclcpp::Waitable::SharedPtr & waitable) override
+  void add_waitable_handle(const rclcpp::Waitable::SharedPtr & waitable, void * exec_context, Event_callback cb) override
   {
     if (nullptr == waitable) {
       throw std::runtime_error("waitable object unexpectedly nullptr");
     }
     waitable_handles_.push_back(waitable);
+    waitable_hooks_.push_back({exec_context, waitable.get(), cb});
   }
 
   bool add_handles_to_wait_set(rcl_wait_set_t * wait_set) override
@@ -288,6 +291,9 @@ public:
       }
     }
 
+    // Here are handled the guard conditions that are added to the memory strategy.
+    // But the only guard conditions that are actually used, belong to waitables.
+    // So in the new executor, we should only care for those.
     auto it_gc = guard_conditions_.begin();
     auto it_gc_hook = guard_condition_hooks_.begin();
 
@@ -307,14 +313,24 @@ public:
       }
     }
 
-    for (auto waitable : waitable_handles_) {
-      if (!waitable->add_to_wait_set(wait_set)) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add waitable to wait set: %s", rcl_get_error_string().str);
-        return false;
+    auto it_w = waitable_handles_.begin();
+    auto it_w_hook = waitable_hooks_.begin();
+
+    while(it_w != waitable_handles_.end() || it_w_hook != waitable_hooks_.end())
+    {
+      if(it_w != waitable_handles_.end() && it_w_hook != waitable_hooks_.end())
+      {
+        if (!(*it_w)->add_to_wait_set(wait_set, static_cast<void *>(&*it_w_hook))) {
+          RCUTILS_LOG_ERROR_NAMED(
+            "rclcpp",
+            "Couldn't add waitable to wait set: %s", rcl_get_error_string().str);
+          return false;
+        }
+        it_w++;
+        it_w_hook++;
       }
     }
+
     return true;
   }
 
@@ -634,7 +650,8 @@ private:
   std::vector<EventHook> subscription_hooks_;
   std::vector<EventHook> service_hooks_;
   std::vector<EventHook> client_hooks_;
-  std::vector<EventHook> guard_condition_hooks_;
+  std::vector<EventHook> guard_condition_hooks_; // Should not be used anymnore
+  std::vector<EventHook> waitable_hooks_;
   VectorRebind<std::shared_ptr<const rcl_subscription_t>> subscription_handles_;
   VectorRebind<std::shared_ptr<const rcl_service_t>> service_handles_;
   VectorRebind<std::shared_ptr<const rcl_client_t>> client_handles_;

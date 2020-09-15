@@ -374,7 +374,7 @@ protected:
         continue;
       }
       rclcpp::Waitable & waitable = *waitable_ptr_pair.second;
-      bool successful = waitable.add_to_wait_set(&rcl_wait_set_);
+      bool successful = waitable.add_to_wait_set(&rcl_wait_set_, nullptr);
       if (!successful) {
         throw std::runtime_error("waitable unexpectedly failed to be added to wait set");
       }
