@@ -146,6 +146,17 @@ StaticExecutorEntitiesCollector::fill_executable_list()
         [this](const rclcpp::SubscriptionBase::SharedPtr & subscription) {
           if (subscription) {
             exec_list_.add_subscription(subscription);
+
+            rcl_ret_t ret = rcl_set_subscription_hook(
+              context_,
+              event_cb_,
+              subscription.get(),
+              subscription->get_subscription_handle().get());
+
+            if (ret != RCL_RET_OK) {
+              using rclcpp::exceptions::throw_from_rcl_error;
+              throw_from_rcl_error(ret, "rcl_set_subscription_hook() failed");
+            }
           }
           return false;
         });
