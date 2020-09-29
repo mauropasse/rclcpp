@@ -178,6 +178,13 @@ StaticExecutorEntitiesCollector::fill_executable_list()
         [this](const rclcpp::ClientBase::SharedPtr & client) {
           if (client) {
             exec_list_.add_client(client);
+
+            rcl_ret_t ret = rcl_set_client_callback(
+              context_,
+              event_cb_,
+              client.get(),
+              client->get_client_handle().get());
+
           }
           return false;
         });
