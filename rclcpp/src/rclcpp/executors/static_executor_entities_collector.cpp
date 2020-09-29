@@ -164,6 +164,13 @@ StaticExecutorEntitiesCollector::fill_executable_list()
         [this](const rclcpp::ServiceBase::SharedPtr & service) {
           if (service) {
             exec_list_.add_service(service);
+
+            rcl_ret_t ret = rcl_set_service_callback(
+              context_,
+              event_cb_,
+              service.get(),
+              service->get_service_handle().get());
+
           }
           return false;
         });
