@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stdexcept>
+
 #include "rclcpp/waitable.hpp"
 
 using rclcpp::Waitable;
@@ -56,4 +58,23 @@ bool
 Waitable::exchange_in_use_by_wait_set_state(bool in_use_state)
 {
   return in_use_by_wait_set_.exchange(in_use_state);
+}
+
+void
+Waitable::set_events_executor_callback(
+  const rclcpp::executors::EventsExecutor * executor,
+  EventsExecutorCallback executor_callback) const
+{
+  (void)executor;
+  (void)executor_callback;
+
+  throw std::runtime_error(
+          "Custom waitables should override set_events_executor_callback() to use events executor");
+}
+
+void
+Waitable::set_on_destruction_callback(
+  std::function<void(Waitable *)> on_destruction_callback)
+{
+  on_destruction_callback_ = on_destruction_callback;
 }

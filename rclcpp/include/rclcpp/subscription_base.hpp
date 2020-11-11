@@ -16,6 +16,7 @@
 #define RCLCPP__SUBSCRIPTION_BASE_HPP_
 
 #include <atomic>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -44,6 +45,11 @@ namespace node_interfaces
 {
 class NodeBaseInterface;
 }  // namespace node_interfaces
+
+namespace executors
+{
+class EventsExecutor;
+}  // namespace executors
 
 namespace experimental
 {
@@ -263,6 +269,16 @@ public:
   bool
   exchange_in_use_by_wait_set_state(void * pointer_to_subscription_part, bool in_use_state);
 
+  RCLCPP_PUBLIC
+  void
+  set_events_executor_callback(
+    const rclcpp::executors::EventsExecutor * executor,
+    EventsExecutorCallback executor_callback) const;
+
+  RCLCPP_PUBLIC
+  void
+  set_on_destruction_callback(std::function<void(SubscriptionBase *)> on_destruction_callback);
+
 protected:
   template<typename EventCallbackT>
   void
@@ -304,6 +320,8 @@ private:
 
   rosidl_message_type_support_t type_support_;
   bool is_serialized_;
+
+  std::function<void(SubscriptionBase *)> on_destruction_callback_;
 
   std::atomic<bool> subscription_in_use_by_wait_set_{false};
   std::atomic<bool> intra_process_subscription_waitable_in_use_by_wait_set_{false};

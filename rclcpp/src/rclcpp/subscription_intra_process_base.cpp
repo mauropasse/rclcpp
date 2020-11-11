@@ -16,6 +16,13 @@
 
 using rclcpp::experimental::SubscriptionIntraProcessBase;
 
+SubscriptionIntraProcessBase::~SubscriptionIntraProcessBase()
+{
+  if (on_destruction_callback_) {
+    on_destruction_callback_(this);
+  }
+}
+
 bool
 SubscriptionIntraProcessBase::add_to_wait_set(rcl_wait_set_t * wait_set)
 {
@@ -35,4 +42,21 @@ rmw_qos_profile_t
 SubscriptionIntraProcessBase::get_actual_qos() const
 {
   return qos_profile_;
+}
+
+void
+SubscriptionIntraProcessBase::set_events_executor_callback(
+  const rclcpp::executors::EventsExecutor * executor,
+  EventsExecutorCallback executor_callback) const
+{
+  rcl_ret_t ret = rcl_guard_condition_set_events_executor_callback(
+    executor,
+    executor_callback,
+    this,
+    &gc_,
+    true /*Use previous events*/);
+
+  if (RCL_RET_OK != ret) {
+    throw std::runtime_error("Couldn't set guard condition callback");
+  }
 }

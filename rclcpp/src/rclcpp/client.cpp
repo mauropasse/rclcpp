@@ -66,6 +66,9 @@ ClientBase::ClientBase(
 
 ClientBase::~ClientBase()
 {
+  if (on_destruction_callback_) {
+    on_destruction_callback_(this);
+  }
   // Make sure the client handle is destructed as early as possible and before the node handle
   client_handle_.reset();
 }
@@ -197,4 +200,27 @@ bool
 ClientBase::exchange_in_use_by_wait_set_state(bool in_use_state)
 {
   return in_use_by_wait_set_.exchange(in_use_state);
+}
+
+void
+ClientBase::set_events_executor_callback(
+  const rclcpp::executors::EventsExecutor * executor,
+  EventsExecutorCallback executor_callback) const
+{
+  rcl_ret_t ret = rcl_client_set_events_executor_callback(
+    executor,
+    executor_callback,
+    this,
+    client_handle_.get());
+
+  if (RCL_RET_OK != ret) {
+    throw std::runtime_error("Couldn't set the EventsExecutor's callback to client");
+  }
+}
+
+void
+ClientBase::set_on_destruction_callback(
+  std::function<void(ClientBase *)> on_destruction_callback)
+{
+  on_destruction_callback_ = on_destruction_callback;
 }

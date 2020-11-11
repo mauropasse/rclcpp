@@ -83,6 +83,10 @@ SubscriptionBase::SubscriptionBase(
 
 SubscriptionBase::~SubscriptionBase()
 {
+  if (on_destruction_callback_) {
+    on_destruction_callback_(this);
+  }
+
   if (!use_intra_process_) {
     return;
   }
@@ -287,4 +291,27 @@ SubscriptionBase::exchange_in_use_by_wait_set_state(
     }
   }
   throw std::runtime_error("given pointer_to_subscription_part does not match any part");
+}
+
+void
+SubscriptionBase::set_events_executor_callback(
+  const rclcpp::executors::EventsExecutor * executor,
+  EventsExecutorCallback executor_callback) const
+{
+  rcl_ret_t ret = rcl_subscription_set_events_executor_callback(
+    executor,
+    executor_callback,
+    this,
+    subscription_handle_.get());
+
+  if (RCL_RET_OK != ret) {
+    throw std::runtime_error("Couldn't set the EventsExecutor's callback to subscription");
+  }
+}
+
+void
+SubscriptionBase::set_on_destruction_callback(
+  std::function<void(SubscriptionBase *)> on_destruction_callback)
+{
+  on_destruction_callback_ = on_destruction_callback;
 }

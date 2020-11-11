@@ -39,6 +39,11 @@
 namespace rclcpp
 {
 
+namespace executors
+{
+class EventsExecutor;
+}  // namespace executors
+
 class ServiceBase
 {
 public:
@@ -121,6 +126,16 @@ public:
   bool
   exchange_in_use_by_wait_set_state(bool in_use_state);
 
+  RCLCPP_PUBLIC
+  void
+  set_events_executor_callback(
+    const rclcpp::executors::EventsExecutor * executor,
+    EventsExecutorCallback executor_callback) const;
+
+  RCLCPP_PUBLIC
+  void
+  set_on_destruction_callback(std::function<void(ServiceBase *)> on_destruction_callback);
+
 protected:
   RCLCPP_DISABLE_COPY(ServiceBase)
 
@@ -131,6 +146,8 @@ protected:
   RCLCPP_PUBLIC
   const rcl_node_t *
   get_rcl_node_handle() const;
+
+  std::function<void(ServiceBase *)> on_destruction_callback_;
 
   std::shared_ptr<rcl_node_t> node_handle_;
 

@@ -43,7 +43,7 @@ public:
   : topic_name_(topic_name), qos_profile_(qos_profile)
   {}
 
-  virtual ~SubscriptionIntraProcessBase() = default;
+  virtual ~SubscriptionIntraProcessBase();
 
   RCLCPP_PUBLIC
   size_t
@@ -69,6 +69,12 @@ public:
   RCLCPP_PUBLIC
   rmw_qos_profile_t
   get_actual_qos() const;
+
+  RCLCPP_PUBLIC
+  void
+  set_events_executor_callback(
+    const rclcpp::executors::EventsExecutor * executor,
+    EventsExecutorCallback executor_callback) const override;
 
 protected:
   std::recursive_mutex reentrant_mutex_;

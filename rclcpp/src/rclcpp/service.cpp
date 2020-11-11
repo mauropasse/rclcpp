@@ -32,7 +32,11 @@ ServiceBase::ServiceBase(std::shared_ptr<rcl_node_t> node_handle)
 {}
 
 ServiceBase::~ServiceBase()
-{}
+{
+  if (on_destruction_callback_) {
+    on_destruction_callback_(this);
+  }
+}
 
 bool
 ServiceBase::take_type_erased_request(void * request_out, rmw_request_id_t & request_id_out)
@@ -83,4 +87,27 @@ bool
 ServiceBase::exchange_in_use_by_wait_set_state(bool in_use_state)
 {
   return in_use_by_wait_set_.exchange(in_use_state);
+}
+
+void
+ServiceBase::set_events_executor_callback(
+  const rclcpp::executors::EventsExecutor * executor,
+  EventsExecutorCallback executor_callback) const
+{
+  rcl_ret_t ret = rcl_service_set_events_executor_callback(
+    executor,
+    executor_callback,
+    this,
+    service_handle_.get());
+
+  if (RCL_RET_OK != ret) {
+    throw std::runtime_error("Couldn't set the EventsExecutor's callback to service");
+  }
+}
+
+void
+ServiceBase::set_on_destruction_callback(
+  std::function<void(ServiceBase *)> on_destruction_callback)
+{
+  on_destruction_callback_ = on_destruction_callback;
 }
