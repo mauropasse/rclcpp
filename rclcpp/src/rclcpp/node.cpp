@@ -139,6 +139,7 @@ Node::Node(
       node_logging_,
       node_clock_,
       node_parameters_,
+      options.start_parameter_event_subscriber(),
       options.clock_qos()
     )),
   node_waitables_(new rclcpp::node_interfaces::NodeWaitables(node_base_.get())),

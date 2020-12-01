@@ -55,7 +55,8 @@ void TimeSource::attachNode(rclcpp::Node::SharedPtr node)
     node->get_node_services_interface(),
     node->get_node_logging_interface(),
     node->get_node_clock_interface(),
-    node->get_node_parameters_interface());
+    node->get_node_parameters_interface(),
+    node->get_node_options().start_parameter_event_subscriber());
 }
 
 void TimeSource::attachNode(
@@ -65,7 +66,8 @@ void TimeSource::attachNode(
   rclcpp::node_interfaces::NodeServicesInterface::SharedPtr node_services_interface,
   rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr node_logging_interface,
   rclcpp::node_interfaces::NodeClockInterface::SharedPtr node_clock_interface,
-  rclcpp::node_interfaces::NodeParametersInterface::SharedPtr node_parameters_interface)
+  rclcpp::node_interfaces::NodeParametersInterface::SharedPtr node_parameters_interface,
+  bool start_parameter_event_subscriber)
 {
   node_base_ = node_base_interface;
   node_topics_ = node_topics_interface;
@@ -119,9 +121,12 @@ void TimeSource::attachNode(
     });
 
   // TODO(tfoote) use parameters interface not subscribe to events via topic ticketed #609
-  parameter_subscription_ = rclcpp::AsyncParametersClient::on_parameter_event(
-    node_topics_,
-    std::bind(&TimeSource::on_parameter_event, this, std::placeholders::_1));
+  if (start_parameter_event_subscriber) {
+    std::cout << "start_parameter_event_subscriber" << std::endl;
+    parameter_subscription_ = rclcpp::AsyncParametersClient::on_parameter_event(
+      node_topics_,
+      std::bind(&TimeSource::on_parameter_event, this, std::placeholders::_1));
+  }
 }
 
 void TimeSource::detachNode()

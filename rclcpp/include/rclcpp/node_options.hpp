@@ -258,6 +258,20 @@ public:
   NodeOptions &
   clock_qos(const rclcpp::QoS & clock_qos);
 
+
+  /// Return the start_parameter_event_subscriber flag.
+  RCLCPP_PUBLIC
+  bool
+  start_parameter_event_subscriber() const;
+
+  /// Set the start_parameter_event_subscriber flag, return this for parameter idiom.
+  /**
+   * If true, a subscriber to parameter events is created
+   */
+  RCLCPP_PUBLIC
+  NodeOptions &
+  start_parameter_event_subscriber(bool start_parameter_event_subscriber);
+
   /// Return a reference to the parameter_event_qos QoS.
   RCLCPP_PUBLIC
   const rclcpp::QoS &
@@ -383,6 +397,8 @@ private:
   bool start_parameter_event_publisher_ {true};
 
   rclcpp::QoS clock_qos_ = rclcpp::ClockQoS();
+
+  bool start_parameter_event_subscriber_ {true};
 
   rclcpp::QoS parameter_event_qos_ = rclcpp::ParameterEventsQoS(
     rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_parameter_events)
