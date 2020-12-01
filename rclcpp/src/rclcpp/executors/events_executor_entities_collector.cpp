@@ -224,7 +224,6 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
   group->find_subscription_ptrs_if(
     [this](const rclcpp::SubscriptionBase::SharedPtr & subscription) {
       if (subscription) {
-        std::cout << "Subscription created" << std::endl;
         subscription->set_events_executor_callback(
           associated_executor_,
           &EventsExecutor::push_event);
@@ -239,7 +238,6 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
   group->find_service_ptrs_if(
     [this](const rclcpp::ServiceBase::SharedPtr & service) {
       if (service) {
-        std::cout << "service created" << std::endl;
         service->set_events_executor_callback(
           associated_executor_,
           &EventsExecutor::push_event);
@@ -254,7 +252,6 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
   group->find_client_ptrs_if(
     [this](const rclcpp::ClientBase::SharedPtr & client) {
       if (client) {
-        std::cout << "client created" << std::endl;
         client->set_events_executor_callback(
           associated_executor_,
           &EventsExecutor::push_event);
@@ -269,7 +266,6 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
   group->find_waitable_ptrs_if(
     [this](const rclcpp::Waitable::SharedPtr & waitable) {
       if (waitable) {
-        std::cout << "waitable created" << std::endl;
         waitable->set_events_executor_callback(
           associated_executor_,
           &EventsExecutor::push_event);
