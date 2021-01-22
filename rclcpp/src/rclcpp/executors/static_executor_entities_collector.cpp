@@ -60,6 +60,9 @@ StaticExecutorEntitiesCollector::init(
 
   // Get memory strategy and executable list. Prepare wait_set_
   execute();
+
+  // The entities collector is now initialized
+  initialized_ = true;
 }
 
 void

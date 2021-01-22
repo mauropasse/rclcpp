@@ -62,6 +62,11 @@ public:
     rclcpp::memory_strategy::MemoryStrategy::SharedPtr & memory_strategy,
     rcl_guard_condition_t * executor_guard_condition);
 
+
+  RCLCPP_PUBLIC
+  bool
+  is_init() {return initialized_;}
+
   /// Finalize StaticExecutorEntitiesCollector to clear resources
   RCLCPP_PUBLIC
   void
@@ -236,6 +241,9 @@ private:
 
   /// Executable list: timers, subscribers, clients, services and waitables
   rclcpp::experimental::ExecutableList exec_list_;
+
+  /// Bool to check if the entities collector has been initialized
+  bool initialized_ = false;
 };
 
 }  // namespace executors

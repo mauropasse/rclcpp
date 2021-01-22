@@ -78,6 +78,19 @@ public:
   void
   spin() override;
 
+  /// Static executor implementation of spin_some.
+  /// Complete all available queued work without blocking.
+  /**
+   * The default implementation is suitable for a single-threaded model of execution.
+   * Adding subscriptions, timers, services, etc. with blocking callbacks will cause
+   * this function to block (which may have unintended consequences).
+   *
+   * \param[in] max_duration The maximum amount of time to spend executing work, or 0 for no limit.
+   */
+  RCLCPP_PUBLIC
+  void
+  spin_some(std::chrono::nanoseconds max_duration = std::chrono::nanoseconds(0)) override;
+
   /// Add a node to the executor.
   /**
    * An executor can have zero or more nodes which provide work during `spin` functions.
@@ -190,6 +203,11 @@ public:
     // The future did not complete before ok() returned false, return INTERRUPTED.
     return rclcpp::FutureReturnCode::INTERRUPTED;
   }
+
+  /// Initialize entities collector, so we can spin_some without having to rebuild it
+  RCLCPP_PUBLIC
+  void
+  init_entities_collector();
 
 protected:
   /// Check which executables in ExecutableList struct are ready from wait_set and execute them.
