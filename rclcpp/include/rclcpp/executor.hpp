@@ -347,7 +347,7 @@ protected:
 
 private:
   RCLCPP_PUBLIC
-  void
+  virtual void
   spin_once_impl(std::chrono::nanoseconds timeout);
 };
 

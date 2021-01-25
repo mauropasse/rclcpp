@@ -68,4 +68,21 @@ QOSEventHandlerBase::is_ready(rcl_wait_set_t * wait_set)
   return wait_set->events[wait_set_event_index_] == &event_handle_;
 }
 
+void
+QOSEventHandlerBase::set_events_executor_callback(
+  const rclcpp::executors::EventsExecutor * executor,
+  rmw_listener_cb_t executor_callback) const
+{
+  rcl_ret_t ret = rcl_event_set_listener_callback(
+    &event_handle_,
+    executor_callback,
+    executor,
+    this,
+    false /* Discard previous events */);
+
+  if (RCL_RET_OK != ret) {
+    throw std::runtime_error("Couldn't set EventsExecutor's callback in QOSEventHandlerBase");
+  }
+}
+
 }  // namespace rclcpp

@@ -25,6 +25,11 @@
 namespace rclcpp
 {
 
+namespace executors
+{
+class EventsExecutor;
+}  // namespace executors
+
 class Waitable
 {
 public:
@@ -164,6 +169,13 @@ public:
   RCLCPP_PUBLIC
   bool
   exchange_in_use_by_wait_set_state(bool in_use_state);
+
+  RCLCPP_PUBLIC
+  virtual
+  void
+  set_events_executor_callback(
+    const rclcpp::executors::EventsExecutor * executor,
+    rmw_listener_cb_t executor_callback) const;
 
 private:
   std::atomic<bool> in_use_by_wait_set_{false};

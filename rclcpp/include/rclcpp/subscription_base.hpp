@@ -45,6 +45,11 @@ namespace node_interfaces
 class NodeBaseInterface;
 }  // namespace node_interfaces
 
+namespace executors
+{
+class EventsExecutor;
+}  // namespace executors
+
 namespace experimental
 {
 /**
@@ -262,6 +267,12 @@ public:
   RCLCPP_PUBLIC
   bool
   exchange_in_use_by_wait_set_state(void * pointer_to_subscription_part, bool in_use_state);
+
+  RCLCPP_PUBLIC
+  void
+  set_events_executor_callback(
+    const rclcpp::executors::EventsExecutor * executor,
+    rmw_listener_cb_t executor_callback) const;
 
 protected:
   template<typename EventCallbackT>

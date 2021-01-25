@@ -57,7 +57,9 @@ public:
   RCLCPP_SMART_PTR_DEFINITIONS(CallbackGroup)
 
   RCLCPP_PUBLIC
-  explicit CallbackGroup(CallbackGroupType group_type);
+  explicit CallbackGroup(
+    CallbackGroupType group_type,
+    bool automatically_add_to_executor_with_node = true);
 
   template<typename Function>
   rclcpp::SubscriptionBase::SharedPtr
@@ -102,6 +104,31 @@ public:
   const CallbackGroupType &
   type() const;
 
+  /// Return a reference to the 'associated with executor' atomic boolean.
+  /**
+   * When a callback group is added to an executor this boolean is checked
+   * to ensure it has not already been added to another executor.
+   * If it has not been, then this boolean is set to true to indicate it is
+   * now associated with an executor.
+   *
+   * When the callback group is removed from the executor, this atomic boolean
+   * is set back to false.
+   *
+   * \return the 'associated with executor' atomic boolean
+   */
+  RCLCPP_PUBLIC
+  std::atomic_bool &
+  get_associated_with_executor_atomic();
+
+  /// Return true if this callback group should be automatically added to an executor by the node.
+  /**
+   * \return boolean true if this callback group should be automatically added
+   *   to an executor when the associated node is added, otherwise false.
+   */
+  RCLCPP_PUBLIC
+  bool
+  automatically_add_to_executor_with_node() const;
+
 protected:
   RCLCPP_DISABLE_COPY(CallbackGroup)
 
@@ -136,6 +163,8 @@ protected:
   CallbackGroupType type_;
   // Mutex to protect the subsequent vectors of pointers.
   mutable std::mutex mutex_;
+  std::atomic_bool associated_with_executor_;
+  const bool automatically_add_to_executor_with_node_;
   std::vector<rclcpp::SubscriptionBase::WeakPtr> subscription_ptrs_;
   std::vector<rclcpp::TimerBase::WeakPtr> timer_ptrs_;
   std::vector<rclcpp::ServiceBase::WeakPtr> service_ptrs_;
