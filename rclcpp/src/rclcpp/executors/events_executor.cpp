@@ -107,7 +107,7 @@ EventsExecutor::spin_some(std::chrono::nanoseconds max_duration)
 
   std::unique_lock<std::mutex> push_lock(push_mutex_);
   // Wait until timeout or event
-  event_queue_cv_.wait_for(push_lock, max_duration, has_event_predicate);
+  // event_queue_cv_.wait_for(push_lock, max_duration, has_event_predicate);
   // Time to swap queues as the wait is over
   std::swap(execution_event_queue, event_queue_);
   // After swapping the queues, we don't need the lock anymore
