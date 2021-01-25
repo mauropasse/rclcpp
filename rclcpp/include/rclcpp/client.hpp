@@ -50,6 +50,11 @@ namespace node_interfaces
 class NodeBaseInterface;
 }  // namespace node_interfaces
 
+namespace executors
+{
+class EventsExecutor;
+}  // namespace executors
+
 class ClientBase
 {
 public:
@@ -149,6 +154,12 @@ public:
   RCLCPP_PUBLIC
   bool
   exchange_in_use_by_wait_set_state(bool in_use_state);
+
+  RCLCPP_PUBLIC
+  void
+  set_events_executor_callback(
+    const rclcpp::executors::EventsExecutor * executor,
+    rmw_listener_cb_t executor_callback) const;
 
 protected:
   RCLCPP_DISABLE_COPY(ClientBase)

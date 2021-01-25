@@ -70,6 +70,12 @@ public:
   rmw_qos_profile_t
   get_actual_qos() const;
 
+  RCLCPP_PUBLIC
+  void
+  set_events_executor_callback(
+    const rclcpp::executors::EventsExecutor * executor,
+    rmw_listener_cb_t executor_callback) const override;
+
 protected:
   std::recursive_mutex reentrant_mutex_;
   rcl_guard_condition_t gc_;
