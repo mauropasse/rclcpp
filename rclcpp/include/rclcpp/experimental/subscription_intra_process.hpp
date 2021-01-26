@@ -159,7 +159,9 @@ private:
 
     if (any_callback_.use_take_shared_method()) {
       ConstMessageSharedPtr msg = buffer_->consume_shared();
-      any_callback_.dispatch_intra_process(msg, msg_info);
+      if(msg != nullptr) {
+        any_callback_.dispatch_intra_process(msg, msg_info);
+      }
     } else {
       MessageUniquePtr msg = buffer_->consume_unique();
       any_callback_.dispatch_intra_process(std::move(msg), msg_info);
