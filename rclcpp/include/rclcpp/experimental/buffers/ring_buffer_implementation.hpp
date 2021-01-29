@@ -63,6 +63,7 @@ public:
     ring_buffer_[write_index_] = std::move(request);
 
     if (is_full()) {
+      RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "The ring buffer is full!");
       read_index_ = next(read_index_);
     } else {
       size_++;
