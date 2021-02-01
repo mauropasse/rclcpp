@@ -63,6 +63,7 @@ public:
     ring_buffer_[write_index_] = std::move(request);
 
     if (is_full()) {
+      RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "The ring buffer is full!");
       read_index_ = next(read_index_);
     } else {
       size_++;
@@ -75,7 +76,7 @@ public:
 
     if (!has_data()) {
       RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Calling dequeue on empty intra-process buffer");
-      throw std::runtime_error("Calling dequeue on empty intra-process buffer");
+      return BufferT();
     }
 
     auto request = std::move(ring_buffer_[read_index_]);
