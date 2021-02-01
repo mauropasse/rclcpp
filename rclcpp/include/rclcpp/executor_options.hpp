@@ -24,18 +24,38 @@
 namespace rclcpp
 {
 
+enum class QueueStrategy
+{
+  CPU_PERFORMANCE,
+  LIMITED_EVENTS_WITH_TIME_ORDERING,
+  QOS_BOUNDED,
+  HARD_BOUNDED
+};
+
+struct QueueOptions
+{
+  QueueOptions()
+  : queue_strategy(QueueStrategy::CPU_PERFORMANCE),
+    max_events(1000)
+  {}
+
+  QueueStrategy queue_strategy;
+  size_t max_events;
+};
+
 /// Options to be passed to the executor constructor.
 struct ExecutorOptions
 {
   ExecutorOptions()
   : memory_strategy(rclcpp::memory_strategies::create_default_strategy()),
     context(rclcpp::contexts::get_global_default_context()),
-    max_conditions(0)
+    max_conditions(0), queue_options(QueueOptions())
   {}
 
   rclcpp::memory_strategy::MemoryStrategy::SharedPtr memory_strategy;
   rclcpp::Context::SharedPtr context;
   size_t max_conditions;
+  QueueOptions queue_options;
 };
 
 namespace executor

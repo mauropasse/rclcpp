@@ -186,6 +186,45 @@ public:
 
   ///
   /**
+   * Get the subscription qos depth corresponding
+   * to a subscription identifier
+   */
+  RCLCPP_PUBLIC
+  size_t
+  get_subscription_qos_depth(const void * subscription_id);
+
+  ///
+  /**
+   * Get the waitable qos depth corresponding
+   * to a waitable identifier
+   */
+  RCLCPP_PUBLIC
+  size_t
+  get_waitable_qos_depth(const void * waitable_id);
+
+  ///
+  /**
+   * Get the sum of all the entities QoS depth
+   */
+  size_t get_total_qos_depth();
+
+  ///
+  /**
+   * Gets the QoS of the entities collector.
+   * This is useful for the events executor, when it has to
+   * decide if keep pushing events from this waitable into the qeueue
+   */
+  RCLCPP_PUBLIC
+  rmw_qos_profile_t
+  get_actual_qos() const
+  {
+    rmw_qos_profile_t qos;
+    qos.depth = 0;
+    return qos;
+  }
+
+  ///
+  /**
    * Add a weak pointer to a waitable
    */
   RCLCPP_PUBLIC
@@ -257,6 +296,11 @@ private:
   std::unordered_map<const void *, rclcpp::ServiceBase::WeakPtr> weak_services_map_;
   std::unordered_map<const void *, rclcpp::ClientBase::WeakPtr> weak_clients_map_;
   std::unordered_map<const void *, rclcpp::Waitable::WeakPtr> weak_waitables_map_;
+
+  // Maps: entity identifiers to qos->depth from the entities registered in the executor
+  using QosDepthMap = std::unordered_map<const void *, size_t>;
+  QosDepthMap qos_depth_subscriptions_map_;
+  QosDepthMap qos_depth_waitables_map_;
 
   /// Executor using this entities collector object
   EventsExecutor * associated_executor_ = nullptr;

@@ -1,4 +1,4 @@
-// Copyright 2020 Open Source Robotics Foundation, Inc.
+// Copyright 2021 Open Source Robotics Foundation, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 // limitations under the License.
 
 #include <memory>
-#include <queue>
+#include <deque>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "rclcpp/exceptions/exceptions.hpp"
+#include "rclcpp/executor_options.hpp"
 #include "rclcpp/executors/events_executor.hpp"
 
 using namespace std::chrono_literals;
@@ -32,6 +33,10 @@ EventsExecutor::EventsExecutor(
   timers_manager_ = std::make_shared<TimersManager>(context_);
   entities_collector_ = std::make_shared<EventsExecutorEntitiesCollector>(this);
   entities_collector_->init();
+
+  events_queue_ = std::make_shared<EventsQueue>(
+    entities_collector_,
+    options.queue_options);
 
   // Setup the executor notifier to wake up the executor when some guard conditions are tiggered.
   // The added guard conditions are guaranteed to not go out of scope before the executor itself.
@@ -50,22 +55,13 @@ EventsExecutor::spin()
   }
   RCLCPP_SCOPE_EXIT(this->spinning.store(false););
 
-  // When condition variable is notified, check this predicate to proceed
-  auto has_event_predicate = [this]() {return !event_queue_.empty();};
+  timers_manager_->start();
 
   // Local event queue to allow entities to push events while we execute them
   EventQueue execution_event_queue;
 
-  timers_manager_->start();
-
   while (rclcpp::ok(context_) && spinning.load()) {
-    std::unique_lock<std::mutex> push_lock(push_mutex_);
-    // We wait here until something has been pushed to the event queue
-    event_queue_cv_.wait(push_lock, has_event_predicate);
-    // We got an event! Swap queues
-    std::swap(execution_event_queue, event_queue_);
-    // After swapping the queues, we don't need the lock anymore
-    push_lock.unlock();
+    events_queue_->wait_for_event_and_swap(execution_event_queue);
     // Consume all available events, this queue will be empty at the end of the function
     this->consume_all_events(execution_event_queue);
   }
@@ -90,25 +86,15 @@ EventsExecutor::spin_some(std::chrono::nanoseconds max_duration)
   // - A timer triggers
   // - An executor event is received and processed
 
-  // When condition variable is notified, check this predicate to proceed
-  auto has_event_predicate = [this]() {return !event_queue_.empty();};
-
-  // Local event queue to allow entities to push events while we execute them
-  EventQueue execution_event_queue;
-
   // Select the smallest between input max_duration and timer timeout
   auto next_timer_timeout = timers_manager_->get_head_timeout();
   if (next_timer_timeout < max_duration) {
     max_duration = next_timer_timeout;
   }
 
-  std::unique_lock<std::mutex> push_lock(push_mutex_);
-  // Wait until timeout or event
-  event_queue_cv_.wait_for(push_lock, max_duration, has_event_predicate);
-  // Time to swap queues as the wait is over
-  std::swap(execution_event_queue, event_queue_);
-  // After swapping the queues, we don't need the lock anymore
-  push_lock.unlock();
+  // Local event queue to allow entities to push events while we execute them
+  EventQueue execution_event_queue;
+  events_queue_->wait_for_event_and_swap(execution_event_queue, max_duration);
 
   // Execute all ready timers
   timers_manager_->execute_ready_timers();
@@ -124,15 +110,9 @@ EventsExecutor::spin_all(std::chrono::nanoseconds max_duration)
   }
 
   if (spinning.exchange(true)) {
-    throw std::runtime_error("spin_some() called while already spinning");
+    throw std::runtime_error("spin_all() called while already spinning");
   }
   RCLCPP_SCOPE_EXIT(this->spinning.store(false););
-
-  // When condition variable is notified, check this predicate to proceed
-  auto has_event_predicate = [this]() {return !event_queue_.empty();};
-
-  // Local event queue to allow entities to push events while we execute them
-  EventQueue execution_event_queue;
 
   auto start = std::chrono::steady_clock::now();
   auto max_duration_not_elapsed = [max_duration, start]() {
@@ -146,19 +126,17 @@ EventsExecutor::spin_all(std::chrono::nanoseconds max_duration)
     max_duration = next_timer_timeout;
   }
 
-  {
-    // Wait once until timeout or event
-    std::unique_lock<std::mutex> push_lock(push_mutex_);
-    event_queue_cv_.wait_for(push_lock, max_duration, has_event_predicate);
-  }
+  // Wait once until timeout or event
+  events_queue_->wait_for_event(max_duration);
 
   auto timeout = timers_manager_->get_head_timeout();
 
+  // Local event queue to allow entities to push events while we execute them
+  EventQueue execution_event_queue;
+
   // Keep executing until no more work to do or timeout expired
   while (rclcpp::ok(context_) && spinning.load() && max_duration_not_elapsed()) {
-    std::unique_lock<std::mutex> push_lock(push_mutex_);
-    std::swap(execution_event_queue, event_queue_);
-    push_lock.unlock();
+    events_queue_->swap(execution_event_queue);
 
     // Exit if there is no more work to do
     const bool ready_timer = timeout < 0ns;
@@ -187,24 +165,9 @@ EventsExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
     timeout = next_timer_timeout;
   }
 
-  // When condition variable is notified, check this predicate to proceed
-  auto has_event_predicate = [this]() {return !event_queue_.empty();};
-
   rmw_listener_event_t event;
-  bool has_event = false;
 
-  {
-    // Wait until timeout or event arrives
-    std::unique_lock<std::mutex> lock(push_mutex_);
-    event_queue_cv_.wait_for(lock, timeout, has_event_predicate);
-
-    // Grab first event from queue if it exists
-    has_event = !event_queue_.empty();
-    if (has_event) {
-      event = event_queue_.front();
-      event_queue_.pop();
-    }
-  }
+  auto has_event = events_queue_->wait_and_get_first_event(event, timeout);
 
   // If we wake up from the wait with an event, it means that it
   // arrived before any of the timers expired.
@@ -257,7 +220,7 @@ EventsExecutor::consume_all_events(EventQueue & event_queue)
 {
   while (!event_queue.empty()) {
     rmw_listener_event_t event = event_queue.front();
-    event_queue.pop();
+    event_queue.pop_front();
 
     this->execute_event(event);
   }

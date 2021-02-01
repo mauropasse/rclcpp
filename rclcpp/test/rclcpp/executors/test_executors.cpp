@@ -484,6 +484,12 @@ public:
     }
   }
 
+  rmw_qos_profile_t get_actual_qos() const override
+  {
+    rmw_qos_profile_t qos;
+    return qos;
+  }
+
 private:
   size_t count_ = 0;
   rcl_guard_condition_t gc_;
