@@ -204,12 +204,6 @@ public:
 
   ///
   /**
-   * Get the sum of all the entities QoS depth
-   */
-  size_t get_total_qos_depth();
-
-  ///
-  /**
    * Gets the QoS of the entities collector.
    * This is useful for the events executor, when it has to
    * decide if keep pushing events from this waitable into the qeueue

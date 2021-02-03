@@ -629,21 +629,3 @@ EventsExecutorEntitiesCollector::get_waitable_qos_depth(const void * waitable_id
   // If the waitable_id is not present in the map, throw error
   throw std::runtime_error("Event from waitable not registered in map!");
 }
-
-size_t
-EventsExecutorEntitiesCollector::get_total_qos_depth()
-{
-  size_t sum_qos_depth = 0;
-
-  QosDepthMap::iterator it;
-
-  for (it = qos_depth_subscriptions_map_.begin(); it != qos_depth_subscriptions_map_.end(); it++) {
-    sum_qos_depth += it->second;
-  }
-
-  for (it = qos_depth_waitables_map_.begin(); it != qos_depth_waitables_map_.end(); it++) {
-    sum_qos_depth += it->second;
-  }
-
-  return sum_qos_depth;
-}

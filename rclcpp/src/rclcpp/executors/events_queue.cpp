@@ -41,16 +41,7 @@ EventsQueue::EventsQueue(
         break;
       }
 
-    case QueueStrategy::QOS_BOUNDED:
-      {
-        push_and_notify_implem_ = std::bind(
-          &EventsQueue::bounded_push, this, std::placeholders::_1);
-        clear_stats_implem_ = []() {};
-        queue_limit_ = entities_collector_->get_total_qos_depth();
-        break;
-      }
-
-    case QueueStrategy::HARD_BOUNDED:
+    case QueueStrategy::BOUNDED:
       {
         push_and_notify_implem_ = std::bind(
           &EventsQueue::bounded_push, this, std::placeholders::_1);
@@ -280,7 +271,7 @@ void EventsQueue::clear_stats()
 }
 
 //
-// QueueStrategy::QOS_BOUNDED
+// QueueStrategy::BOUNDED
 //
 
 void EventsQueue::bounded_push(rmw_listener_event_t event)
@@ -288,12 +279,12 @@ void EventsQueue::bounded_push(rmw_listener_event_t event)
   std::unique_lock<std::mutex> lock(push_mutex_);
 
   if (event_queue_.size() >= queue_limit_) {
-    qos_bounded_prune();
+    bounded_prune();
   }
   event_queue_.push_back(event);
 }
 
-void EventsQueue::qos_bounded_prune()
+void EventsQueue::bounded_prune()
 {
   // Start with fresh stats
   clear_stats();

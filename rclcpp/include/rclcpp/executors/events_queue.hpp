@@ -162,7 +162,7 @@ private:
   void clear_stats();
 
   //
-  // QueueStrategy::QOS_BOUNDED
+  // QueueStrategy::BOUNDED
   //
 
   /**
@@ -174,7 +174,7 @@ private:
   /**
    * @brief prune mechanism for qos bounded queue
    */
-  void qos_bounded_prune();
+  void bounded_prune();
 
   size_t queue_limit_;
 

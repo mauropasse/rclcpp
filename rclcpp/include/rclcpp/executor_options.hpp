@@ -28,8 +28,7 @@ enum class QueueStrategy
 {
   CPU_PERFORMANCE,
   LIMITED_EVENTS_WITH_TIME_ORDERING,
-  QOS_BOUNDED,
-  HARD_BOUNDED
+  BOUNDED
 };
 
 struct QueueOptions
