@@ -49,6 +49,10 @@ public:
   push(const rmw_listener_event_t & event)
   {
     if (event_queue_.size() >= queue_size_limit_) {
+      // Option 1:
+      // Uncommenting this would prune the queue by removing all elements
+      // this->init();
+      // Option 2:
       bounded_prune();
     }
     event_queue_.push_back(event);
@@ -93,15 +97,12 @@ public:
 
   /**
    * @brief Initializes the queue
-   * @param entities_collector The entities collector associated with the executor
    */
   RCLCPP_PUBLIC
   virtual
   void
-  init(rclcpp::executors::EventsExecutorEntitiesCollector::SharedPtr entities_collector)
+  init()
   {
-    // Entities collector associated with the executor
-    entities_collector_ = entities_collector;
     // Make sure the queue is empty when we start
     std::queue<rmw_listener_event_t> local_queue;
     std::swap(event_queue_, local_queue);
