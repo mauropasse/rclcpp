@@ -52,7 +52,9 @@ TEST(TestEventsQueue, SimpleQueueTest)
   EXPECT_TRUE(simple_queue->empty());
 
   // Lets push an event into the queue and get it back
-  rclcpp::executors::ExecutorEvent push_event = {simple_queue.get(),
+  rclcpp::executors::ExecutorEvent push_event = {
+    simple_queue.get(),
+    nullptr,
     rclcpp::executors::ExecutorEventType::SUBSCRIPTION_EVENT};
 
   simple_queue->push(push_event);

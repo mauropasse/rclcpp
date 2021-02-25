@@ -607,12 +607,13 @@ EventsExecutorEntitiesCollector::get_callback_data(
 {
   // Create an entity callback data object and check if
   // we already have stored one like it
-  EventsExecutorCallbackData data(associated_executor_, entity_id, event_type);
+  ExecutorEvent event = {entity_id, nullptr /*entity_arg*/, event_type};
+  EventsExecutorCallbackData data(associated_executor_, event);
 
   auto it = callback_data_map_.find(data);
 
   if (it != callback_data_map_.end()) {
-    // We found a callback data matching entity ID and type.
+    // We found a callback data matching entity ID.
     // Increment callback data counter and return pointer to data
     it->second++;
     return &it->first;
@@ -633,12 +634,13 @@ EventsExecutorEntitiesCollector::remove_callback_data(
 {
   // Create an entity callback data object and check if
   // we already have stored one like it
-  EventsExecutorCallbackData data(associated_executor_, entity_id, event_type);
+  ExecutorEvent event = {entity_id, nullptr /*entity_arg*/, event_type};
+  EventsExecutorCallbackData data(associated_executor_, event);
 
   auto it = callback_data_map_.find(data);
 
   if (it != callback_data_map_.end()) {
-    // We found a callback data matching entity ID and type.
+    // We found a callback data matching entity ID.
     // If we have more than 1 decrement counter, otherwise remove it.
     if (it->second > 1) {
       it->second--;

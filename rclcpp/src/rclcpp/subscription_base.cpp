@@ -292,7 +292,7 @@ SubscriptionBase::exchange_in_use_by_wait_set_state(
 void
 SubscriptionBase::set_events_executor_callback(
   rmw_listener_callback_t executor_callback,
-  const void * executor_callback_data) const
+  const void * executor_callback_data)
 {
   rcl_ret_t ret = rcl_subscription_set_listener_callback(
     subscription_handle_.get(),

@@ -58,7 +58,7 @@ public:
 
   virtual
   std::shared_ptr<void>
-  take_data() = 0;
+  take_data(const void * arg) = 0;
 
   virtual void
   execute(std::shared_ptr<void> & data) = 0;
@@ -78,7 +78,7 @@ public:
   void
   set_events_executor_callback(
     rmw_listener_callback_t executor_callback,
-    const void * executor_callback_data) const override;
+    const void * executor_callback_data) override;
 
 protected:
   std::recursive_mutex reentrant_mutex_;

@@ -130,7 +130,7 @@ public:
   void
   set_events_executor_callback(
     rmw_listener_callback_t executor_callback,
-    const void * executor_callback_data) const;
+    const void * executor_callback_data);
 
 protected:
   RCLCPP_DISABLE_COPY(ServiceBase)

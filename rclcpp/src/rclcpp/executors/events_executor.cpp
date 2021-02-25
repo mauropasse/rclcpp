@@ -284,7 +284,7 @@ EventsExecutor::execute_event(const ExecutorEvent & event)
         auto waitable = entities_collector_->get_waitable(event.entity_id);
 
         if (waitable) {
-          auto data = waitable->take_data();
+          auto data = waitable->take_data(event.entity_arg);
           waitable->execute(data);
         }
         break;

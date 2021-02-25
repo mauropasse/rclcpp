@@ -445,8 +445,9 @@ public:
   }
 
   std::shared_ptr<void>
-  take_data() override
+  take_data(const void * arg) override
   {
+    (void)arg;
     return nullptr;
   }
 
@@ -470,7 +471,7 @@ public:
   void
   set_events_executor_callback(
     rmw_listener_callback_t executor_callback,
-    const void * executor_callback_data) const override
+    const void * executor_callback_data) override
   {
     rcl_ret_t ret = rcl_guard_condition_set_listener_callback(
       &gc_,

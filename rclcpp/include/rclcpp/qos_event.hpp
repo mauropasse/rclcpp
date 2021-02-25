@@ -112,7 +112,7 @@ public:
   void
   set_events_executor_callback(
     rmw_listener_callback_t executor_callback,
-    const void * executor_callback_data) const override;
+    const void * executor_callback_data) override;
 
 protected:
   rcl_event_t event_handle_;
@@ -147,8 +147,9 @@ public:
 
   /// Take data so that the callback cannot be scheduled again
   std::shared_ptr<void>
-  take_data() override
+  take_data(const void * arg) override
   {
+    (void)arg;
     EventCallbackInfoT callback_info;
     rcl_ret_t ret = rcl_take_event(&event_handle_, &callback_info);
     if (ret != RCL_RET_OK) {

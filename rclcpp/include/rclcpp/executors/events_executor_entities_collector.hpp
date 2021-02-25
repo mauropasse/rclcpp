@@ -195,8 +195,9 @@ public:
 
   RCLCPP_PUBLIC
   std::shared_ptr<void>
-  take_data()
+  take_data(const void * arg)
   {
+    (void)arg;
     // This waitable doesn't handle any data
     return nullptr;
   }
