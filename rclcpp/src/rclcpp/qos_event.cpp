@@ -77,7 +77,7 @@ QOSEventHandlerBase::set_events_executor_callback(
     &event_handle_,
     executor_callback,
     executor_callback_data,
-    false /* Discard previous events */);
+    true /* Use previous events */);
 
   if (RCL_RET_OK != ret) {
     throw std::runtime_error("Couldn't set EventsExecutor's callback in QOSEventHandlerBase");
