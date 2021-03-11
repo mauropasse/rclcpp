@@ -701,11 +701,11 @@ ServerBase::publish_feedback(std::shared_ptr<void> feedback_msg)
 }
 
 void
-ServerBase::set_events_executor_callback(
-    rmw_listener_callback_t executor_callback,
-    const void * executor_callback_data)
+ServerBase::set_listener_callback(
+  rmw_listener_callback_t callback,
+  const void * user_data)
 {
-  if ((executor_callback == nullptr) || (executor_callback_data == nullptr)) {
+  if ((callback == nullptr) || (user_data == nullptr)) {
     // Not valid arguments. Unset listeners callback data.
     rcl_ret_t ret = rcl_action_server_set_listeners_callback(
       pimpl_->action_server_.get(),
@@ -719,7 +719,7 @@ ServerBase::set_events_executor_callback(
     return;
   }
 
-  auto data = static_cast<const rclcpp::executors::EventsExecutorCallbackData *>(executor_callback_data);
+  auto data = static_cast<const rclcpp::executors::EventsExecutorCallbackData *>(user_data);
 
   // Create an ExecutorEvent per action server event type
   rclcpp::executors::ExecutorEvent goal_request   = {data->event.entity_id, nullptr, data->event.type};
@@ -756,7 +756,7 @@ ServerBase::set_events_executor_callback(
   // Set listener callbacks to the action server entities
   rcl_ret_t ret = rcl_action_server_set_listeners_callback(
     pimpl_->action_server_.get(),
-    executor_callback,
+    callback,
     action_server_cb_data);
 
   if (ret != RCL_RET_OK) {

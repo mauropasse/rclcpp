@@ -546,11 +546,11 @@ ClientBase::execute(std::shared_ptr<void> & data)
 }
 
 void
-ClientBase::set_events_executor_callback(
-  rmw_listener_callback_t executor_callback,
-  const void * executor_callback_data)
+ClientBase::set_listener_callback(
+  rmw_listener_callback_t callback,
+  const void * user_data)
 {
-  if ((executor_callback == nullptr) || (executor_callback_data == nullptr)) {
+  if ((callback == nullptr) || (user_data == nullptr)) {
     // Not valid arguments. Unset listeners callback data.
     rcl_ret_t ret = rcl_action_client_set_listeners_callback(
       pimpl_->client_handle.get(),
@@ -564,7 +564,7 @@ ClientBase::set_events_executor_callback(
     return;
   }
 
-  auto data = static_cast<const rclcpp::executors::EventsExecutorCallbackData *>(executor_callback_data);
+  auto data = static_cast<const rclcpp::executors::EventsExecutorCallbackData *>(user_data);
 
   // Create an ExecutorEvent per action client event type
   rclcpp::executors::ExecutorEvent goal_response   = {data->event.entity_id, nullptr, data->event.type};
@@ -611,7 +611,7 @@ ClientBase::set_events_executor_callback(
   // Set listener callbacks to the action client entities
   rcl_ret_t ret = rcl_action_client_set_listeners_callback(
     pimpl_->client_handle.get(),
-    executor_callback,
+    callback,
     action_client_cb_data);
 
   if (ret != RCL_RET_OK) {

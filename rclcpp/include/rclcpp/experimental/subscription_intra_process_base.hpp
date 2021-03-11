@@ -78,7 +78,7 @@ public:
   void
   set_listener_callback(
     rmw_listener_callback_t callback,
-    const void * user_data) const override;
+    const void * user_data) override;
 
 protected:
   std::recursive_mutex reentrant_mutex_;
