@@ -164,7 +164,7 @@ std::chrono::nanoseconds TimersManager::get_head_timeout_unsafe()
     if (time_until_trigger == std::chrono::nanoseconds::max()) {
       return MAX_TIME;
     }
-    return head_timer->time_until_trigger();
+    return time_until_trigger;
   }
 
   // If the first elements has expired, we can't make other assumptions on the heap
@@ -181,9 +181,8 @@ std::chrono::nanoseconds TimersManager::get_head_timeout_unsafe()
   // A canceled timer will return a nanoseconds::max duration
   if (time_until_trigger == std::chrono::nanoseconds::max()) {
     return MAX_TIME;
-  } else {
-    return time_until_trigger;
   }
+  return time_until_trigger;
 }
 
 void TimersManager::execute_ready_timers_unsafe()
