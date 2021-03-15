@@ -448,8 +448,13 @@ private:
     TimerPtr timer,
     std::chrono::time_point<std::chrono::steady_clock> tp)
   {
+    auto time_until_trigger = timer->time_until_trigger();
+    // A canceled timer will return a nanoseconds::max duration
+    if (time_until_trigger == std::chrono::nanoseconds::max()) {
+      return false;
+    }
     // A ready timer will return a negative duration when calling time_until_trigger
-    auto time_ready = std::chrono::steady_clock::now() + timer->time_until_trigger();
+    auto time_ready = std::chrono::steady_clock::now() + time_until_trigger;
     return time_ready < tp;
   }
 

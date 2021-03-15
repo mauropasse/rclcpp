@@ -62,7 +62,6 @@ void TimersManager::start()
   }
 
   timers_thread_ = std::thread(&TimersManager::run_timers, this);
-  pthread_setname_np(timers_thread_.native_handle(), "TimersManager");
 }
 
 void TimersManager::stop()
@@ -139,11 +138,10 @@ bool TimersManager::execute_head_timer(
 
   if (timer_ready) {
     // Head timer is ready, execute
-    bool callback_executed = head->execute_callback();
-
+    head->execute_callback();
     timers_heap.heapify_root();
     weak_timers_heap_.store(timers_heap);
-    return callback_executed;
+    return true;
   }
 
   // Head timer was not ready yet
@@ -161,6 +159,11 @@ std::chrono::nanoseconds TimersManager::get_head_timeout_unsafe()
   TimerPtr head_timer = weak_timers_heap_.front().lock();
   // If it is still a valid pointer, it is guaranteed to be the correct head
   if (head_timer != nullptr) {
+    auto time_until_trigger = head_timer->time_until_trigger();
+    // A canceled timer will return a nanoseconds::max duration
+    if (time_until_trigger == std::chrono::nanoseconds::max()) {
+      return MAX_TIME;
+    }
     return head_timer->time_until_trigger();
   }
 
@@ -174,7 +177,13 @@ std::chrono::nanoseconds TimersManager::get_head_timeout_unsafe()
   if (locked_heap.empty()) {
     return MAX_TIME;
   }
-  return locked_heap.front()->time_until_trigger();
+  auto time_until_trigger = locked_heap.front()->time_until_trigger();
+  // A canceled timer will return a nanoseconds::max duration
+  if (time_until_trigger == std::chrono::nanoseconds::max()) {
+    return MAX_TIME;
+  } else {
+    return time_until_trigger;
+  }
 }
 
 void TimersManager::execute_ready_timers_unsafe()
