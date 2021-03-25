@@ -224,13 +224,13 @@ private:
     auto data = static_cast<const executors::EventsExecutorCallbackData *>(event_data);
 
     executors::EventsExecutor * this_executor = data->executor;
+    ExecutorEvent event = data->event;
+    event.num_events = num_events;
 
     // Event queue mutex scope
     {
       std::unique_lock<std::mutex> lock(this_executor->push_mutex_);
-      for (size_t i = 0; i < num_events; i++) {
-        this_executor->events_queue_->push(data->event);
-      }
+      this_executor->events_queue_->push(event);
     }
     // Notify that the event queue has some events in it.
     this_executor->events_queue_cv_.notify_one();

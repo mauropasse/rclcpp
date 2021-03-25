@@ -48,7 +48,9 @@ public:
   void
   push(const rclcpp::executors::ExecutorEvent & event)
   {
-    event_queue_.push(event);
+    for (size_t i = 0; i < event.num_events; i++) {
+      event_queue_.push(event);
+    }
   }
 
   /**

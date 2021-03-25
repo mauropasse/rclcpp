@@ -603,7 +603,7 @@ EventsExecutorEntitiesCollector::get_callback_data(
 {
   // Create an entity callback data object and check if
   // we already have stored one like it
-  ExecutorEvent event = {entity_id, event_type};
+  ExecutorEvent event = {entity_id, event_type, 0};
   EventsExecutorCallbackData data(associated_executor_, event);
 
   auto it = callback_data_map_.find(data);
@@ -630,7 +630,7 @@ EventsExecutorEntitiesCollector::remove_callback_data(
 {
   // Create an entity callback data object and check if
   // we already have stored one like it
-  ExecutorEvent event = {entity_id, event_type};
+  ExecutorEvent event = {entity_id, event_type, 0};
   EventsExecutorCallbackData data(associated_executor_, event);
 
   auto it = callback_data_map_.find(data);
