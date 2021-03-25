@@ -68,8 +68,7 @@ public:
       rcl_ret_t ret = rcl_guard_condition_set_listener_callback(
         gc,
         callback,
-        user_data,
-        false);
+        user_data);
 
       if (RCL_RET_OK != ret) {
         throw std::runtime_error("Couldn't set guard condition events callback");

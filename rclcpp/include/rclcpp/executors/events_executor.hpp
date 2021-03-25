@@ -215,7 +215,7 @@ private:
   // This function is called by the DDS entities when an event happened,
   // like a subscription receiving a message.
   static void
-  push_event(const void * event_data)
+  push_event(const void * event_data, size_t num_events)
   {
     if (!event_data) {
       throw std::runtime_error("Executor event data not valid.");
@@ -228,7 +228,9 @@ private:
     // Event queue mutex scope
     {
       std::unique_lock<std::mutex> lock(this_executor->push_mutex_);
-      this_executor->events_queue_->push(data->event);
+      for (size_t i = 0; i < num_events; i++) {
+        this_executor->events_queue_->push(data->event);
+      }
     }
     // Notify that the event queue has some events in it.
     this_executor->events_queue_cv_.notify_one();
