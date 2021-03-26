@@ -126,6 +126,34 @@ public:
     return local_queue;
   }
 
+  /**
+   * @brief gets a single entity event from the queue
+   * and decrements the event counter.
+   * @return a single event
+   */
+  RCLCPP_PUBLIC
+  virtual
+  rclcpp::executors::ExecutorEvent
+  get_single_event()
+  {
+    rclcpp::executors::ExecutorEvent & front_event = event_queue_.front();
+
+    if (front_event.num_events > 1) {
+      // We have more than a single event for the entity.
+      // Decrement the counter by one, keeping the event in the front.
+      front_event.num_events--;
+    } else {
+      // We have a single event, pop it from queue.
+      event_queue_.pop();
+    }
+
+    // Make sure we return a single event for the entity.
+    rclcpp::executors::ExecutorEvent single_event = front_event;
+    single_event.num_events = 1;
+
+    return single_event;
+  }
+
 private:
   std::queue<rclcpp::executors::ExecutorEvent> event_queue_;
 };

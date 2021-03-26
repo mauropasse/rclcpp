@@ -183,7 +183,7 @@ EventsExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
   // When condition variable is notified, check this predicate to proceed
   auto has_event_predicate = [this]() {return !events_queue_->empty();};
 
-  ExecutorEvent single_event;
+  ExecutorEvent event;
   bool has_event = false;
 
   {
@@ -194,39 +194,14 @@ EventsExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
     // Grab first event from queue if it exists
     has_event = !events_queue_->empty();
     if (has_event) {
-      // If the event has num_events > 1, we have to only execute a single event and
-      // decrement the event counter, leaving the event in the queue for future processing.
-      // But we can't modify an element from a temporary object (the queue is a shared_ptr)
-      // so, we need a local copy to manipulate and then update the original queue.
-      std::queue<ExecutorEvent> local_events_queue = events_queue_->pop_all_events();
-
-      ExecutorEvent & front_event = local_events_queue.front();
-
-      if (front_event.num_events > 1) {
-        // Decrement the counter by one, keeping the event in the front.
-        front_event.num_events--;
-      } else {
-        // We have a single event, pop it from queue.
-        local_events_queue.pop();
-      }
-
-      // Make sure we only execute a single event
-      single_event = front_event;
-      single_event.num_events = 1;
-
-      // Update the global queue
-      while (!local_events_queue.empty()) {
-        ExecutorEvent event = local_events_queue.front();
-        local_events_queue.pop();
-        events_queue_->push(event);
-      }
+      event = events_queue_->get_single_event();
     }
   }
 
   // If we wake up from the wait with an event, it means that it
   // arrived before any of the timers expired.
   if (has_event) {
-    this->execute_event(single_event);
+    this->execute_event(event);
   } else {
     timers_manager_->execute_head_timer();
   }

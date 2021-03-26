@@ -110,6 +110,17 @@ public:
   virtual
   std::queue<rclcpp::executors::ExecutorEvent>
   pop_all_events() = 0;
+
+  /**
+   * @brief gets a single entity event from the queue
+   * @return a single entity event
+  */
+  // TODO: find an alternative to pop_all_events and
+  // get_single_event to use standard queue interfaces
+  RCLCPP_PUBLIC
+  virtual
+  rclcpp::executors::ExecutorEvent
+  get_single_event() = 0;
 };
 
 }  // namespace buffers
