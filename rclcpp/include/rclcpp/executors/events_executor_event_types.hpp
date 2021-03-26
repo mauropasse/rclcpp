@@ -35,6 +35,7 @@ struct ExecutorEvent
 {
   const void * entity_id;
   ExecutorEventType type;
+  size_t num_events;
 };
 
 // The EventsExecutorCallbackData struct is what the listeners

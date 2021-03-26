@@ -194,8 +194,7 @@ EventsExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
     // Grab first event from queue if it exists
     has_event = !events_queue_->empty();
     if (has_event) {
-      event = events_queue_->front();
-      events_queue_->pop();
+      event = events_queue_->get_single_event();
     }
   }
 
@@ -254,7 +253,9 @@ EventsExecutor::execute_event(const ExecutorEvent & event)
         auto subscription = entities_collector_->get_subscription(event.entity_id);
 
         if (subscription) {
-          execute_subscription(subscription);
+          for (size_t i = 0; i < event.num_events; i++) {
+            execute_subscription(subscription);
+          }
         }
         break;
       }
@@ -264,7 +265,9 @@ EventsExecutor::execute_event(const ExecutorEvent & event)
         auto service = entities_collector_->get_service(event.entity_id);
 
         if (service) {
-          execute_service(service);
+          for (size_t i = 0; i < event.num_events; i++) {
+            execute_service(service);
+          }
         }
         break;
       }
@@ -274,7 +277,9 @@ EventsExecutor::execute_event(const ExecutorEvent & event)
         auto client = entities_collector_->get_client(event.entity_id);
 
         if (client) {
-          execute_client(client);
+          for (size_t i = 0; i < event.num_events; i++) {
+            execute_client(client);
+          }
         }
         break;
       }
@@ -284,8 +289,10 @@ EventsExecutor::execute_event(const ExecutorEvent & event)
         auto waitable = entities_collector_->get_waitable(event.entity_id);
 
         if (waitable) {
-          auto data = waitable->take_data();
-          waitable->execute(data);
+          for (size_t i = 0; i < event.num_events; i++) {
+            auto data = waitable->take_data();
+            waitable->execute(data);
+          }
         }
         break;
       }

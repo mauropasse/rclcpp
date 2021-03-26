@@ -490,8 +490,7 @@ EventsExecutorEntitiesCollector::set_guard_condition_callback(
   rcl_ret_t ret = rcl_guard_condition_set_listener_callback(
     guard_condition,
     &EventsExecutor::push_event,
-    get_callback_data(this, WAITABLE_EVENT),
-    false /* Discard previous events */);
+    get_callback_data(this, WAITABLE_EVENT));
 
   if (ret != RCL_RET_OK) {
     throw std::runtime_error("Couldn't set guard condition event callback");
@@ -503,10 +502,7 @@ EventsExecutorEntitiesCollector::unset_guard_condition_callback(
   const rcl_guard_condition_t * guard_condition)
 {
   rcl_ret_t ret = rcl_guard_condition_set_listener_callback(
-    guard_condition,
-    nullptr,
-    nullptr,
-    false /* Discard previous events */);
+    guard_condition, nullptr, nullptr);
 
   if (ret != RCL_RET_OK) {
     throw std::runtime_error("Couldn't unset guard condition event callback");
@@ -607,7 +603,7 @@ EventsExecutorEntitiesCollector::get_callback_data(
 {
   // Create an entity callback data object and check if
   // we already have stored one like it
-  ExecutorEvent event = {entity_id, event_type};
+  ExecutorEvent event = {entity_id, event_type, 0};
   EventsExecutorCallbackData data(associated_executor_, event);
 
   auto it = callback_data_map_.find(data);
@@ -634,7 +630,7 @@ EventsExecutorEntitiesCollector::remove_callback_data(
 {
   // Create an entity callback data object and check if
   // we already have stored one like it
-  ExecutorEvent event = {entity_id, event_type};
+  ExecutorEvent event = {entity_id, event_type, 0};
   EventsExecutorCallbackData data(associated_executor_, event);
 
   auto it = callback_data_map_.find(data);

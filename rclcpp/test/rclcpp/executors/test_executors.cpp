@@ -473,10 +473,7 @@ public:
     const void * user_data) const override
   {
     rcl_ret_t ret = rcl_guard_condition_set_listener_callback(
-      &gc_,
-      callback,
-      user_data,
-      true /*Use previous events*/);
+      &gc_, callback, user_data);
 
     if (RCL_RET_OK != ret) {
       throw std::runtime_error(std::string("Couldn't set guard condition callback"));
