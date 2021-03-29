@@ -65,9 +65,16 @@ GuardCondition::get_rcl_guard_condition() const
 void
 GuardCondition::trigger()
 {
-  rcl_ret_t ret = rcl_trigger_guard_condition(&rcl_guard_condition_);
-  if (RCL_RET_OK != ret) {
-    rclcpp::exceptions::throw_from_rcl_error(ret);
+  std::unique_lock<std::mutex> lock(callback_mutex_);
+
+  if(callback_) {
+    callback_(user_data_, 1);
+  } else {
+    rcl_ret_t ret = rcl_trigger_guard_condition(&rcl_guard_condition_);
+    if (RCL_RET_OK != ret) {
+      rclcpp::exceptions::throw_from_rcl_error(ret);
+    }
+    unread_count_++;
   }
 }
 
@@ -75,6 +82,30 @@ bool
 GuardCondition::exchange_in_use_by_wait_set_state(bool in_use_state)
 {
   return in_use_by_wait_set_.exchange(in_use_state);
+}
+
+bool
+GuardCondition::add_to_wait_set(rcl_wait_set_t * wait_set)
+{
+  rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, &rcl_guard_condition_, NULL);
+  return RCL_RET_OK == ret;
+}
+
+void
+GuardCondition::set_callback(
+  rmw_listener_callback_t callback,
+  const void * user_data)
+{
+  std::unique_lock<std::mutex> lock_mutex(callback_mutex_);
+
+  user_data_ = user_data;
+  callback_ = callback;
+
+  if (callback && unread_count_) {
+    // Push events arrived before setting the executor's callback
+    callback(user_data, unread_count_);
+    unread_count_ = 0;
+  }
 }
 
 }  // namespace rclcpp

@@ -24,6 +24,8 @@
 #include "rclcpp/macros.hpp"
 #include "rclcpp/visibility_control.hpp"
 
+#include "rmw/listener_callback_type.h"
+
 namespace rclcpp
 {
 
@@ -89,10 +91,26 @@ public:
   bool
   exchange_in_use_by_wait_set_state(bool in_use_state);
 
+  RCLCPP_PUBLIC
+  bool
+  add_to_wait_set(rcl_wait_set_t * wait_set);
+
+  RCLCPP_PUBLIC
+  void
+  set_callback(
+    rmw_listener_callback_t callback,
+    const void * user_data);
+
 protected:
   rclcpp::Context::SharedPtr context_;
   rcl_guard_condition_t rcl_guard_condition_;
   std::atomic<bool> in_use_by_wait_set_{false};
+
+private:
+  rmw_listener_callback_t callback_{nullptr};
+  const void * user_data_{nullptr};
+  std::mutex callback_mutex_;
+  uint64_t unread_count_ = 0;
 };
 
 }  // namespace rclcpp
