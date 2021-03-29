@@ -21,6 +21,7 @@
 
 #include "rcl/node.h"
 #include "rclcpp/context.hpp"
+#include "rclcpp/guard_condition.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp/node_interfaces/node_base_interface.hpp"
 #include "rclcpp/visibility_control.hpp"
@@ -104,7 +105,7 @@ public:
   get_associated_with_executor_atomic() override;
 
   RCLCPP_PUBLIC
-  rcl_guard_condition_t *
+  const rcl_guard_condition_t *
   get_notify_guard_condition() override;
 
   RCLCPP_PUBLIC
@@ -122,6 +123,10 @@ public:
   resolve_topic_or_service_name(
     const std::string & name, bool is_service, bool only_expand = false) const override;
 
+  RCLCPP_PUBLIC
+  void
+  trigger_notify_guard_condition() const override;
+
 private:
   RCLCPP_DISABLE_COPY(NodeBase)
 
@@ -138,7 +143,7 @@ private:
 
   /// Guard condition for notifying the Executor of changes to this node.
   mutable std::recursive_mutex notify_guard_condition_mutex_;
-  rcl_guard_condition_t notify_guard_condition_ = rcl_get_zero_initialized_guard_condition();
+  GuardCondition::SharedPtr notify_guard_condition_;
   bool notify_guard_condition_is_valid_;
 };
 
