@@ -115,7 +115,7 @@ public:
    * @brief gets a single entity event from the queue
    * @return a single entity event
   */
-  // TODO: find an alternative to pop_all_events and
+  // TODO(mauropasse): find an alternative to pop_all_events and
   // get_single_event to use standard queue interfaces
   RCLCPP_PUBLIC
   virtual

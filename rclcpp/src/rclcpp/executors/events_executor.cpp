@@ -141,6 +141,9 @@ EventsExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool exhau
       if (has_event) {
         ExecutorEvent event = events_queue_->front();
         events_queue_->pop();
+        // Unlock the mutex, so if the execution of the event requires
+        // pushing an event into the queue we avoid a deadlock.
+        lock.unlock();
         this->execute_event(event);
         executed_events++;
         continue;
