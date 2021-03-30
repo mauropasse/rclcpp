@@ -68,7 +68,8 @@ EventsExecutorEntitiesCollector::~EventsExecutorEntitiesCollector()
     auto node = pair.first.lock();
     if (node) {
       auto node_gc = pair.second;
-      unset_guard_condition_callback(node_gc);
+      node_gc->set_callback(nullptr, nullptr);
+      remove_callback_data(this, WAITABLE_EVENT);
     }
   }
 
@@ -141,10 +142,11 @@ EventsExecutorEntitiesCollector::add_callback_group(
   if (is_new_node) {
     // Set an event callback for the node's notify guard condition, so if new entities are added
     // or removed to this node we will receive an event.
-    set_guard_condition_callback(node_ptr->get_notify_guard_condition());
+    auto gc = node_ptr->get_notify_guard_condition();
+    gc->set_callback(&EventsExecutor::push_event, get_callback_data(this, WAITABLE_EVENT));
 
     // Store node's notify guard condition
-    weak_nodes_to_guard_conditions_[node_ptr] = node_ptr->get_notify_guard_condition();
+    weak_nodes_to_guard_conditions_[node_ptr] = gc;
   }
 
   // Add callback group to weak_groups_to_node
@@ -375,11 +377,13 @@ EventsExecutorEntitiesCollector::remove_callback_group_from_map(
     // Node doesn't have more callback groups associated to the executor.
     // Unset the event callback for the node's notify guard condition, to stop
     // receiving events if entities are added or removed to this node.
-    unset_guard_condition_callback(node_ptr->get_notify_guard_condition());
+    auto gc = node_ptr->get_notify_guard_condition();
+    gc->set_callback(nullptr, nullptr);
+
+    remove_callback_data(this, WAITABLE_EVENT);
 
     // Remove guard condition from list
-    rclcpp::node_interfaces::NodeBaseInterface::WeakPtr weak_node_ptr(node_ptr);
-    weak_nodes_to_guard_conditions_.erase(weak_node_ptr);
+    weak_nodes_to_guard_conditions_.erase(node_ptr);
   }
 }
 
@@ -481,34 +485,6 @@ EventsExecutorEntitiesCollector::get_automatically_added_callback_groups_from_no
     groups.push_back(group_node_ptr.first);
   }
   return groups;
-}
-
-void
-EventsExecutorEntitiesCollector::set_guard_condition_callback(
-  const rcl_guard_condition_t * guard_condition)
-{
-  rcl_ret_t ret = rcl_guard_condition_set_listener_callback(
-    guard_condition,
-    &EventsExecutor::push_event,
-    get_callback_data(this, WAITABLE_EVENT));
-
-  if (ret != RCL_RET_OK) {
-    throw std::runtime_error("Couldn't set guard condition event callback");
-  }
-}
-
-void
-EventsExecutorEntitiesCollector::unset_guard_condition_callback(
-  const rcl_guard_condition_t * guard_condition)
-{
-  rcl_ret_t ret = rcl_guard_condition_set_listener_callback(
-    guard_condition, nullptr, nullptr);
-
-  if (ret != RCL_RET_OK) {
-    throw std::runtime_error("Couldn't unset guard condition event callback");
-  }
-
-  remove_callback_data(this, WAITABLE_EVENT);
 }
 
 rclcpp::SubscriptionBase::SharedPtr

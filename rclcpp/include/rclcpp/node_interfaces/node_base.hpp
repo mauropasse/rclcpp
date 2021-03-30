@@ -21,7 +21,6 @@
 
 #include "rcl/node.h"
 #include "rclcpp/context.hpp"
-#include "rclcpp/guard_condition.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp/node_interfaces/node_base_interface.hpp"
 #include "rclcpp/visibility_control.hpp"
@@ -105,8 +104,8 @@ public:
   get_associated_with_executor_atomic() override;
 
   RCLCPP_PUBLIC
-  const rcl_guard_condition_t *
-  get_notify_guard_condition() override;
+  rclcpp::GuardCondition::SharedPtr
+  get_notify_guard_condition() const override;
 
   RCLCPP_PUBLIC
   std::unique_lock<std::recursive_mutex>

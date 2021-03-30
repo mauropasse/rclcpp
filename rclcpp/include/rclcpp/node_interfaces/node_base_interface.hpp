@@ -24,6 +24,7 @@
 
 #include "rclcpp/callback_group.hpp"
 #include "rclcpp/context.hpp"
+#include "rclcpp/guard_condition.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp/visibility_control.hpp"
 
@@ -138,12 +139,12 @@ public:
   /**
    * For example, this should be notified when a publisher is added or removed.
    *
-   * \return the rcl_guard_condition_t if it is valid, else nullptr
+   * \return the GuardCondition::SharedPtr if it is valid, else nullptr
    */
   RCLCPP_PUBLIC
   virtual
-  const rcl_guard_condition_t *
-  get_notify_guard_condition() = 0;
+  rclcpp::GuardCondition::SharedPtr
+  get_notify_guard_condition() const = 0;
 
   /// Acquire and return a scoped lock that protects the notify guard condition.
   /** This should be used when triggering the notify guard condition. */

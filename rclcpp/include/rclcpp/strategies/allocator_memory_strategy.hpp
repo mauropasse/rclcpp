@@ -61,20 +61,20 @@ public:
     allocator_ = std::make_shared<VoidAlloc>();
   }
 
-  void add_guard_condition(const rcl_guard_condition_t * guard_condition) override
+  void add_guard_condition(const GuardCondition::SharedPtr gc) override
   {
     for (const auto & existing_guard_condition : guard_conditions_) {
-      if (existing_guard_condition == guard_condition) {
+      if (existing_guard_condition == gc) {
         return;
       }
     }
-    guard_conditions_.push_back(guard_condition);
+    guard_conditions_.push_back(gc);
   }
 
-  void remove_guard_condition(const rcl_guard_condition_t * guard_condition) override
+  void remove_guard_condition(const GuardCondition::SharedPtr gc) override
   {
     for (auto it = guard_conditions_.begin(); it != guard_conditions_.end(); ++it) {
-      if (*it == guard_condition) {
+      if (*it == gc) {
         guard_conditions_.erase(it);
         break;
       }
@@ -240,7 +240,7 @@ public:
     }
 
     for (auto guard_condition : guard_conditions_) {
-      if (rcl_wait_set_add_guard_condition(wait_set, guard_condition, NULL) != RCL_RET_OK) {
+      if (guard_condition->add_to_wait_set(wait_set) == false) {
         RCUTILS_LOG_ERROR_NAMED(
           "rclcpp",
           "Couldn't add guard_condition to wait set: %s",
@@ -504,7 +504,7 @@ private:
   using VectorRebind =
     std::vector<T, typename std::allocator_traits<Alloc>::template rebind_alloc<T>>;
 
-  VectorRebind<const rcl_guard_condition_t *> guard_conditions_;
+  VectorRebind<GuardCondition::SharedPtr> guard_conditions_;
 
   VectorRebind<std::shared_ptr<const rcl_subscription_t>> subscription_handles_;
   VectorRebind<std::shared_ptr<const rcl_service_t>> service_handles_;

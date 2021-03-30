@@ -20,13 +20,14 @@
 namespace rclcpp
 {
 
-GuardCondition::GuardCondition(rclcpp::Context::SharedPtr context)
+GuardCondition::GuardCondition(
+  rclcpp::Context::SharedPtr context,
+  rcl_guard_condition_options_t guard_condition_options)
 : context_(context), rcl_guard_condition_{rcl_get_zero_initialized_guard_condition()}
 {
   if (!context_) {
     throw std::invalid_argument("context argument unexpectedly nullptr");
   }
-  rcl_guard_condition_options_t guard_condition_options = rcl_guard_condition_get_default_options();
   rcl_ret_t ret = rcl_guard_condition_init(
     &this->rcl_guard_condition_,
     context_->get_rcl_context().get(),
@@ -67,10 +68,10 @@ GuardCondition::trigger()
 {
   std::unique_lock<std::mutex> lock(callback_mutex_);
 
-  if(callback_) {
+  if (callback_) {
     callback_(user_data_, 1);
   } else {
-    rcl_ret_t ret = rcl_trigger_guard_condition(&rcl_guard_condition_);
+    rcl_ret_t ret = rcl_trigger_guard_condition(&this->rcl_guard_condition_);
     if (RCL_RET_OK != ret) {
       rclcpp::exceptions::throw_from_rcl_error(ret);
     }
@@ -87,7 +88,7 @@ GuardCondition::exchange_in_use_by_wait_set_state(bool in_use_state)
 bool
 GuardCondition::add_to_wait_set(rcl_wait_set_t * wait_set)
 {
-  rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, &rcl_guard_condition_, NULL);
+  rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, &this->rcl_guard_condition_, NULL);
   return RCL_RET_OK == ret;
 }
 

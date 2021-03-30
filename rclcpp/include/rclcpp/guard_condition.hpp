@@ -49,7 +49,9 @@ public:
   RCLCPP_PUBLIC
   explicit GuardCondition(
     rclcpp::Context::SharedPtr context =
-    rclcpp::contexts::get_global_default_context());
+    rclcpp::contexts::get_global_default_context(),
+    rcl_guard_condition_options_t guard_condition_options =
+    rcl_guard_condition_get_default_options());
 
   RCLCPP_PUBLIC
   virtual
