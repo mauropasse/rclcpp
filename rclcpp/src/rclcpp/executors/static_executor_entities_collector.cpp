@@ -427,7 +427,7 @@ StaticExecutorEntitiesCollector::is_ready(rcl_wait_set_t * p_wait_set)
         weak_nodes_to_guard_conditions_.begin(), weak_nodes_to_guard_conditions_.end(),
         [&](std::pair<rclcpp::node_interfaces::NodeBaseInterface::WeakPtr,
         GuardCondition::SharedPtr> pair) -> bool {
-          auto rcl_gc = pair.second->get_rcl_guard_condition();
+          const rcl_guard_condition_t & rcl_gc = pair.second->get_rcl_guard_condition();
           return &rcl_gc == p_wait_set->guard_conditions[i];
         });
       if (found_guard_condition != weak_nodes_to_guard_conditions_.end()) {

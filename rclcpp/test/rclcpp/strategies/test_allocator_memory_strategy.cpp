@@ -591,11 +591,16 @@ TEST_F(TestAllocatorMemoryStrategy, add_handles_to_wait_set_guard_condition) {
   std::shared_ptr<rclcpp::GuardCondition> guard_condition;
   EXPECT_NO_THROW(guard_condition = std::make_shared<rclcpp::GuardCondition>(context));
 
+  RCLCPP_SCOPE_EXIT(
+  {
+    EXPECT_NO_THROW(guard_condition.reset());
+  });
+
   allocator_memory_strategy()->add_guard_condition(guard_condition);
 
   RclWaitSetSizes insufficient_capacities = SufficientWaitSetCapacities();
   insufficient_capacities.size_of_guard_conditions = 0;
-  EXPECT_TRUE(TestAddHandlesToWaitSet(node, insufficient_capacities));
+  EXPECT_THROW(TestAddHandlesToWaitSet(node, insufficient_capacities), std::runtime_error);
 }
 
 TEST_F(TestAllocatorMemoryStrategy, add_handles_to_wait_set_timer) {

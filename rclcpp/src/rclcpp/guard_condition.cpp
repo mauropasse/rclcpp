@@ -33,7 +33,7 @@ GuardCondition::GuardCondition(
     context_->get_rcl_context().get(),
     guard_condition_options);
   if (RCL_RET_OK != ret) {
-    rclcpp::exceptions::throw_from_rcl_error(ret);
+    rclcpp::exceptions::throw_from_rcl_error(ret, "failed to create interrupt guard condition");
   }
 }
 
@@ -46,7 +46,7 @@ GuardCondition::~GuardCondition()
     } catch (const std::exception & exception) {
       RCLCPP_ERROR(
         rclcpp::get_logger("rclcpp"),
-        "Error in destruction of rcl guard condition: %s", exception.what());
+        "failed to finalize interrupt guard condition: %s", exception.what());
     }
   }
 }
@@ -89,7 +89,12 @@ bool
 GuardCondition::add_to_wait_set(rcl_wait_set_t * wait_set)
 {
   rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, &this->rcl_guard_condition_, NULL);
-  return RCL_RET_OK == ret;
+  if (RCL_RET_OK != ret) {
+    rclcpp::exceptions::throw_from_rcl_error(
+      ret, "failed to add interrupt guard condition to wait set");
+    return false;
+  }
+  return true;
 }
 
 void

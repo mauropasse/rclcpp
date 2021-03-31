@@ -335,6 +335,7 @@ GraphListener::__shutdown()
       interrupt_(interrupt_guard_condition_);
       listener_thread_.join();
     }
+    interrupt_guard_condition_.reset();
     if (is_started_) {
       cleanup_wait_set();
     }
