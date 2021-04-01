@@ -67,7 +67,7 @@ public:
     const std::string & topic_name,
     rmw_qos_profile_t qos_profile,
     rclcpp::IntraProcessBufferType buffer_type)
-  : SubscriptionIntraProcessBase(topic_name, qos_profile),
+  : SubscriptionIntraProcessBase(context, topic_name, qos_profile),
     any_callback_(callback)
   {
     if (!std::is_same<MessageT, CallbackMessageT>::value) {
@@ -79,18 +79,6 @@ public:
       buffer_type,
       qos_profile,
       allocator);
-
-    // Create the guard condition.
-    rcl_guard_condition_options_t guard_condition_options =
-      rcl_guard_condition_get_default_options();
-
-    gc_ = rcl_get_zero_initialized_guard_condition();
-    rcl_ret_t ret = rcl_guard_condition_init(
-      &gc_, context->get_rcl_context().get(), guard_condition_options);
-
-    if (RCL_RET_OK != ret) {
-      throw std::runtime_error("SubscriptionIntraProcess init error initializing guard condition");
-    }
 
     TRACEPOINT(
       rclcpp_subscription_callback_added,
@@ -104,15 +92,7 @@ public:
 #endif
   }
 
-  ~SubscriptionIntraProcess()
-  {
-    if (rcl_guard_condition_fini(&gc_) != RCL_RET_OK) {
-      RCUTILS_LOG_ERROR_NAMED(
-        "rclcpp",
-        "Failed to destroy guard condition: %s",
-        rcutils_get_error_string().str);
-    }
-  }
+  ~SubscriptionIntraProcess() = default;
 
   bool
   is_ready(rcl_wait_set_t * wait_set)
@@ -168,8 +148,7 @@ private:
   void
   trigger_guard_condition()
   {
-    rcl_ret_t ret = rcl_trigger_guard_condition(&gc_);
-    (void)ret;
+    gc_.trigger();
   }
 
   template<typename T>

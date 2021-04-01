@@ -20,19 +20,20 @@
 namespace rclcpp
 {
 
-GuardCondition::GuardCondition(rclcpp::Context::SharedPtr context)
+GuardCondition::GuardCondition(
+  rclcpp::Context::SharedPtr context,
+  rcl_guard_condition_options_t guard_condition_options)
 : context_(context), rcl_guard_condition_{rcl_get_zero_initialized_guard_condition()}
 {
   if (!context_) {
     throw std::invalid_argument("context argument unexpectedly nullptr");
   }
-  rcl_guard_condition_options_t guard_condition_options = rcl_guard_condition_get_default_options();
   rcl_ret_t ret = rcl_guard_condition_init(
     &this->rcl_guard_condition_,
     context_->get_rcl_context().get(),
     guard_condition_options);
   if (RCL_RET_OK != ret) {
-    rclcpp::exceptions::throw_from_rcl_error(ret);
+    rclcpp::exceptions::throw_from_rcl_error(ret, "failed to create guard condition");
   }
 }
 
@@ -45,7 +46,7 @@ GuardCondition::~GuardCondition()
     } catch (const std::exception & exception) {
       RCLCPP_ERROR(
         rclcpp::get_logger("rclcpp"),
-        "Error in destruction of rcl guard condition: %s", exception.what());
+        "failed to finalize guard condition: %s", exception.what());
     }
   }
 }
@@ -77,4 +78,13 @@ GuardCondition::exchange_in_use_by_wait_set_state(bool in_use_state)
   return in_use_by_wait_set_.exchange(in_use_state);
 }
 
+void
+GuardCondition::add_to_wait_set(rcl_wait_set_t * wait_set) const
+{
+  rcl_ret_t ret = rcl_wait_set_add_guard_condition(wait_set, &this->rcl_guard_condition_, NULL);
+  if (RCL_RET_OK != ret) {
+    rclcpp::exceptions::throw_from_rcl_error(
+      ret, "failed to add guard condition to wait set");
+  }
+}
 }  // namespace rclcpp
