@@ -25,6 +25,7 @@
 
 #include "rcl/error_handling.h"
 
+#include "rclcpp/guard_condition.hpp"
 #include "rclcpp/type_support_decl.hpp"
 #include "rclcpp/waitable.hpp"
 
@@ -39,8 +40,10 @@ public:
   RCLCPP_SMART_PTR_ALIASES_ONLY(SubscriptionIntraProcessBase)
 
   RCLCPP_PUBLIC
-  SubscriptionIntraProcessBase(const std::string & topic_name, rmw_qos_profile_t qos_profile)
-  : topic_name_(topic_name), qos_profile_(qos_profile)
+  SubscriptionIntraProcessBase(
+    rclcpp::Context::SharedPtr context,
+    const std::string & topic_name, rmw_qos_profile_t qos_profile)
+  : gc_(context), topic_name_(topic_name), qos_profile_(qos_profile)
   {}
 
   virtual ~SubscriptionIntraProcessBase() = default;
@@ -82,7 +85,7 @@ public:
 
 protected:
   std::recursive_mutex reentrant_mutex_;
-  rcl_guard_condition_t gc_;
+  rclcpp::GuardCondition gc_;
 
 private:
   virtual void
