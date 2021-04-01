@@ -451,7 +451,7 @@ public:
   void
   set_listener_callback(
     rmw_listener_callback_t callback,
-    const void * user_data) const override
+    const void * user_data) override
   {
     gc_->set_callback(callback, user_data);
   }

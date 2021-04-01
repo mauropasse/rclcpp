@@ -106,7 +106,7 @@ public:
   void
   set_listener_callback(
     rmw_listener_callback_t callback,
-    const void * user_data) const override;
+    const void * user_data) override;
 
 protected:
   rcl_event_t event_handle_;

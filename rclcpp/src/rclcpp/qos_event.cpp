@@ -71,7 +71,7 @@ QOSEventHandlerBase::is_ready(rcl_wait_set_t * wait_set)
 void
 QOSEventHandlerBase::set_listener_callback(
   rmw_listener_callback_t callback,
-  const void * user_data) const
+  const void * user_data)
 {
   rcl_ret_t ret = rcl_event_set_listener_callback(
     &event_handle_,

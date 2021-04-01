@@ -63,7 +63,7 @@ Waitable::exchange_in_use_by_wait_set_state(bool in_use_state)
 void
 Waitable::set_listener_callback(
   rmw_listener_callback_t callback,
-  const void * user_data) const
+  const void * user_data)
 {
   (void)callback;
   (void)user_data;
