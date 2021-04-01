@@ -169,6 +169,12 @@ public:
       static_cast<const void *>(&on_new_event_callback_));
   }
 
+  RCLCPP_PUBLIC
+  void
+  set_listener_callback(
+    rmw_listener_callback_t callback,
+    const void * user_data) override;
+
 protected:
   RCLCPP_PUBLIC
   void
