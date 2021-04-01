@@ -375,10 +375,9 @@ BENCHMARK_F(
   });
 
   auto memory_strategy = rclcpp::memory_strategies::create_default_strategy();
-  rclcpp::GuardCondition guard_condition(shared_context);
-  rcl_guard_condition_t rcl_guard_condition = guard_condition.get_rcl_guard_condition();
+  auto guard_condition = std::make_shared<rclcpp::GuardCondition>(shared_context);
 
-  entities_collector_->init(&wait_set, memory_strategy, &rcl_guard_condition);
+  entities_collector_->init(&wait_set, memory_strategy, guard_condition);
   RCLCPP_SCOPE_EXIT(entities_collector_->fini());
 
   reset_heap_counters();

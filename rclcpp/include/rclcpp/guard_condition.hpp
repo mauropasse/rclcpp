@@ -47,7 +47,9 @@ public:
   RCLCPP_PUBLIC
   explicit GuardCondition(
     rclcpp::Context::SharedPtr context =
-    rclcpp::contexts::get_global_default_context());
+    rclcpp::contexts::get_global_default_context(),
+    rcl_guard_condition_options_t guard_condition_options =
+    rcl_guard_condition_get_default_options());
 
   RCLCPP_PUBLIC
   virtual
@@ -88,6 +90,10 @@ public:
   RCLCPP_PUBLIC
   bool
   exchange_in_use_by_wait_set_state(bool in_use_state);
+
+  RCLCPP_PUBLIC
+  bool
+  add_to_wait_set(rcl_wait_set_t * wait_set);
 
 protected:
   rclcpp::Context::SharedPtr context_;

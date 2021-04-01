@@ -25,6 +25,7 @@
 
 #include "rcl/error_handling.h"
 
+#include "rclcpp/guard_condition.hpp"
 #include "rclcpp/type_support_decl.hpp"
 #include "rclcpp/waitable.hpp"
 
@@ -76,7 +77,7 @@ public:
 
 protected:
   std::recursive_mutex reentrant_mutex_;
-  rcl_guard_condition_t gc_;
+  GuardCondition::SharedPtr gc_;
 
 private:
   virtual void
