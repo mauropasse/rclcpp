@@ -24,10 +24,12 @@
 #include <utility>
 
 #include "rcl/error_handling.h"
+#include "rcl/event_callback.h"
 
 #include "rclcpp/guard_condition.hpp"
 #include "rclcpp/type_support_decl.hpp"
 #include "rclcpp/waitable.hpp"
+
 
 namespace rclcpp
 {
@@ -84,6 +86,11 @@ public:
 protected:
   std::recursive_mutex reentrant_mutex_;
   GuardCondition::SharedPtr gc_;
+
+  rcl_event_callback_t callback_{nullptr};
+  std::mutex callback_mutex_;
+  const void * user_data_{nullptr};
+  uint64_t unread_count_ = 0;
 
 private:
   virtual void

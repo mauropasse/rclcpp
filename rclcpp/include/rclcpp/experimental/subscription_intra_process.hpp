@@ -151,7 +151,14 @@ private:
   void
   trigger_guard_condition()
   {
-    gc_->trigger();
+    std::unique_lock<std::mutex> lock(callback_mutex_);
+
+    if (callback_) {
+      callback_(user_data_, 1);
+    } else {
+      gc_->trigger();
+      unread_count_++;
+    }
   }
 
   template<typename T>

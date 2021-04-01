@@ -41,5 +41,14 @@ SubscriptionIntraProcessBase::set_listener_callback(
   rcl_event_callback_t callback,
   const void * user_data)
 {
-  gc_->set_callback(callback, user_data);
+  std::lock_guard<std::mutex> lock(callback_mutex_);
+
+  user_data_ = user_data;
+  callback_ = callback;
+
+  if (callback && unread_count_) {
+    // Push events arrived before setting the callback
+    callback(user_data, unread_count_);
+    unread_count_ = 0;
+  }
 }
