@@ -50,23 +50,23 @@ public:
 
   RCLCPP_PUBLIC
   size_t
-  get_number_of_ready_guard_conditions() {return 1;}
+  get_number_of_ready_guard_conditions() override {return 1;}
 
   RCLCPP_PUBLIC
   bool
-  add_to_wait_set(rcl_wait_set_t * wait_set);
+  add_to_wait_set(rcl_wait_set_t * wait_set) override;
 
-  virtual bool
-  is_ready(rcl_wait_set_t * wait_set) = 0;
+  bool
+  is_ready(rcl_wait_set_t * wait_set) override = 0;
+
+  std::shared_ptr<void>
+  take_data() override = 0;
+
+  void
+  execute(std::shared_ptr<void> & data) override = 0;
 
   virtual
-  std::shared_ptr<void>
-  take_data() = 0;
-
-  virtual void
-  execute(std::shared_ptr<void> & data) = 0;
-
-  virtual bool
+  bool
   use_take_shared_method() const = 0;
 
   RCLCPP_PUBLIC
@@ -76,12 +76,6 @@ public:
   RCLCPP_PUBLIC
   rmw_qos_profile_t
   get_actual_qos() const;
-
-  RCLCPP_PUBLIC
-  void
-  set_listener_callback(
-    rmw_listener_callback_t callback,
-    const void * user_data) const override;
 
 protected:
   std::recursive_mutex reentrant_mutex_;
