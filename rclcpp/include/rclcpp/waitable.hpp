@@ -208,7 +208,7 @@ public:
   void
   set_listener_callback(
     rcl_event_callback_t callback,
-    const void * user_data) const;
+    const void * user_data);
 
 private:
   std::atomic<bool> in_use_by_wait_set_{false};
