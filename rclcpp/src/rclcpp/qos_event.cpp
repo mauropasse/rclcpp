@@ -84,4 +84,20 @@ QOSEventHandlerBase::set_on_new_event_callback(
   }
 }
 
+void
+QOSEventHandlerBase::set_listener_callback(
+  rcl_event_callback_t callback,
+  const void * user_data)
+{
+  rcl_ret_t ret = rcl_event_set_callback(
+    &event_handle_,
+    callback,
+    user_data);
+
+  if (RCL_RET_OK != ret) {
+    using rclcpp::exceptions::throw_from_rcl_error;
+    throw_from_rcl_error(ret, "failed to set the on new message callback for subscription");
+  }
+}
+
 }  // namespace rclcpp
