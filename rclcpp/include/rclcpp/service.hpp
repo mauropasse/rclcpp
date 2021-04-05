@@ -188,6 +188,10 @@ public:
       static_cast<const void *>(&on_new_request_callback_));
   }
 
+  RCLCPP_PUBLIC
+  void
+  set_on_new_request_callback(rcl_event_callback_t callback, const void * user_data);
+
 protected:
   RCLCPP_DISABLE_COPY(ServiceBase)
 
@@ -198,10 +202,6 @@ protected:
   RCLCPP_PUBLIC
   const rcl_node_t *
   get_rcl_node_handle() const;
-
-  RCLCPP_PUBLIC
-  void
-  set_on_new_request_callback(rcl_event_callback_t callback, const void * user_data);
 
   std::shared_ptr<rcl_node_t> node_handle_;
 

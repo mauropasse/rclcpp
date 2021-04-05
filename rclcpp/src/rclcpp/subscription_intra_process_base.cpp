@@ -38,7 +38,7 @@ SubscriptionIntraProcessBase::get_actual_qos() const
 
 void
 SubscriptionIntraProcessBase::set_listener_callback(
-  rmw_listener_callback_t callback,
+  rcl_event_callback_t callback,
   const void * user_data) const
 {
   gc_->set_callback(callback, user_data);

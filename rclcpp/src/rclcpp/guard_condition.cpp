@@ -99,7 +99,7 @@ GuardCondition::add_to_wait_set(rcl_wait_set_t * wait_set)
 
 void
 GuardCondition::set_callback(
-  rmw_listener_callback_t callback,
+  rcl_event_callback_t callback,
   const void * user_data)
 {
   std::unique_lock<std::mutex> lock_mutex(callback_mutex_);

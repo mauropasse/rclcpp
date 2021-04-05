@@ -328,6 +328,10 @@ public:
       static_cast<const void *>(&on_new_message_callback_));
   }
 
+  RCLCPP_PUBLIC
+  void
+  set_on_new_message_callback(rcl_event_callback_t callback, const void * user_data);
+
 protected:
   template<typename EventCallbackT>
   void
@@ -351,10 +355,6 @@ protected:
   RCLCPP_PUBLIC
   bool
   matches_any_intra_process_publishers(const rmw_gid_t * sender_gid) const;
-
-  RCLCPP_PUBLIC
-  void
-  set_on_new_message_callback(rcl_event_callback_t callback, const void * user_data);
 
   rclcpp::node_interfaces::NodeBaseInterface * const node_base_;
 

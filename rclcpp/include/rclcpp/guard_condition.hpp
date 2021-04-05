@@ -17,6 +17,7 @@
 
 #include <atomic>
 
+#include "rcl/event_callback.h"
 #include "rcl/guard_condition.h"
 
 #include "rclcpp/context.hpp"
@@ -24,7 +25,6 @@
 #include "rclcpp/macros.hpp"
 #include "rclcpp/visibility_control.hpp"
 
-#include "rmw/listener_callback_type.h"
 
 namespace rclcpp
 {
@@ -100,7 +100,7 @@ public:
   RCLCPP_PUBLIC
   void
   set_callback(
-    rmw_listener_callback_t callback,
+    rcl_event_callback_t callback,
     const void * user_data);
 
 protected:
@@ -109,7 +109,7 @@ protected:
   std::atomic<bool> in_use_by_wait_set_{false};
 
 private:
-  rmw_listener_callback_t callback_{nullptr};
+  rcl_event_callback_t callback_{nullptr};
   const void * user_data_{nullptr};
   std::mutex callback_mutex_;
   uint64_t unread_count_ = 0;

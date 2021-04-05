@@ -20,6 +20,8 @@
 #include <queue>
 #include <vector>
 
+#include "rcl/event_callback.h"
+
 #include "rclcpp/executor.hpp"
 #include "rclcpp/executors/events_executor_entities_collector.hpp"
 #include "rclcpp/executors/events_executor_event_types.hpp"
@@ -29,7 +31,6 @@
 #include "rclcpp/experimental/buffers/simple_events_queue.hpp"
 #include "rclcpp/node.hpp"
 
-#include "rmw/listener_callback_type.h"
 
 namespace rclcpp
 {

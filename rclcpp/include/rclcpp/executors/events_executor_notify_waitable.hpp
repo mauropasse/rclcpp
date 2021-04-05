@@ -61,7 +61,7 @@ public:
   RCLCPP_PUBLIC
   void
   set_listener_callback(
-    rmw_listener_callback_t callback,
+    rcl_event_callback_t callback,
     const void * user_data) const override
   {
     for (auto gc : notify_guard_conditions_) {
