@@ -41,7 +41,7 @@ StaticSingleThreadedExecutor::spin()
 
   // Set memory_strategy_ and exec_list_ based on weak_nodes_
   // Prepare wait_set_ based on memory_strategy_
-  entities_collector_->init(&wait_set_, memory_strategy_, interrupt_guard_condition_);
+  entities_collector_->init(&wait_set_, memory_strategy_, &interrupt_guard_condition_);
   RCLCPP_SCOPE_EXIT(entities_collector_->fini());
 
   while (rclcpp::ok(this->context_) && spinning.load()) {
@@ -60,7 +60,7 @@ StaticSingleThreadedExecutor::add_callback_group(
   bool is_new_node = entities_collector_->add_callback_group(group_ptr, node_ptr);
   if (is_new_node && notify) {
     // Interrupt waiting to handle new node
-    interrupt_guard_condition_->trigger();
+    interrupt_guard_condition_.trigger();
   }
 }
 
@@ -71,7 +71,7 @@ StaticSingleThreadedExecutor::add_node(
   bool is_new_node = entities_collector_->add_node(node_ptr);
   if (is_new_node && notify) {
     // Interrupt waiting to handle new node
-    interrupt_guard_condition_->trigger();
+    interrupt_guard_condition_.trigger();
   }
 }
 
@@ -88,7 +88,7 @@ StaticSingleThreadedExecutor::remove_callback_group(
   bool node_removed = entities_collector_->remove_callback_group(group_ptr);
   // If the node was matched and removed, interrupt waiting
   if (node_removed && notify) {
-    interrupt_guard_condition_->trigger();
+    interrupt_guard_condition_.trigger();
   }
 }
 
@@ -102,7 +102,7 @@ StaticSingleThreadedExecutor::remove_node(
   }
   // If the node was matched and removed, interrupt waiting
   if (notify) {
-    interrupt_guard_condition_->trigger();
+    interrupt_guard_condition_.trigger();
   }
 }
 

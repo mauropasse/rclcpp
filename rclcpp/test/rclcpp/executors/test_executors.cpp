@@ -398,18 +398,18 @@ class TestWaitable : public rclcpp::Waitable
 public:
   TestWaitable()
   {
-    gc_ = std::make_shared<rclcpp::GuardCondition>();
+    rclcpp::GuardCondition gc_();
   }
 
   bool
   add_to_wait_set(rcl_wait_set_t * wait_set) override
   {
-    return gc_->add_to_wait_set(wait_set);
+    return gc_.add_to_wait_set(wait_set);
   }
 
   void trigger()
   {
-    gc_->trigger();
+    gc_.trigger();
   }
 
   bool
@@ -444,7 +444,7 @@ public:
 
 private:
   size_t count_ = 0;
-  rclcpp::GuardCondition::SharedPtr gc_;
+  rclcpp::GuardCondition gc_;
 };
 
 TYPED_TEST(TestExecutorsStable, spinAll) {

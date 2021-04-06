@@ -524,8 +524,8 @@ protected:
   std::atomic_bool spinning;
 
   /// Guard condition for signaling the rmw layer to wake up for special events.
-  GuardCondition::SharedPtr interrupt_guard_condition_;
-  GuardCondition::SharedPtr shutdown_guard_condition_;
+  rclcpp::GuardCondition interrupt_guard_condition_;
+  rclcpp::GuardCondition shutdown_guard_condition_;
 
   /// Wait set for managing entities that the rmw layer waits on.
   rcl_wait_set_t wait_set_ = rcl_get_zero_initialized_wait_set();
@@ -547,7 +547,7 @@ protected:
   spin_once_impl(std::chrono::nanoseconds timeout);
 
   typedef std::map<rclcpp::node_interfaces::NodeBaseInterface::WeakPtr,
-      GuardCondition::SharedPtr,
+      const rclcpp::GuardCondition *,
       std::owner_less<rclcpp::node_interfaces::NodeBaseInterface::WeakPtr>>
     WeakNodesToGuardConditionsMap;
 

@@ -21,7 +21,9 @@ SubscriptionIntraProcessBase::add_to_wait_set(rcl_wait_set_t * wait_set)
 {
   std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
 
-  return gc_->add_to_wait_set(wait_set);
+  gc_.add_to_wait_set(wait_set);
+
+  return true;
 }
 
 const char *

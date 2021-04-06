@@ -65,10 +65,10 @@ public:
   virtual void remove_null_handles(rcl_wait_set_t * wait_set) = 0;
 
   virtual void
-  add_guard_condition(const GuardCondition::SharedPtr guard_condition) = 0;
+  add_guard_condition(const rclcpp::GuardCondition * guard_condition) = 0;
 
   virtual void
-  remove_guard_condition(const GuardCondition::SharedPtr guard_condition) = 0;
+  remove_guard_condition(const rclcpp::GuardCondition * guard_condition) = 0;
 
   virtual void
   get_next_subscription(

@@ -42,7 +42,7 @@ GraphListener::GraphListener(const std::shared_ptr<Context> & parent_context)
   is_started_(false),
   is_shutdown_(false)
 {
-  interrupt_guard_condition_ = std::make_shared<GuardCondition>(parent_context);
+  GuardCondition interrupt_guard_condition_(parent_context);
 }
 
 GraphListener::~GraphListener()
@@ -149,7 +149,7 @@ GraphListener::run_loop()
       throw_from_rcl_error(ret, "failed to clear wait set");
     }
     // Put the interrupt guard condition in the wait set.
-    interrupt_guard_condition_->add_to_wait_set(&wait_set_);
+    interrupt_guard_condition_.add_to_wait_set(&wait_set_);
 
     // Put graph guard conditions for each node into the wait set.
     std::vector<size_t> graph_gc_indexes(node_graph_interfaces_size, 0u);
@@ -198,7 +198,7 @@ GraphListener::run_loop()
 }
 
 static void
-interrupt_(GuardCondition::SharedPtr interrupt_guard_condition)
+interrupt_(GuardCondition * interrupt_guard_condition)
 {
   interrupt_guard_condition->trigger();
 }
@@ -207,7 +207,7 @@ static void
 acquire_nodes_lock_(
   std::mutex * node_graph_interfaces_barrier_mutex,
   std::mutex * node_graph_interfaces_mutex,
-  GuardCondition::SharedPtr interrupt_guard_condition)
+  GuardCondition * interrupt_guard_condition)
 {
   {
     // Acquire this lock to prevent the run loop from re-locking the
@@ -243,7 +243,7 @@ GraphListener::has_node(rclcpp::node_interfaces::NodeGraphInterface * node_graph
   acquire_nodes_lock_(
     &node_graph_interfaces_barrier_mutex_,
     &node_graph_interfaces_mutex_,
-    interrupt_guard_condition_);
+    &interrupt_guard_condition_);
   // Store the now acquired node_graph_interfaces_mutex_ in the scoped lock using adopt_lock.
   std::lock_guard<std::mutex> nodes_lock(node_graph_interfaces_mutex_, std::adopt_lock);
   return has_node_(&node_graph_interfaces_, node_graph);
@@ -265,7 +265,7 @@ GraphListener::add_node(rclcpp::node_interfaces::NodeGraphInterface * node_graph
   acquire_nodes_lock_(
     &node_graph_interfaces_barrier_mutex_,
     &node_graph_interfaces_mutex_,
-    interrupt_guard_condition_);
+    &interrupt_guard_condition_);
   // Store the now acquired node_graph_interfaces_mutex_ in the scoped lock using adopt_lock.
   std::lock_guard<std::mutex> nodes_lock(node_graph_interfaces_mutex_, std::adopt_lock);
   if (has_node_(&node_graph_interfaces_, node_graph)) {
@@ -311,7 +311,7 @@ GraphListener::remove_node(rclcpp::node_interfaces::NodeGraphInterface * node_gr
   acquire_nodes_lock_(
     &node_graph_interfaces_barrier_mutex_,
     &node_graph_interfaces_mutex_,
-    interrupt_guard_condition_);
+    &interrupt_guard_condition_);
   // Store the now acquired node_graph_interfaces_mutex_ in the scoped lock using adopt_lock.
   std::lock_guard<std::mutex> nodes_lock(node_graph_interfaces_mutex_, std::adopt_lock);
   remove_node_(&node_graph_interfaces_, node_graph);
@@ -332,10 +332,10 @@ GraphListener::__shutdown()
   std::lock_guard<std::mutex> shutdown_lock(shutdown_mutex_);
   if (!is_shutdown_.exchange(true)) {
     if (is_started_) {
-      interrupt_(interrupt_guard_condition_);
+      interrupt_(&interrupt_guard_condition_);
       listener_thread_.join();
     }
-    interrupt_guard_condition_.reset();
+    interrupt_guard_condition_.~GuardCondition();
     if (is_started_) {
       cleanup_wait_set();
     }

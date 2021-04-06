@@ -139,12 +139,23 @@ public:
   /**
    * For example, this should be notified when a publisher is added or removed.
    *
-   * \return the GuardCondition::SharedPtr if it is valid, else nullptr
+   * \return the rcl_guard_condition_t if it is valid, else nullptr
    */
   RCLCPP_PUBLIC
   virtual
-  rclcpp::GuardCondition::SharedPtr
-  get_notify_guard_condition() const = 0;
+  const rcl_guard_condition_t *
+  get_notify_guard_condition() = 0;
+
+  /// Return guard condition that should be notified when the internal node state changes.
+  /**
+   * For example, this should be notified when a publisher is added or removed.
+   *
+   * \return the GuardCondition if it is valid, else nullptr
+   */
+  RCLCPP_PUBLIC
+  virtual
+  rclcpp::GuardCondition *
+  get_guard_condition() = 0;
 
   /// Acquire and return a scoped lock that protects the notify guard condition.
   /** This should be used when triggering the notify guard condition. */
@@ -172,10 +183,11 @@ public:
   resolve_topic_or_service_name(
     const std::string & name, bool is_service, bool only_expand = false) const = 0;
 
+  /// Trigger the node's notify guard condition.
   RCLCPP_PUBLIC
   virtual
   void
-  trigger_notify_guard_condition() const = 0;
+  trigger_notify_guard_condition() = 0;
 };
 
 }  // namespace node_interfaces

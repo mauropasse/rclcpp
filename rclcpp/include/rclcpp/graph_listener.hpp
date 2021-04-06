@@ -188,7 +188,7 @@ private:
   mutable std::mutex node_graph_interfaces_mutex_;
   std::vector<rclcpp::node_interfaces::NodeGraphInterface *> node_graph_interfaces_;
 
-  GuardCondition::SharedPtr interrupt_guard_condition_;
+  rclcpp::GuardCondition interrupt_guard_condition_;
   rcl_wait_set_t wait_set_ = rcl_get_zero_initialized_wait_set();
 };
 

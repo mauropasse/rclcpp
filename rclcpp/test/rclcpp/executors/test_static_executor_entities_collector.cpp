@@ -140,7 +140,7 @@ TEST_F(TestStaticExecutorEntitiesCollector, init_bad_arguments) {
     rcl_wait_set_init(&wait_set, 100, 100, 100, 100, 100, 100, context, allocator));
   RCLCPP_SCOPE_EXIT({EXPECT_EQ(RCL_RET_OK, rcl_wait_set_fini(&wait_set));});
 
-  auto guard_condition = std::make_shared<rclcpp::GuardCondition>(shared_context);
+  rclcpp::GuardCondition guard_condition(shared_context);
 
   // Check memory strategy is nullptr
   rclcpp::memory_strategy::MemoryStrategy::SharedPtr memory_strategy = nullptr;
@@ -165,8 +165,8 @@ TEST_F(TestStaticExecutorEntitiesCollector, add_remove_basic_node) {
   RCLCPP_SCOPE_EXIT({EXPECT_EQ(RCL_RET_OK, rcl_wait_set_fini(&wait_set));});
 
   auto memory_strategy = rclcpp::memory_strategies::create_default_strategy();
-  auto guard_condition = std::make_shared<rclcpp::GuardCondition>(shared_context);
-  entities_collector_->init(&wait_set, memory_strategy, guard_condition);
+  rclcpp::GuardCondition guard_condition(shared_context);
+  entities_collector_->init(&wait_set, memory_strategy, &guard_condition);
   RCLCPP_SCOPE_EXIT(entities_collector_->fini());
   EXPECT_EQ(
     expected_number_of_entities->subscriptions,
@@ -180,7 +180,7 @@ TEST_F(TestStaticExecutorEntitiesCollector, add_remove_basic_node) {
     entities_collector_->get_number_of_waitables());
 
   EXPECT_TRUE(entities_collector_->remove_node(node->get_node_base_interface()));
-  entities_collector_->init(&wait_set, memory_strategy, guard_condition);
+  entities_collector_->init(&wait_set, memory_strategy, &guard_condition);
   EXPECT_EQ(0u, entities_collector_->get_number_of_subscriptions());
   EXPECT_EQ(0u, entities_collector_->get_number_of_timers());
   EXPECT_EQ(0u, entities_collector_->get_number_of_services());
@@ -210,10 +210,10 @@ TEST_F(TestStaticExecutorEntitiesCollector, add_remove_node_out_of_scope) {
   RCLCPP_SCOPE_EXIT({EXPECT_EQ(RCL_RET_OK, rcl_wait_set_fini(&wait_set));});
 
   auto memory_strategy = rclcpp::memory_strategies::create_default_strategy();
-  auto guard_condition = std::make_shared<rclcpp::GuardCondition>(shared_context);
+  rclcpp::GuardCondition guard_condition(shared_context);
 
   // Expect weak_node pointers to be cleaned up and used
-  entities_collector_->init(&wait_set, memory_strategy, guard_condition);
+  entities_collector_->init(&wait_set, memory_strategy, &guard_condition);
   RCLCPP_SCOPE_EXIT(entities_collector_->fini());
   EXPECT_EQ(0u, entities_collector_->get_number_of_subscriptions());
   EXPECT_EQ(0u, entities_collector_->get_number_of_timers());
@@ -281,9 +281,9 @@ TEST_F(TestStaticExecutorEntitiesCollector, add_remove_node_with_entities) {
 
   auto memory_strategy = rclcpp::memory_strategies::create_default_strategy();
 
-  auto guard_condition = std::make_shared<rclcpp::GuardCondition>(shared_context);
+  rclcpp::GuardCondition guard_condition(shared_context);
 
-  entities_collector_->init(&wait_set, memory_strategy, guard_condition);
+  entities_collector_->init(&wait_set, memory_strategy, &guard_condition);
   RCLCPP_SCOPE_EXIT(entities_collector_->fini());
 
   EXPECT_EQ(
@@ -303,7 +303,7 @@ TEST_F(TestStaticExecutorEntitiesCollector, add_remove_node_with_entities) {
     entities_collector_->get_number_of_waitables());
 
   entities_collector_->remove_node(node->get_node_base_interface());
-  entities_collector_->init(&wait_set, memory_strategy, guard_condition);
+  entities_collector_->init(&wait_set, memory_strategy, &guard_condition);
   EXPECT_EQ(0u, entities_collector_->get_number_of_subscriptions());
   EXPECT_EQ(0u, entities_collector_->get_number_of_timers());
   EXPECT_EQ(0u, entities_collector_->get_number_of_services());
@@ -359,9 +359,9 @@ TEST_F(TestStaticExecutorEntitiesCollector, prepare_wait_set_rcl_wait_set_clear_
   RCLCPP_SCOPE_EXIT({EXPECT_EQ(RCL_RET_OK, rcl_wait_set_fini(&wait_set));});
 
   auto memory_strategy = rclcpp::memory_strategies::create_default_strategy();
-  auto guard_condition = std::make_shared<rclcpp::GuardCondition>(shared_context);
+  rclcpp::GuardCondition guard_condition(shared_context);
 
-  entities_collector_->init(&wait_set, memory_strategy, guard_condition);
+  entities_collector_->init(&wait_set, memory_strategy, &guard_condition);
   RCLCPP_SCOPE_EXIT(entities_collector_->fini());
 
   {
@@ -389,9 +389,9 @@ TEST_F(TestStaticExecutorEntitiesCollector, prepare_wait_set_rcl_wait_set_resize
   RCLCPP_SCOPE_EXIT({EXPECT_EQ(RCL_RET_OK, rcl_wait_set_fini(&wait_set));});
 
   auto memory_strategy = rclcpp::memory_strategies::create_default_strategy();
-  auto guard_condition = std::make_shared<rclcpp::GuardCondition>(shared_context);
+  rclcpp::GuardCondition guard_condition(shared_context);
 
-  entities_collector_->init(&wait_set, memory_strategy, guard_condition);
+  entities_collector_->init(&wait_set, memory_strategy, &guard_condition);
   RCLCPP_SCOPE_EXIT(entities_collector_->fini());
 
   {
@@ -426,9 +426,9 @@ TEST_F(TestStaticExecutorEntitiesCollector, refresh_wait_set_rcl_wait_failed) {
   RCLCPP_SCOPE_EXIT({EXPECT_EQ(RCL_RET_OK, rcl_wait_set_fini(&wait_set));});
 
   auto memory_strategy = rclcpp::memory_strategies::create_default_strategy();
-  auto guard_condition = std::make_shared<rclcpp::GuardCondition>(shared_context);
+  rclcpp::GuardCondition guard_condition(shared_context);
 
-  entities_collector_->init(&wait_set, memory_strategy, guard_condition);
+  entities_collector_->init(&wait_set, memory_strategy, &guard_condition);
   RCLCPP_SCOPE_EXIT(entities_collector_->fini());
 
   {
@@ -474,9 +474,9 @@ TEST_F(TestStaticExecutorEntitiesCollector, refresh_wait_set_add_handles_to_wait
 
   auto memory_strategy = rclcpp::memory_strategies::create_default_strategy();
 
-  auto guard_condition = std::make_shared<rclcpp::GuardCondition>(shared_context);
+  rclcpp::GuardCondition guard_condition(shared_context);
 
-  entities_collector_->init(&wait_set, memory_strategy, guard_condition);
+  entities_collector_->init(&wait_set, memory_strategy, &guard_condition);
   RCLCPP_SCOPE_EXIT(entities_collector_->fini());
 
   {
@@ -505,9 +505,9 @@ TEST_F(TestStaticExecutorEntitiesCollector, add_to_wait_set_nullptr) {
   RCLCPP_SCOPE_EXIT({EXPECT_EQ(RCL_RET_OK, rcl_wait_set_fini(&wait_set));});
 
   auto memory_strategy = rclcpp::memory_strategies::create_default_strategy();
-  auto guard_condition = std::make_shared<rclcpp::GuardCondition>(shared_context);
+  rclcpp::GuardCondition guard_condition(shared_context);
 
-  entities_collector_->init(&wait_set, memory_strategy, guard_condition);
+  entities_collector_->init(&wait_set, memory_strategy, &guard_condition);
   RCLCPP_SCOPE_EXIT(entities_collector_->fini());
 
   EXPECT_THROW(
@@ -532,7 +532,7 @@ TEST_F(TestStaticExecutorEntitiesCollector, fill_memory_strategy_invalid_group) 
   RCLCPP_SCOPE_EXIT({EXPECT_EQ(RCL_RET_OK, rcl_wait_set_fini(&wait_set));});
 
   auto memory_strategy = rclcpp::memory_strategies::create_default_strategy();
-  auto guard_condition = std::make_shared<rclcpp::GuardCondition>(shared_context);
+  rclcpp::GuardCondition guard_condition(shared_context);
 
   rclcpp::CallbackGroup::SharedPtr cb_group = node->create_callback_group(
     rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -542,7 +542,7 @@ TEST_F(TestStaticExecutorEntitiesCollector, fill_memory_strategy_invalid_group) 
 
   cb_group.reset();
 
-  entities_collector_->init(&wait_set, memory_strategy, guard_condition);
+  entities_collector_->init(&wait_set, memory_strategy, &guard_condition);
   RCLCPP_SCOPE_EXIT(entities_collector_->fini());
   ASSERT_EQ(entities_collector_->get_all_callback_groups().size(), 1u);
 
@@ -609,9 +609,9 @@ TEST_F(
   RCLCPP_SCOPE_EXIT({EXPECT_EQ(RCL_RET_OK, rcl_wait_set_fini(&wait_set));});
 
   auto memory_strategy = rclcpp::memory_strategies::create_default_strategy();
-  auto guard_condition = std::make_shared<rclcpp::GuardCondition>(shared_context);
+  rclcpp::GuardCondition guard_condition(shared_context);
 
-  entities_collector_->init(&wait_set, memory_strategy, guard_condition);
+  entities_collector_->init(&wait_set, memory_strategy, &guard_condition);
   RCLCPP_SCOPE_EXIT(entities_collector_->fini());
 
   cb_group->get_associated_with_executor_atomic().exchange(false);

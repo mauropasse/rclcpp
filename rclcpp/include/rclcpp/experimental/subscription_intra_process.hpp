@@ -81,7 +81,7 @@ public:
       allocator);
 
     // Create the guard condition.
-    gc_ = std::make_shared<GuardCondition>(context);
+    rclcpp::GuardCondition gc_(context);
 
     TRACEPOINT(
       rclcpp_subscription_callback_added,
@@ -151,7 +151,7 @@ private:
   void
   trigger_guard_condition()
   {
-    gc_->trigger();
+    gc_.trigger();
   }
 
   template<typename T>

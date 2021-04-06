@@ -47,7 +47,7 @@ NodeBase::NodeBase(
   notify_guard_condition_is_valid_(false)
 {
   // Setup the guard condition that is notified when changes occur in the graph.
-  notify_guard_condition_ = std::make_shared<GuardCondition>(context_);
+  GuardCondition notify_guard_condition_(context_);
   rcl_ret_t ret;
 
   // Create the rcl node and store it in a shared_ptr with a custom destructor.
@@ -240,14 +240,24 @@ NodeBase::get_associated_with_executor_atomic()
   return associated_with_executor_;
 }
 
-rclcpp::GuardCondition::SharedPtr
-NodeBase::get_notify_guard_condition() const
+const rcl_guard_condition_t *
+NodeBase::get_notify_guard_condition()
 {
   std::lock_guard<std::recursive_mutex> notify_condition_lock(notify_guard_condition_mutex_);
   if (!notify_guard_condition_is_valid_) {
     return nullptr;
   }
-  return notify_guard_condition_;
+  return &notify_guard_condition_.get_rcl_guard_condition();
+}
+
+rclcpp::GuardCondition *
+NodeBase::get_guard_condition()
+{
+  std::lock_guard<std::recursive_mutex> notify_condition_lock(notify_guard_condition_mutex_);
+  if (!notify_guard_condition_is_valid_) {
+    return nullptr;
+  }
+  return &notify_guard_condition_;
 }
 
 std::unique_lock<std::recursive_mutex>
@@ -290,8 +300,8 @@ NodeBase::resolve_topic_or_service_name(
 }
 
 void
-NodeBase::trigger_notify_guard_condition() const
+NodeBase::trigger_notify_guard_condition()
 {
   std::unique_lock<std::recursive_mutex> lock(notify_guard_condition_mutex_);
-  notify_guard_condition_->trigger();
+  notify_guard_condition_.trigger();
 }

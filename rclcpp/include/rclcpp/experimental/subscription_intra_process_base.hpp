@@ -77,7 +77,7 @@ public:
 
 protected:
   std::recursive_mutex reentrant_mutex_;
-  GuardCondition::SharedPtr gc_;
+  rclcpp::GuardCondition gc_;
 
 private:
   virtual void

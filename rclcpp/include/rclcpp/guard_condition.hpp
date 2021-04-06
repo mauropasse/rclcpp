@@ -91,9 +91,13 @@ public:
   bool
   exchange_in_use_by_wait_set_state(bool in_use_state);
 
+  /// Adds the underlying rcl guard condition to a waitset
+  /**
+   * \param[in] wait_set pointer to a wait set where to add the guard condition
+   */
   RCLCPP_PUBLIC
-  bool
-  add_to_wait_set(rcl_wait_set_t * wait_set);
+  void
+  add_to_wait_set(rcl_wait_set_t * wait_set) const;
 
 protected:
   rclcpp::Context::SharedPtr context_;

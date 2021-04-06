@@ -43,28 +43,25 @@ using rclcpp::FutureReturnCode;
 
 Executor::Executor(const rclcpp::ExecutorOptions & options)
 : spinning(false),
-  shutdown_guard_condition_(std::make_shared<rclcpp::GuardCondition>(options.context)),
   memory_strategy_(options.memory_strategy)
 {
   // Store the context for later use.
   context_ = options.context;
 
-  interrupt_guard_condition_ = std::make_shared<GuardCondition>(context_);
+  GuardCondition interrupt_guard_condition_(context_);
+  GuardCondition shutdown_guard_condition_(context_);
 
   context_->on_shutdown(
-    [weak_gc = std::weak_ptr<rclcpp::GuardCondition>{shutdown_guard_condition_}]() {
-      auto strong_gc = weak_gc.lock();
-      if (strong_gc) {
-        strong_gc->trigger();
-      }
+    [&shutdown_guard_condition_]() {
+      shutdown_guard_condition_.trigger();
     });
 
   // The number of guard conditions is always at least 2: 1 for the ctrl-c guard cond,
   // and one for the executor's guard cond (interrupt_guard_condition_)
-  memory_strategy_->add_guard_condition(shutdown_guard_condition_);
+  memory_strategy_->add_guard_condition(&shutdown_guard_condition_);
 
   // Put the executor's guard condition in
-  memory_strategy_->add_guard_condition(interrupt_guard_condition_);
+  memory_strategy_->add_guard_condition(&interrupt_guard_condition_);
   rcl_allocator_t allocator = memory_strategy_->get_allocator();
 
   rcl_ret_t ret = rcl_wait_set_init(
@@ -119,7 +116,7 @@ Executor::~Executor()
     rcl_reset_error();
   }
   // Remove and release the sigint guard condition
-  memory_strategy_->remove_guard_condition(shutdown_guard_condition_);
+  memory_strategy_->remove_guard_condition(&shutdown_guard_condition_);
 }
 
 std::vector<rclcpp::CallbackGroup::WeakPtr>
@@ -209,13 +206,13 @@ Executor::add_callback_group_to_map(
   weak_groups_to_nodes_.insert(std::make_pair(weak_group_ptr, node_ptr));
   if (is_new_node) {
     rclcpp::node_interfaces::NodeBaseInterface::WeakPtr node_weak_ptr(node_ptr);
-    weak_nodes_to_guard_conditions_[node_weak_ptr] = node_ptr->get_notify_guard_condition();
+    weak_nodes_to_guard_conditions_[node_weak_ptr] = node_ptr->get_guard_condition();
     if (notify) {
       // Interrupt waiting to handle new node
-      interrupt_guard_condition_->trigger();
+      interrupt_guard_condition_.trigger();
     }
     // Add the node's notify condition to the guard condition handles
-    memory_strategy_->add_guard_condition(node_ptr->get_notify_guard_condition());
+    memory_strategy_->add_guard_condition(node_ptr->get_guard_condition());
   }
 }
 
@@ -285,9 +282,9 @@ Executor::remove_callback_group_from_map(
     rclcpp::node_interfaces::NodeBaseInterface::WeakPtr node_weak_ptr(node_ptr);
     weak_nodes_to_guard_conditions_.erase(node_weak_ptr);
     if (notify) {
-      interrupt_guard_condition_->trigger();
+      interrupt_guard_condition_.trigger();
     }
-    memory_strategy_->remove_guard_condition(node_ptr->get_notify_guard_condition());
+    memory_strategy_->remove_guard_condition(node_ptr->get_guard_condition());
   }
 }
 
@@ -458,7 +455,7 @@ void
 Executor::cancel()
 {
   spinning.store(false);
-  interrupt_guard_condition_->trigger();
+  interrupt_guard_condition_.trigger();
 }
 
 void
@@ -496,7 +493,7 @@ Executor::execute_any_executable(AnyExecutable & any_exec)
   any_exec.callback_group->can_be_taken_from().store(true);
   // Wake the wait, because it may need to be recalculated or work that
   // was previously blocked is now available.
-  interrupt_guard_condition_->trigger();
+  interrupt_guard_condition_.trigger();
 }
 
 static
