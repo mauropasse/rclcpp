@@ -215,7 +215,10 @@ private:
   unset_guard_condition_callback(const rclcpp::GuardCondition * guard_condition);
 
   std::function<void(size_t)>
-  create_entity_callback(void * entity_id, ExecutorEventType type);
+  create_entity_callback(void * exec_entity_id, ExecutorEventType type);
+
+  std::function<void(size_t, int)>
+  create_waitable_callback(void * waitable_id);
 
   /// Return true if the node belongs to the collector
   /**

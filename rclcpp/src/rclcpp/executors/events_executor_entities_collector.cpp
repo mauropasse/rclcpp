@@ -478,7 +478,7 @@ void
 EventsExecutorEntitiesCollector::set_guard_condition_callback(
   const rclcpp::GuardCondition * guard_condition)
 {
-  // create_entity_callback(this, WAITABLE_EVENT);
+  create_waitable_callback(this);
 }
 
 void
@@ -573,10 +573,25 @@ EventsExecutorEntitiesCollector::add_waitable(rclcpp::Waitable::SharedPtr waitab
 
 std::function<void(size_t)>
 EventsExecutorEntitiesCollector::create_entity_callback(
-  void * entity_id, ExecutorEventType event_type)
+  void * exec_entity_id, ExecutorEventType event_type)
 {
-  return [this, entity_id, event_type](size_t num_events) {
-    ExecutorEvent event = {entity_id, event_type, num_events};
+  return [this, exec_entity_id, event_type](size_t num_events) {
+    ExecutorEvent event = {exec_entity_id, -1, event_type, num_events};
+    // Event queue mutex scope
+    {
+      std::unique_lock<std::mutex> lock(associated_executor_->push_mutex_);
+      associated_executor_->events_queue_->push(event);
+    }
+    // Notify that the event queue has some events in it.
+    associated_executor_->events_queue_cv_.notify_one();
+  };
+}
+
+std::function<void(size_t, int)>
+EventsExecutorEntitiesCollector::create_waitable_callback(void * exec_entity_id)
+{
+  return [this, exec_entity_id](size_t num_events, int gen_entity_id) {
+    ExecutorEvent event = {exec_entity_id, gen_entity_id, WAITABLE_EVENT, num_events};
     // Event queue mutex scope
     {
       std::unique_lock<std::mutex> lock(associated_executor_->push_mutex_);

@@ -207,9 +207,7 @@ public:
   RCLCPP_PUBLIC
   virtual
   void
-  set_listener_callback(
-    rmw_listener_callback_t callback,
-    const void * user_data);
+  set_listener_callback(std::function<void(size_t, int)> callback);
 
 private:
   std::atomic<bool> in_use_by_wait_set_{false};

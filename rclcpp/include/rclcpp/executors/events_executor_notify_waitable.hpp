@@ -60,13 +60,12 @@ public:
 
   RCLCPP_PUBLIC
   void
-  set_listener_callback(
-    rmw_listener_callback_t callback,
-    const void * user_data) override
+  set_listener_callback(std::function<void(size_t, int)> callback) override
   {
-    for (auto gc : notify_guard_conditions_) {
-      // gc->set_listener_callback();
-    }
+    (void)callback;
+    // for (auto gc : notify_guard_conditions_) {
+    //   gc->set_listener_callback();
+    // }
   }
 
   RCLCPP_PUBLIC

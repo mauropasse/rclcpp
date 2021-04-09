@@ -79,9 +79,7 @@ public:
 
   RCLCPP_PUBLIC
   void
-  set_listener_callback(
-    rmw_listener_callback_t callback,
-    const void * user_data) override;
+  set_listener_callback(std::function<void(size_t, int)> callback) override;
 
 protected:
   std::recursive_mutex reentrant_mutex_;

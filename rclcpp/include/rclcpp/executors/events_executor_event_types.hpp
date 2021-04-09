@@ -30,7 +30,8 @@ enum ExecutorEventType
 
 struct ExecutorEvent
 {
-  const void * entity_id;
+  const void * exec_entity_id;
+  int gen_entity_id;
   ExecutorEventType type;
   size_t num_events;
 };
