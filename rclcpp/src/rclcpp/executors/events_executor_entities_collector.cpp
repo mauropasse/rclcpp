@@ -141,10 +141,10 @@ EventsExecutorEntitiesCollector::add_callback_group(
   if (is_new_node) {
     // Set an event callback for the node's notify guard condition, so if new entities are added
     // or removed to this node we will receive an event.
-    set_guard_condition_callback(node_ptr->get_notify_guard_condition());
+    set_guard_condition_callback(node_ptr->get_notify_rclcpp_guard_condition());
 
     // Store node's notify guard condition
-    weak_nodes_to_guard_conditions_[node_ptr] = node_ptr->get_notify_guard_condition();
+    weak_nodes_to_guard_conditions_[node_ptr] = node_ptr->get_notify_rclcpp_guard_condition();
   }
 
   // Add callback group to weak_groups_to_node
@@ -375,7 +375,7 @@ EventsExecutorEntitiesCollector::remove_callback_group_from_map(
     // Node doesn't have more callback groups associated to the executor.
     // Unset the event callback for the node's notify guard condition, to stop
     // receiving events if entities are added or removed to this node.
-    unset_guard_condition_callback(node_ptr->get_notify_guard_condition());
+    unset_guard_condition_callback(node_ptr->get_notify_rclcpp_guard_condition());
 
     // Remove guard condition from list
     rclcpp::node_interfaces::NodeBaseInterface::WeakPtr weak_node_ptr(node_ptr);
@@ -485,7 +485,7 @@ EventsExecutorEntitiesCollector::get_automatically_added_callback_groups_from_no
 
 void
 EventsExecutorEntitiesCollector::set_guard_condition_callback(
-  const rcl_guard_condition_t * guard_condition)
+  const rclcpp::GuardCondition * guard_condition)
 {
   rcl_ret_t ret = rcl_guard_condition_set_listener_callback(
     guard_condition,
@@ -499,7 +499,7 @@ EventsExecutorEntitiesCollector::set_guard_condition_callback(
 
 void
 EventsExecutorEntitiesCollector::unset_guard_condition_callback(
-  const rcl_guard_condition_t * guard_condition)
+  const rclcpp::GuardCondition * guard_condition)
 {
   rcl_ret_t ret = rcl_guard_condition_set_listener_callback(
     guard_condition, nullptr, nullptr);

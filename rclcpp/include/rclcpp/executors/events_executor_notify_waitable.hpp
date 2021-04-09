@@ -53,7 +53,7 @@ public:
 
   RCLCPP_PUBLIC
   void
-  add_guard_condition(const rcl_guard_condition_t * guard_condition)
+  add_guard_condition(const rclcpp::GuardCondition * guard_condition)
   {
     notify_guard_conditions_.push_back(guard_condition);
   }
@@ -65,14 +65,7 @@ public:
     const void * user_data) const override
   {
     for (auto gc : notify_guard_conditions_) {
-      rcl_ret_t ret = rcl_guard_condition_set_listener_callback(
-        gc,
-        callback,
-        user_data);
-
-      if (RCL_RET_OK != ret) {
-        throw std::runtime_error("Couldn't set guard condition events callback");
-      }
+      // gc->set_listener_callback();
     }
   }
 
@@ -85,7 +78,7 @@ public:
   }
 
 private:
-  std::list<const rcl_guard_condition_t *> notify_guard_conditions_;
+  std::list<const rclcpp::GuardCondition *> notify_guard_conditions_;
 };
 
 }  // namespace executors
