@@ -61,12 +61,9 @@ Waitable::exchange_in_use_by_wait_set_state(bool in_use_state)
 }
 
 void
-Waitable::set_listener_callback(
-  rmw_listener_callback_t callback,
-  const void * user_data)
+Waitable::set_listener_callback(std::function<void(size_t, int)> callback)
 {
   (void)callback;
-  (void)user_data;
 
   throw std::runtime_error(
           "Custom waitables should override set_listener_callback() "

@@ -447,16 +447,8 @@ public:
   }
 
   void
-  set_listener_callback(
-    rmw_listener_callback_t callback,
-    const void * user_data) override
+  set_listener_callback(std::function<void(size_t, int)> callback) override
   {
-    rcl_ret_t ret = rcl_guard_condition_set_listener_callback(
-      &gc_, callback, user_data);
-
-    if (RCL_RET_OK != ret) {
-      throw std::runtime_error(std::string("Couldn't set guard condition callback"));
-    }
   }
 
 private:

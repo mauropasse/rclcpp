@@ -20,7 +20,7 @@
 #include "rclcpp/executors/events_executor.hpp"
 #include "rclcpp/executors/events_executor_entities_collector.hpp"
 
-using rclcpp::executors::EventsExecutorCallbackData;
+using rclcpp::executors::ExecutorEvent;
 using rclcpp::executors::EventsExecutorEntitiesCollector;
 
 EventsExecutorEntitiesCollector::EventsExecutorEntitiesCollector(
@@ -76,7 +76,6 @@ EventsExecutorEntitiesCollector::~EventsExecutorEntitiesCollector()
   weak_nodes_.clear();
   weak_clients_map_.clear();
   weak_services_map_.clear();
-  callback_data_map_.clear();
   weak_waitables_map_.clear();
   weak_subscriptions_map_.clear();
   weak_nodes_to_guard_conditions_.clear();
@@ -238,9 +237,8 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
       if (subscription) {
         weak_subscriptions_map_.emplace(subscription.get(), subscription);
 
-        subscription->set_listener_callback(
-          &EventsExecutor::push_event,
-          get_callback_data(subscription.get(), SUBSCRIPTION_EVENT));
+        subscription->set_on_new_message_callback(
+          create_entity_callback(subscription.get(), SUBSCRIPTION_EVENT));
       }
       return false;
     });
@@ -249,9 +247,8 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
       if (service) {
         weak_services_map_.emplace(service.get(), service);
 
-        service->set_listener_callback(
-          &EventsExecutor::push_event,
-          get_callback_data(service.get(), SERVICE_EVENT));
+        service->set_on_new_request_callback(
+          create_entity_callback(service.get(), SERVICE_EVENT));
       }
       return false;
     });
@@ -260,9 +257,8 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
       if (client) {
         weak_clients_map_.emplace(client.get(), client);
 
-        client->set_listener_callback(
-          &EventsExecutor::push_event,
-          get_callback_data(client.get(), CLIENT_EVENT));
+        client->set_on_new_response_callback(
+          create_entity_callback(client.get(), CLIENT_EVENT));
       }
       return false;
     });
@@ -271,9 +267,8 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
       if (waitable) {
         weak_waitables_map_.emplace(waitable.get(), waitable);
 
-        waitable->set_listener_callback(
-          &EventsExecutor::push_event,
-          get_callback_data(waitable.get(), WAITABLE_EVENT));
+        // waitable->set_listener_callback(
+        //   create_entity_callback(waitable.get(), WAITABLE_EVENT));
       }
       return false;
     });
@@ -296,36 +291,32 @@ EventsExecutorEntitiesCollector::unset_callback_group_entities_callbacks(
   group->find_subscription_ptrs_if(
     [this](const rclcpp::SubscriptionBase::SharedPtr & subscription) {
       if (subscription) {
-        subscription->set_listener_callback(nullptr, nullptr);
+        subscription->set_on_new_message_callback(nullptr);
         weak_subscriptions_map_.erase(subscription.get());
-        remove_callback_data(subscription.get(), SUBSCRIPTION_EVENT);
       }
       return false;
     });
   group->find_service_ptrs_if(
     [this](const rclcpp::ServiceBase::SharedPtr & service) {
       if (service) {
-        service->set_listener_callback(nullptr, nullptr);
+        service->set_on_new_request_callback(nullptr);
         weak_services_map_.erase(service.get());
-        remove_callback_data(service.get(), SERVICE_EVENT);
       }
       return false;
     });
   group->find_client_ptrs_if(
     [this](const rclcpp::ClientBase::SharedPtr & client) {
       if (client) {
-        client->set_listener_callback(nullptr, nullptr);
+        client->set_on_new_response_callback(nullptr);
         weak_clients_map_.erase(client.get());
-        remove_callback_data(client.get(), CLIENT_EVENT);
       }
       return false;
     });
   group->find_waitable_ptrs_if(
     [this](const rclcpp::Waitable::SharedPtr & waitable) {
       if (waitable) {
-        waitable->set_listener_callback(nullptr, nullptr);
+        waitable->set_listener_callback(nullptr);
         weak_waitables_map_.erase(waitable.get());
-        remove_callback_data(waitable.get(), WAITABLE_EVENT);
       }
       return false;
     });
@@ -487,28 +478,13 @@ void
 EventsExecutorEntitiesCollector::set_guard_condition_callback(
   const rclcpp::GuardCondition * guard_condition)
 {
-  rcl_ret_t ret = rcl_guard_condition_set_listener_callback(
-    guard_condition,
-    &EventsExecutor::push_event,
-    get_callback_data(this, WAITABLE_EVENT));
-
-  if (ret != RCL_RET_OK) {
-    throw std::runtime_error("Couldn't set guard condition event callback");
-  }
+  // create_entity_callback(this, WAITABLE_EVENT);
 }
 
 void
 EventsExecutorEntitiesCollector::unset_guard_condition_callback(
   const rclcpp::GuardCondition * guard_condition)
 {
-  rcl_ret_t ret = rcl_guard_condition_set_listener_callback(
-    guard_condition, nullptr, nullptr);
-
-  if (ret != RCL_RET_OK) {
-    throw std::runtime_error("Couldn't unset guard condition event callback");
-  }
-
-  remove_callback_data(this, WAITABLE_EVENT);
 }
 
 rclcpp::SubscriptionBase::SharedPtr
@@ -592,56 +568,21 @@ EventsExecutorEntitiesCollector::add_waitable(rclcpp::Waitable::SharedPtr waitab
 {
   weak_waitables_map_.emplace(waitable.get(), waitable);
 
-  waitable->set_listener_callback(
-    &EventsExecutor::push_event,
-    get_callback_data(waitable.get(), WAITABLE_EVENT));
+  waitable->set_listener_callback([] (size_t, int){});
 }
 
-const EventsExecutorCallbackData *
-EventsExecutorEntitiesCollector::get_callback_data(
+std::function<void(size_t)>
+EventsExecutorEntitiesCollector::create_entity_callback(
   void * entity_id, ExecutorEventType event_type)
 {
-  // Create an entity callback data object and check if
-  // we already have stored one like it
-  ExecutorEvent event = {entity_id, event_type, 0};
-  EventsExecutorCallbackData data(associated_executor_, event);
-
-  auto it = callback_data_map_.find(data);
-
-  if (it != callback_data_map_.end()) {
-    // We found a callback data matching entity ID and type.
-    // Increment callback data counter and return pointer to data
-    it->second++;
-    return &it->first;
-  }
-
-  // There was no callback data object matching ID and type,
-  // create one and set counter to 1.
-  callback_data_map_.emplace(data, 1);
-
-  // Return a pointer to the just added entity callback data.
-  it = callback_data_map_.find(data);
-  return &it->first;
-}
-
-void
-EventsExecutorEntitiesCollector::remove_callback_data(
-  void * entity_id, ExecutorEventType event_type)
-{
-  // Create an entity callback data object and check if
-  // we already have stored one like it
-  ExecutorEvent event = {entity_id, event_type, 0};
-  EventsExecutorCallbackData data(associated_executor_, event);
-
-  auto it = callback_data_map_.find(data);
-
-  if (it != callback_data_map_.end()) {
-    // We found a callback data matching entity ID and type.
-    // If we have more than 1 decrement counter, otherwise remove it.
-    if (it->second > 1) {
-      it->second--;
-    } else {
-      callback_data_map_.erase(it);
+  return [this, entity_id, event_type](size_t num_events) {
+    ExecutorEvent event = {entity_id, event_type, num_events};
+    // Event queue mutex scope
+    {
+      std::unique_lock<std::mutex> lock(associated_executor_->push_mutex_);
+      associated_executor_->events_queue_->push(event);
     }
-  }
+    // Notify that the event queue has some events in it.
+    associated_executor_->events_queue_cv_.notify_one();
+  };
 }

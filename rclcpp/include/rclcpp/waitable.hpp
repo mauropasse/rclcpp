@@ -16,6 +16,7 @@
 #define RCLCPP__WAITABLE_HPP_
 
 #include <atomic>
+#include <functional>
 #include <memory>
 
 #include "rclcpp/macros.hpp"

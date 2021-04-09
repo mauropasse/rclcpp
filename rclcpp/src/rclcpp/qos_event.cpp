@@ -85,11 +85,9 @@ QOSEventHandlerBase::set_on_new_event_callback(
 }
 
 void
-QOSEventHandlerBase::set_listener_callback(
-  rmw_listener_callback_t callback,
-  const void * user_data)
+QOSEventHandlerBase::set_listener_callback(std::function<void(size_t, int)> callback)
 {
-  set_on_new_event_callback(callback, user_data);
+  // set_on_new_event_callback(callback);
 }
 
 
