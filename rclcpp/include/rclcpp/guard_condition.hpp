@@ -100,10 +100,16 @@ public:
   void
   add_to_wait_set(rcl_wait_set_t * wait_set) const;
 
+  RCLCPP_PUBLIC
+  void
+  set_on_trigger_callback(std::function<void(size_t, int)> callback);
+
 protected:
   rclcpp::Context::SharedPtr context_;
   rcl_guard_condition_t rcl_guard_condition_;
   std::atomic<bool> in_use_by_wait_set_{false};
+  std::function<void(size_t)> on_trigger_callback_{nullptr};
+  size_t unread_count_{0};
 };
 
 }  // namespace rclcpp

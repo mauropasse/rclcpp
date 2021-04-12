@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <functional>
+
 #include "rclcpp/guard_condition.hpp"
 
 #include "rclcpp/exceptions.hpp"
@@ -66,9 +68,14 @@ GuardCondition::get_rcl_guard_condition() const
 void
 GuardCondition::trigger()
 {
-  rcl_ret_t ret = rcl_trigger_guard_condition(&rcl_guard_condition_);
-  if (RCL_RET_OK != ret) {
-    rclcpp::exceptions::throw_from_rcl_error(ret);
+  if (on_trigger_callback_) {
+    on_trigger_callback_(1);
+  } else {
+    rcl_ret_t ret = rcl_trigger_guard_condition(&rcl_guard_condition_);
+    if (RCL_RET_OK != ret) {
+      rclcpp::exceptions::throw_from_rcl_error(ret);
+    }
+    unread_count_++;
   }
 }
 
@@ -85,6 +92,17 @@ GuardCondition::add_to_wait_set(rcl_wait_set_t * wait_set) const
   if (RCL_RET_OK != ret) {
     rclcpp::exceptions::throw_from_rcl_error(
       ret, "failed to add guard condition to wait set");
+  }
+}
+
+void
+GuardCondition::set_on_trigger_callback(std::function<void(size_t, int)> callback)
+{
+  on_trigger_callback_ = std::bind(callback, std::placeholders::_1, -1);
+
+  if (unread_count_) {
+    on_trigger_callback_(unread_count_);
+    unread_count_ = 0;
   }
 }
 }  // namespace rclcpp

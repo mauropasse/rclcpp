@@ -84,6 +84,8 @@ public:
 protected:
   std::recursive_mutex reentrant_mutex_;
   rclcpp::GuardCondition gc_;
+  std::function<void(size_t)> on_new_message_callback_{nullptr};
+  size_t unread_count_{0};
 
 private:
   virtual void

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <functional>
+
 #include "rclcpp/experimental/subscription_intra_process_base.hpp"
 
 using rclcpp::experimental::SubscriptionIntraProcessBase;
@@ -41,5 +43,10 @@ SubscriptionIntraProcessBase::get_actual_qos() const
 void
 SubscriptionIntraProcessBase::set_listener_callback(std::function<void(size_t, int)> callback)
 {
-  (void)callback;
+  on_new_message_callback_ = std::bind(callback, std::placeholders::_1, -1);
+
+  if (unread_count_ && on_new_message_callback_) {
+    on_new_message_callback_(unread_count_);
+    unread_count_ = 0;
+  }
 }

@@ -67,7 +67,7 @@ EventsExecutorEntitiesCollector::~EventsExecutorEntitiesCollector()
   for (const auto & pair : weak_nodes_to_guard_conditions_) {
     auto node = pair.first.lock();
     if (node) {
-      auto node_gc = pair.second;
+      auto & node_gc = pair.second;
       unset_guard_condition_callback(node_gc);
     }
   }
@@ -267,8 +267,8 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
       if (waitable) {
         weak_waitables_map_.emplace(waitable.get(), waitable);
 
-        // waitable->set_listener_callback(
-        //   create_entity_callback(waitable.get(), WAITABLE_EVENT));
+        waitable->set_listener_callback(
+          create_waitable_callback(waitable.get()));
       }
       return false;
     });
@@ -476,15 +476,16 @@ EventsExecutorEntitiesCollector::get_automatically_added_callback_groups_from_no
 
 void
 EventsExecutorEntitiesCollector::set_guard_condition_callback(
-  const rclcpp::GuardCondition * guard_condition)
+  rclcpp::GuardCondition * guard_condition)
 {
-  create_waitable_callback(this);
+  guard_condition->set_on_trigger_callback(create_waitable_callback(this));
 }
 
 void
 EventsExecutorEntitiesCollector::unset_guard_condition_callback(
-  const rclcpp::GuardCondition * guard_condition)
+  rclcpp::GuardCondition * guard_condition)
 {
+   guard_condition->set_on_trigger_callback(nullptr);
 }
 
 rclcpp::SubscriptionBase::SharedPtr

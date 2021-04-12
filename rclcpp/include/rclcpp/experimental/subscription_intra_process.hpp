@@ -148,7 +148,12 @@ private:
   void
   trigger_guard_condition()
   {
-    gc_.trigger();
+    if (on_new_message_callback_) {
+      on_new_message_callback_(1);
+    } else {
+      gc_.trigger();
+      unread_count_++;
+    }
   }
 
   template<typename T>
