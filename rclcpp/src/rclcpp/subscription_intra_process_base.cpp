@@ -43,10 +43,18 @@ SubscriptionIntraProcessBase::get_actual_qos() const
 void
 SubscriptionIntraProcessBase::set_listener_callback(std::function<void(size_t, int)> callback)
 {
-  on_new_message_callback_ = std::bind(callback, std::placeholders::_1, -1);
-
-  if (unread_count_ && on_new_message_callback_) {
-    on_new_message_callback_(unread_count_);
-    unread_count_ = 0;
+  if (callback) {
+    on_new_message_callback_ = std::bind(callback, std::placeholders::_1, -1);
+      if (unread_count_) {
+        if (unread_count_ < qos_profile_.depth) {
+          on_new_message_callback_(unread_count_);
+        } else {
+          on_new_message_callback_(qos_profile_.depth);
+        }
+        unread_count_ = 0;
+      }
+    return;
   }
+
+  on_new_message_callback_ = nullptr;
 }

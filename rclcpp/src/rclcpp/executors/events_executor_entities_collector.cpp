@@ -478,7 +478,21 @@ void
 EventsExecutorEntitiesCollector::set_guard_condition_callback(
   rclcpp::GuardCondition * guard_condition)
 {
-  guard_condition->set_on_trigger_callback(create_waitable_callback(this));
+  auto gc_callback = [this](size_t num_events) {
+    // Override num events (we don't care more than a single event)
+    num_events = 1;
+    int gc_id = -1;
+    ExecutorEvent event = {this, gc_id, WAITABLE_EVENT, num_events};
+    // Event queue mutex scope
+    {
+      std::unique_lock<std::mutex> lock(associated_executor_->push_mutex_);
+      associated_executor_->events_queue_->push(event);
+    }
+    // Notify that the event queue has some events in it.
+    associated_executor_->events_queue_cv_.notify_one();
+  };
+
+  guard_condition->set_on_trigger_callback(gc_callback);
 }
 
 void
@@ -569,7 +583,8 @@ EventsExecutorEntitiesCollector::add_waitable(rclcpp::Waitable::SharedPtr waitab
 {
   weak_waitables_map_.emplace(waitable.get(), waitable);
 
-  waitable->set_listener_callback([] (size_t, int){});
+  waitable->set_listener_callback(
+    create_waitable_callback(waitable.get()));
 }
 
 std::function<void(size_t)>

@@ -102,7 +102,7 @@ public:
 
   RCLCPP_PUBLIC
   void
-  set_on_trigger_callback(std::function<void(size_t, int)> callback);
+  set_on_trigger_callback(std::function<void(size_t)> callback);
 
 protected:
   rclcpp::Context::SharedPtr context_;

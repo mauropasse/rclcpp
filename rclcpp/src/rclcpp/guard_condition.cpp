@@ -96,13 +96,18 @@ GuardCondition::add_to_wait_set(rcl_wait_set_t * wait_set) const
 }
 
 void
-GuardCondition::set_on_trigger_callback(std::function<void(size_t, int)> callback)
+GuardCondition::set_on_trigger_callback(std::function<void(size_t)> callback)
 {
-  on_trigger_callback_ = std::bind(callback, std::placeholders::_1, -1);
+  if (callback) {
+    on_trigger_callback_ = callback;
 
-  if (unread_count_) {
-    on_trigger_callback_(unread_count_);
-    unread_count_ = 0;
+    if (unread_count_) {
+      callback(unread_count_);
+      unread_count_ = 0;
+    }
+    return;
   }
+
+  on_trigger_callback_ = nullptr;
 }
 }  // namespace rclcpp
