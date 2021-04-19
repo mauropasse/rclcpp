@@ -289,9 +289,16 @@ public:
    *
    * \param[in] callback functor to be called when a new message is received
    */
+  RCLCPP_PUBLIC
   void
   set_on_new_message_callback(std::function<void(size_t)> callback)
   {
+    if (!callback) {
+      throw std::invalid_argument(
+              "The callback passed to set_on_new_message_callback "
+              "is not callable.");
+    }
+
     auto new_callback =
       [callback, this](size_t number_of_messages) {
         try {
@@ -326,6 +333,15 @@ public:
     set_on_new_message_callback(
       rclcpp::detail::cpp_callback_trampoline<const void *, size_t>,
       static_cast<const void *>(&on_new_message_callback_));
+  }
+
+  /// Unset the callback registered for new messages, if any.
+  RCLCPP_PUBLIC
+  void
+  clear_on_new_message_callback()
+  {
+    set_on_new_message_callback(nullptr, nullptr);
+    on_new_message_callback_ = nullptr;
   }
 
 protected:
@@ -380,7 +396,7 @@ private:
   std::unordered_map<rclcpp::QOSEventHandlerBase *,
     std::atomic<bool>> qos_events_in_use_by_wait_set_;
 
-  std::function<void(size_t)> on_new_message_callback_;
+  std::function<void(size_t)> on_new_message_callback_{nullptr};
 };
 
 }  // namespace rclcpp
