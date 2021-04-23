@@ -17,6 +17,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 
@@ -87,6 +88,11 @@ public:
 class QOSEventHandlerBase : public Waitable
 {
 public:
+  enum class EntityType
+  {
+    Event,
+  };
+
   RCLCPP_PUBLIC
   virtual ~QOSEventHandlerBase();
 
@@ -112,12 +118,24 @@ public:
    * Normally this is 1, but can be > 1 if events occurred before any
    * callback was set.
    *
+   * The callback also receives an int identifier argument.
+   * This is needed because a Waitable may be composed of several distinct entities,
+   * such as subscriptions, services, etc.
+   * The application should provide a generic callback function that will be then
+   * forwarded by the waitable to all of its entities.
+   * Before forwarding, a different value for the identifier argument will be
+   * bond to the function.
+   * This implies that the provided callback can use the identifier to behave
+   * differently depending on which entity triggered the waitable to become ready.
+   *
    * Since this callback is called from the middleware, you should aim to make
    * it fast and not blocking.
    * If you need to do a lot of work or wait for some other event, you should
    * spin it off to another thread, otherwise you risk blocking the middleware.
    *
    * Calling it again will clear any previously set callback.
+   *
+   * An exception will be thrown if the callback is not callable.
    *
    * This function is thread-safe.
    *
@@ -130,28 +148,37 @@ public:
    * \param[in] callback functor to be called when a new event occurs
    */
   void
-  set_on_new_event_callback(std::function<void(size_t)> callback)
+  set_on_ready_callback(std::function<void(size_t, int)> callback) override
   {
+    if (!callback) {
+      throw std::invalid_argument(
+              "The callback passed to set_on_ready_callback "
+              "is not callable.");
+    }
+
+    // Note: we bind the int identifier argument to this waitable's entity types
     auto new_callback =
       [callback, this](size_t number_of_events) {
         try {
-          callback(number_of_events);
+          callback(number_of_events, static_cast<int>(EntityType::Event));
         } catch (const std::exception & exception) {
           RCLCPP_ERROR_STREAM(
             // TODO(wjwwood): get this class access to the node logger it is associated with
             rclcpp::get_logger("rclcpp"),
             "rclcpp::QOSEventHandlerBase@" << this <<
               " caught " << rmw::impl::cpp::demangle(exception) <<
-              " exception in user-provided callback for the 'on new event' callback: " <<
+              " exception in user-provided callback for the 'on ready' callback: " <<
               exception.what());
         } catch (...) {
           RCLCPP_ERROR_STREAM(
             rclcpp::get_logger("rclcpp"),
             "rclcpp::QOSEventHandlerBase@" << this <<
               " caught unhandled exception in user-provided callback " <<
-              "for the 'on new event' callback");
+              "for the 'on ready' callback");
         }
       };
+
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
 
     // Set it temporarily to the new callback, while we replace the old one.
     // This two-step setting, prevents a gap where the old std::function has
@@ -169,6 +196,15 @@ public:
       static_cast<const void *>(&on_new_event_callback_));
   }
 
+  /// Unset the callback registered for new events, if any.
+  void
+  clear_on_ready_callback() override
+  {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+    set_on_new_event_callback(nullptr, nullptr);
+    on_new_event_callback_ = nullptr;
+  }
+
 protected:
   RCLCPP_PUBLIC
   void
@@ -176,7 +212,8 @@ protected:
 
   rcl_event_t event_handle_;
   size_t wait_set_event_index_;
-  std::function<void(size_t)> on_new_event_callback_;
+  std::recursive_mutex reentrant_mutex_;
+  std::function<void(size_t)> on_new_event_callback_{nullptr};
 };
 
 template<typename EventCallbackT, typename ParentHandleT>
