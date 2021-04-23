@@ -343,11 +343,6 @@ private:
     message_memory_strategy_;
   /// Component which computes and publishes topic statistics for this subscriber
   SubscriptionTopicStatisticsSharedPtr subscription_topic_statistics_{nullptr};
-  using SubscriptionIntraProcessT = rclcpp::experimental::SubscriptionIntraProcess<
-    CallbackMessageT,
-    AllocatorT,
-    typename MessageUniquePtr::deleter_type>;
-  std::shared_ptr<SubscriptionIntraProcessT> subscription_intra_process_;
 };
 
 }  // namespace rclcpp
