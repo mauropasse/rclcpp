@@ -2,6 +2,17 @@
 Changelog for package rclcpp_components
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+9.0.2 (2021-04-14)
+------------------
+
+9.0.1 (2021-04-12)
+------------------
+
+9.0.0 (2021-04-06)
+------------------
+* updating quality declaration links (re: `ros2/docs.ros2.org#52 <https://github.com/ros2/docs.ros2.org/issues/52>`_) (`#1615 <https://github.com/ros2/rclcpp/issues/1615>`_)
+* Contributors: shonigmann
+
 8.2.0 (2021-03-31)
 ------------------
 

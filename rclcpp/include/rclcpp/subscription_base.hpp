@@ -34,6 +34,7 @@
 #include "rclcpp/experimental/subscription_intra_process_base.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp/message_info.hpp"
+#include "rclcpp/network_flow_endpoint.hpp"
 #include "rclcpp/qos.hpp"
 #include "rclcpp/qos_event.hpp"
 #include "rclcpp/serialized_message.hpp"
@@ -64,8 +65,11 @@ class SubscriptionBase : public std::enable_shared_from_this<SubscriptionBase>
 public:
   RCLCPP_SMART_PTR_DEFINITIONS_NOT_COPYABLE(SubscriptionBase)
 
-  /// Default constructor.
+  /// Constructor.
   /**
+   * This accepts rcl_subscription_options_t instead of rclcpp::SubscriptionOptions because
+   * rclcpp::SubscriptionOptions::to_rcl_subscription_options depends on the message type.
+   *
    * \param[in] node_base NodeBaseInterface pointer used in parts of the setup.
    * \param[in] type_support_handle rosidl type support struct, for the Message type of the topic.
    * \param[in] topic_name Name of the topic to subscribe to.
@@ -80,7 +84,7 @@ public:
     const rcl_subscription_options_t & subscription_options,
     bool is_serialized = false);
 
-  /// Default destructor.
+  /// Destructor.
   RCLCPP_PUBLIC
   virtual ~SubscriptionBase();
 
@@ -291,6 +295,7 @@ public:
    *
    * \param[in] callback functor to be called when a new message is received
    */
+  RCLCPP_PUBLIC
   void
   set_on_new_message_callback(std::function<void(size_t)> callback)
   {
@@ -339,6 +344,7 @@ public:
   }
 
   /// Unset the callback registered for new messages, if any.
+  RCLCPP_PUBLIC
   void
   clear_on_new_message_callback()
   {
@@ -365,6 +371,7 @@ public:
    *
    * \param[in] callback functor to be called when a new message is received
    */
+  RCLCPP_PUBLIC
   void
   set_on_new_intra_process_message_callback(std::function<void(size_t)> callback)
   {
@@ -389,6 +396,7 @@ public:
   }
 
   /// Unset the callback registered for new intra-process messages, if any.
+  RCLCPP_PUBLIC
   void
   clear_on_new_intra_process_message_callback()
   {
@@ -428,6 +436,7 @@ public:
    * \param[in] callback functor to be called when a new event occurs
    * \param[in] event_type identifier for the qos event we want to attach the callback to
    */
+  RCLCPP_PUBLIC
   void
   set_on_new_qos_event_callback(
     std::function<void(size_t)> callback,
@@ -454,6 +463,7 @@ public:
   }
 
   /// Unset the callback registered for new qos events, if any.
+  RCLCPP_PUBLIC
   void
   clear_on_new_qos_event_callback(rcl_subscription_event_type_t event_type)
   {
@@ -466,6 +476,15 @@ public:
 
     event_handlers_[event_type]->clear_on_ready_callback();
   }
+
+  /// Get network flow endpoints
+  /**
+   * Describes network flow endpoints that this subscription is receiving messages on
+   * \return vector of NetworkFlowEndpoint
+   */
+  RCLCPP_PUBLIC
+  std::vector<rclcpp::NetworkFlowEndpoint>
+  get_network_flow_endpoints() const;
 
 protected:
   template<typename EventCallbackT>

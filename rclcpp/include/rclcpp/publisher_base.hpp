@@ -30,6 +30,7 @@
 #include "rcl/publisher.h"
 
 #include "rclcpp/macros.hpp"
+#include "rclcpp/network_flow_endpoint.hpp"
 #include "rclcpp/qos.hpp"
 #include "rclcpp/qos_event.hpp"
 #include "rclcpp/type_support_decl.hpp"
@@ -222,6 +223,7 @@ public:
    * \param[in] callback functor to be called when a new event occurs
    * \param[in] event_type identifier for the qos event we want to attach the callback to
    */
+  RCLCPP_PUBLIC
   void
   set_on_new_qos_event_callback(
     std::function<void(size_t)> callback,
@@ -248,6 +250,7 @@ public:
   }
 
   /// Unset the callback registered for new qos events, if any.
+  RCLCPP_PUBLIC
   void
   clear_on_new_qos_event_callback(rcl_publisher_event_type_t event_type)
   {
@@ -260,6 +263,15 @@ public:
 
     event_handlers_[event_type]->clear_on_ready_callback();
   }
+
+  /// Get network flow endpoints
+  /**
+   * Describes network flow endpoints that this publisher is sending messages out on
+   * \return vector of NetworkFlowEndpoint
+   */
+  RCLCPP_PUBLIC
+  std::vector<rclcpp::NetworkFlowEndpoint>
+  get_network_flow_endpoints() const;
 
 protected:
   template<typename EventCallbackT>
