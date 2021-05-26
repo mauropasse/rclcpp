@@ -251,7 +251,7 @@ TEST_F(TestStaticExecutorEntitiesCollector, add_remove_node_with_entities) {
   // Create 1 of each entity type
   auto subscription =
     node->create_subscription<test_msgs::msg::Empty>(
-    "topic", rclcpp::QoS(10), [](test_msgs::msg::Empty::SharedPtr) {});
+    "topic", rclcpp::QoS(10), [](test_msgs::msg::Empty::ConstSharedPtr) {});
   auto timer =
     node->create_wall_timer(std::chrono::seconds(60), []() {});
   auto service =
@@ -263,7 +263,7 @@ TEST_F(TestStaticExecutorEntitiesCollector, add_remove_node_with_entities) {
   auto client = node->create_client<test_msgs::srv::Empty>("service");
   auto waitable = std::make_shared<TestWaitable>();
 
-  // Adding a subscription with rmw_connext_cpp adds another waitable, so we need to get the
+  // Adding a subscription could add another waitable, so we need to get the
   // current number of waitables just before adding the new waitable.
   expected_number_of_entities->waitables = get_number_of_default_entities(node)->waitables;
   node->get_node_waitables_interface()->add_waitable(waitable, nullptr);
@@ -447,7 +447,7 @@ TEST_F(TestStaticExecutorEntitiesCollector, refresh_wait_set_add_handles_to_wait
   // Create 1 of each entity type
   auto subscription =
     node->create_subscription<test_msgs::msg::Empty>(
-    "topic", rclcpp::QoS(10), [](test_msgs::msg::Empty::SharedPtr) {});
+    "topic", rclcpp::QoS(10), [](test_msgs::msg::Empty::ConstSharedPtr) {});
   auto timer =
     node->create_wall_timer(std::chrono::seconds(60), []() {});
   auto service =

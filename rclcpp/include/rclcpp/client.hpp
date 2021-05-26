@@ -19,6 +19,7 @@
 #include <future>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -165,6 +166,8 @@ public:
    *
    * Calling it again will clear any previously set callback.
    *
+   * An exception will be thrown if the callback is not callable.
+   *
    * This function is thread-safe.
    *
    * If you want more information available in the callback, like the client
@@ -178,6 +181,12 @@ public:
   void
   set_on_new_response_callback(std::function<void(size_t)> callback)
   {
+    if (!callback) {
+      throw std::invalid_argument(
+              "The callback passed to set_on_new_response_callback "
+              "is not callable.");
+    }
+
     auto new_callback =
       [callback, this](size_t number_of_responses) {
         try {
@@ -198,6 +207,8 @@ public:
         }
       };
 
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
     // Set it temporarily to the new callback, while we replace the old one.
     // This two-step setting, prevents a gap where the old std::function has
     // been replaced but the middleware hasn't been told about the new one yet.
@@ -212,6 +223,15 @@ public:
     set_on_new_response_callback(
       rclcpp::detail::cpp_callback_trampoline<const void *, size_t>,
       static_cast<const void *>(&on_new_response_callback_));
+  }
+
+  /// Unset the callback registered for new responses, if any.
+  void
+  clear_on_new_response_callback()
+  {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+    set_on_new_response_callback(nullptr, nullptr);
+    on_new_response_callback_ = nullptr;
   }
 
 protected:
@@ -242,7 +262,8 @@ protected:
 
   std::atomic<bool> in_use_by_wait_set_{false};
 
-  std::function<void(size_t)> on_new_response_callback_;
+  std::recursive_mutex reentrant_mutex_;
+  std::function<void(size_t)> on_new_response_callback_{nullptr};
 };
 
 template<typename ServiceT>
