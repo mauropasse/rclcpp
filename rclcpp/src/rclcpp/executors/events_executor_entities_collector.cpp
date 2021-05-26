@@ -267,7 +267,7 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
       if (waitable) {
         weak_waitables_map_.emplace(waitable.get(), waitable);
 
-        waitable->set_listener_callback(
+        waitable->set_on_ready_callback(
           create_waitable_callback(waitable.get()));
       }
       return false;
@@ -291,7 +291,7 @@ EventsExecutorEntitiesCollector::unset_callback_group_entities_callbacks(
   group->find_subscription_ptrs_if(
     [this](const rclcpp::SubscriptionBase::SharedPtr & subscription) {
       if (subscription) {
-        subscription->set_on_new_message_callback(nullptr);
+        subscription->clear_on_new_message_callback();
         weak_subscriptions_map_.erase(subscription.get());
       }
       return false;
@@ -299,7 +299,7 @@ EventsExecutorEntitiesCollector::unset_callback_group_entities_callbacks(
   group->find_service_ptrs_if(
     [this](const rclcpp::ServiceBase::SharedPtr & service) {
       if (service) {
-        service->set_on_new_request_callback(nullptr);
+        service->clear_on_new_request_callback();
         weak_services_map_.erase(service.get());
       }
       return false;
@@ -307,7 +307,7 @@ EventsExecutorEntitiesCollector::unset_callback_group_entities_callbacks(
   group->find_client_ptrs_if(
     [this](const rclcpp::ClientBase::SharedPtr & client) {
       if (client) {
-        client->set_on_new_response_callback(nullptr);
+        client->clear_on_new_response_callback();
         weak_clients_map_.erase(client.get());
       }
       return false;
@@ -315,7 +315,7 @@ EventsExecutorEntitiesCollector::unset_callback_group_entities_callbacks(
   group->find_waitable_ptrs_if(
     [this](const rclcpp::Waitable::SharedPtr & waitable) {
       if (waitable) {
-        waitable->set_listener_callback(nullptr);
+        waitable->clear_on_ready_callback();
         weak_waitables_map_.erase(waitable.get());
       }
       return false;
@@ -583,7 +583,7 @@ EventsExecutorEntitiesCollector::add_waitable(rclcpp::Waitable::SharedPtr waitab
 {
   weak_waitables_map_.emplace(waitable.get(), waitable);
 
-  waitable->set_listener_callback(
+  waitable->set_on_ready_callback(
     create_waitable_callback(waitable.get()));
 }
 

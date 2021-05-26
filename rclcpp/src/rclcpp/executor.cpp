@@ -76,12 +76,6 @@ Executor::Executor(const rclcpp::ExecutorOptions & options)
       "rclcpp",
       "failed to create wait set: %s", rcl_get_error_string().str);
     rcl_reset_error();
-    if (rcl_guard_condition_fini(&interrupt_guard_condition_) != RCL_RET_OK) {
-      RCUTILS_LOG_ERROR_NAMED(
-        "rclcpp",
-        "failed to destroy guard condition: %s", rcl_get_error_string().str);
-      rcl_reset_error();
-    }
     throw_from_rcl_error(ret, "Failed to create wait set in Executor constructor");
   }
 }
@@ -214,17 +208,14 @@ Executor::add_callback_group_to_map(
   // Also add to the map that contains all callback groups
   weak_groups_to_nodes_.insert(std::make_pair(weak_group_ptr, node_ptr));
   if (is_new_node) {
-    rclcpp::node_interfaces::NodeBaseInterface::WeakPtr node_weak_ptr(node_ptr);
-    weak_nodes_to_guard_conditions_[node_weak_ptr] = node_ptr->get_notify_guard_condition();
+    const auto & node_gc = node_ptr->get_notify_rclcpp_guard_condition();
+    weak_nodes_to_guard_conditions_[node_ptr] = node_gc;
     if (notify) {
       // Interrupt waiting to handle new node
-      rcl_ret_t ret = rcl_trigger_guard_condition(&interrupt_guard_condition_);
-      if (ret != RCL_RET_OK) {
-        throw_from_rcl_error(ret, "Failed to trigger guard condition on callback group add");
-      }
+      interrupt_guard_condition_.trigger();
     }
     // Add the node's notify condition to the guard condition handles
-    memory_strategy_->add_guard_condition(node_ptr->get_notify_guard_condition());
+    memory_strategy_->add_guard_condition(node_gc);
   }
 }
 
@@ -291,15 +282,11 @@ Executor::remove_callback_group_from_map(
   if (!has_node(node_ptr, weak_groups_to_nodes_associated_with_executor_) &&
     !has_node(node_ptr, weak_groups_associated_with_executor_to_nodes_))
   {
-    rclcpp::node_interfaces::NodeBaseInterface::WeakPtr node_weak_ptr(node_ptr);
-    weak_nodes_to_guard_conditions_.erase(node_weak_ptr);
+    weak_nodes_to_guard_conditions_.erase(node_ptr);
     if (notify) {
-      rcl_ret_t ret = rcl_trigger_guard_condition(&interrupt_guard_condition_);
-      if (ret != RCL_RET_OK) {
-        throw_from_rcl_error(ret, "Failed to trigger guard condition on callback group remove");
-      }
+      interrupt_guard_condition_.trigger();
     }
-    memory_strategy_->remove_guard_condition(node_ptr->get_notify_guard_condition());
+    memory_strategy_->remove_guard_condition(node_ptr->get_notify_rclcpp_guard_condition());
   }
 }
 
@@ -470,10 +457,7 @@ void
 Executor::cancel()
 {
   spinning.store(false);
-  rcl_ret_t ret = rcl_trigger_guard_condition(&interrupt_guard_condition_);
-  if (ret != RCL_RET_OK) {
-    throw_from_rcl_error(ret, "Failed to trigger guard condition in cancel");
-  }
+  interrupt_guard_condition_.trigger();
 }
 
 void
