@@ -84,11 +84,4 @@ QOSEventHandlerBase::set_on_new_event_callback(
   }
 }
 
-void
-QOSEventHandlerBase::set_listener_callback(std::function<void(size_t, int)> callback)
-{
-  // set_on_new_event_callback(callback);
-}
-
-
 }  // namespace rclcpp

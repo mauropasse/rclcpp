@@ -404,7 +404,7 @@ public:
   }
 
   void
-  set_listener_callback(std::function<void(size_t, int)> callback) override
+  set_on_ready_callback(std::function<void(size_t, int)> callback) override
   {
   }
 
