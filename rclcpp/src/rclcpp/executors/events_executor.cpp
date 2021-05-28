@@ -60,7 +60,11 @@ EventsExecutor::spin()
     // We wait here until something has been pushed to the event queue
     event_queue_cv_.wait(push_lock, has_event_predicate);
     push_lock.unlock();
+    // auto start = std::chrono::high_resolution_clock::now();
     this->consume_all_events(event_queue_);
+    // auto finish = std::chrono::high_resolution_clock::now();
+    // std::chrono::duration<double, std::micro> elapsed = finish - start;
+    // std::cout << elapsed.count() << std::endl;
   }
   timers_manager_->stop();
 }
@@ -95,12 +99,16 @@ EventsExecutor::spin_some(std::chrono::nanoseconds max_duration)
     max_duration = next_timer_timeout;
   }
 
+  // auto start = std::chrono::high_resolution_clock::now();
   std::unique_lock<std::mutex> push_lock(push_mutex_);
   // Wait until timeout or event
   // event_queue_cv_.wait_for(push_lock, max_duration, has_event_predicate);
   // Time to swap queues as the wait is over
   std::swap(execution_event_queue, event_queue_);
   // After swapping the queues, we don't need the lock anymore
+  // auto finish = std::chrono::high_resolution_clock::now();
+  // std::chrono::duration<double, std::micro> elapsed = finish - start;
+  // std::cout << elapsed.count() << std::endl;
   push_lock.unlock();
 
   // Execute all ready timers

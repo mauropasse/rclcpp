@@ -188,9 +188,13 @@ private:
     auto this_executor = const_cast<executors::EventsExecutor *>(
       static_cast<const executors::EventsExecutor *>(executor_ptr));
 
+    // auto start = std::chrono::high_resolution_clock::now();
     {
       this_executor->event_queue_.enqueue(event);
     }
+    // auto finish = std::chrono::high_resolution_clock::now();
+    // std::chrono::duration<double, std::micro> elapsed = finish - start;
+    // std::cout << elapsed.count() << std::endl;
     // Notify that the event queue has some events in it.
     this_executor->event_queue_cv_.notify_one();
   }
