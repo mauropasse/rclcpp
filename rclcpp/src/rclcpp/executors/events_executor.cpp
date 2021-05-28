@@ -51,10 +51,7 @@ EventsExecutor::spin()
   RCLCPP_SCOPE_EXIT(this->spinning.store(false););
 
   // When condition variable is notified, check this predicate to proceed
-  auto has_event_predicate = [this]() {return !event_queue_.empty();};
-
-  // Local event queue to allow entities to push events while we execute them
-  EventQueue execution_event_queue;
+  auto has_event_predicate = [this]() {return event_queue_.size_approx() != 0;};
 
   timers_manager_->start();
 
@@ -62,12 +59,8 @@ EventsExecutor::spin()
     std::unique_lock<std::mutex> push_lock(push_mutex_);
     // We wait here until something has been pushed to the event queue
     event_queue_cv_.wait(push_lock, has_event_predicate);
-    // We got an event! Swap queues
-    std::swap(execution_event_queue, event_queue_);
-    // After swapping the queues, we don't need the lock anymore
     push_lock.unlock();
-    // Consume all available events, this queue will be empty at the end of the function
-    this->consume_all_events(execution_event_queue);
+    this->consume_all_events(event_queue_);
   }
   timers_manager_->stop();
 }
@@ -91,7 +84,7 @@ EventsExecutor::spin_some(std::chrono::nanoseconds max_duration)
   // - An executor event is received and processed
 
   // When condition variable is notified, check this predicate to proceed
-  auto has_event_predicate = [this]() {return !event_queue_.empty();};
+  auto has_event_predicate = [this]() {return event_queue_.size_approx() != 0;};
 
   // Local event queue to allow entities to push events while we execute them
   EventQueue execution_event_queue;
@@ -129,7 +122,7 @@ EventsExecutor::spin_all(std::chrono::nanoseconds max_duration)
   RCLCPP_SCOPE_EXIT(this->spinning.store(false););
 
   // When condition variable is notified, check this predicate to proceed
-  auto has_event_predicate = [this]() {return !event_queue_.empty();};
+  auto has_event_predicate = [this]() {return event_queue_.size_approx() != 0;};
 
   // Local event queue to allow entities to push events while we execute them
   EventQueue execution_event_queue;
@@ -162,7 +155,7 @@ EventsExecutor::spin_all(std::chrono::nanoseconds max_duration)
 
     // Exit if there is no more work to do
     const bool ready_timer = timeout < 0ns;
-    const bool has_events = !execution_event_queue.empty();
+    const bool has_events = execution_event_queue.size_approx() != 0;
     if (!ready_timer && !has_events) {
       break;
     }
@@ -188,7 +181,7 @@ EventsExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
   }
 
   // When condition variable is notified, check this predicate to proceed
-  auto has_event_predicate = [this]() {return !event_queue_.empty();};
+  auto has_event_predicate = [this]() {return event_queue_.size_approx() != 0;};
 
   rmw_listener_event_t event;
   bool has_event = false;
@@ -197,14 +190,10 @@ EventsExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
     // Wait until timeout or event arrives
     std::unique_lock<std::mutex> lock(push_mutex_);
     event_queue_cv_.wait_for(lock, timeout, has_event_predicate);
-
-    // Grab first event from queue if it exists
-    has_event = !event_queue_.empty();
-    if (has_event) {
-      event = event_queue_.front();
-      event_queue_.pop();
-    }
   }
+
+  // Grab first event from queue if it exists
+  has_event = event_queue_.try_dequeue(event);
 
   // If we wake up from the wait with an event, it means that it
   // arrived before any of the timers expired.
@@ -255,12 +244,16 @@ EventsExecutor::remove_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify)
 void
 EventsExecutor::consume_all_events(EventQueue & event_queue)
 {
-  while (!event_queue.empty()) {
-    rmw_listener_event_t event = event_queue.front();
-    event_queue.pop();
+  rmw_listener_event_t event;
+  bool has_event;
 
-    this->execute_event(event);
-  }
+  do {
+    // Grab first event from queue if it exists
+    has_event = event_queue_.try_dequeue(event);
+    if (has_event) {
+      this->execute_event(event);
+    }
+  } while (has_event);
 }
 
 void

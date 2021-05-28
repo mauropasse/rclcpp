@@ -20,6 +20,8 @@
 #include <queue>
 #include <vector>
 
+#include "rclcpp/experimental/buffers/concurrentqueue.h"
+
 #include "rclcpp/executor.hpp"
 #include "rclcpp/executors/events_executor_entities_collector.hpp"
 #include "rclcpp/executors/events_executor_notify_waitable.hpp"
@@ -174,7 +176,7 @@ protected:
 private:
   RCLCPP_DISABLE_COPY(EventsExecutor)
 
-  using EventQueue = std::queue<rmw_listener_event_t>;
+  using EventQueue = moodycamel::ConcurrentQueue<rmw_listener_event_t>;
 
   // Executor callback: Push new events into the queue and trigger cv.
   // This function is called by the DDS entities when an event happened,
@@ -186,11 +188,8 @@ private:
     auto this_executor = const_cast<executors::EventsExecutor *>(
       static_cast<const executors::EventsExecutor *>(executor_ptr));
 
-    // Event queue mutex scope
     {
-      std::unique_lock<std::mutex> lock(this_executor->push_mutex_);
-
-      this_executor->event_queue_.push(event);
+      this_executor->event_queue_.enqueue(event);
     }
     // Notify that the event queue has some events in it.
     this_executor->event_queue_cv_.notify_one();
