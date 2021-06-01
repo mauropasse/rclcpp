@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "rclcpp/experimental/buffers/concurrentqueue.h"
+#include "rclcpp/experimental/buffers/blockingconcurrentqueue.h"
 
 #include "rclcpp/executor.hpp"
 #include "rclcpp/executors/events_executor_entities_collector.hpp"
@@ -176,7 +177,7 @@ protected:
 private:
   RCLCPP_DISABLE_COPY(EventsExecutor)
 
-  using EventQueue = moodycamel::ConcurrentQueue<rmw_listener_event_t>;
+  using EventQueue = moodycamel::BlockingConcurrentQueue<rmw_listener_event_t>;
 
   // Executor callback: Push new events into the queue and trigger cv.
   // This function is called by the DDS entities when an event happened,
@@ -189,20 +190,20 @@ private:
       static_cast<const executors::EventsExecutor *>(executor_ptr));
 
     // auto start = std::chrono::high_resolution_clock::now();
-    {
-      this_executor->event_queue_.enqueue(event);
-    }
+    this_executor->event_queue_.enqueue(event);
     // auto finish = std::chrono::high_resolution_clock::now();
     // std::chrono::duration<double, std::micro> elapsed = finish - start;
     // std::cout << elapsed.count() << std::endl;
-    // Notify that the event queue has some events in it.
-    this_executor->event_queue_cv_.notify_one();
   }
 
   /// Extract and execute events from the queue until it is empty
   RCLCPP_PUBLIC
   void
   consume_all_events(EventQueue & queue);
+
+  RCLCPP_PUBLIC
+  void
+  consume_all_events_blocking();
 
   // Execute a single event
   RCLCPP_PUBLIC

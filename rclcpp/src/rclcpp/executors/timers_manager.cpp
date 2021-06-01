@@ -63,6 +63,10 @@ void TimersManager::start()
 
   timers_thread_ = std::thread(&TimersManager::run_timers, this);
   pthread_setname_np(timers_thread_.native_handle(), "TimersManager");
+
+  struct sched_param p;
+  p.sched_priority = sched_get_priority_max(SCHED_FIFO);
+  pthread_setschedparam(timers_thread_.native_handle(), SCHED_FIFO, &p);
 }
 
 void TimersManager::stop()

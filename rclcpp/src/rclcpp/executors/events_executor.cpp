@@ -56,12 +56,8 @@ EventsExecutor::spin()
   timers_manager_->start();
 
   while (rclcpp::ok(context_) && spinning.load()) {
-    std::unique_lock<std::mutex> push_lock(push_mutex_);
-    // We wait here until something has been pushed to the event queue
-    event_queue_cv_.wait(push_lock, has_event_predicate);
-    push_lock.unlock();
     // auto start = std::chrono::high_resolution_clock::now();
-    this->consume_all_events(event_queue_);
+    this->consume_all_events_blocking();
     // auto finish = std::chrono::high_resolution_clock::now();
     // std::chrono::duration<double, std::micro> elapsed = finish - start;
     // std::cout << elapsed.count() << std::endl;
@@ -90,9 +86,6 @@ EventsExecutor::spin_some(std::chrono::nanoseconds max_duration)
   // When condition variable is notified, check this predicate to proceed
   auto has_event_predicate = [this]() {return event_queue_.size_approx() != 0;};
 
-  // Local event queue to allow entities to push events while we execute them
-  EventQueue execution_event_queue;
-
   // Select the smallest between input max_duration and timer timeout
   auto next_timer_timeout = timers_manager_->get_head_timeout();
   if (next_timer_timeout < max_duration) {
@@ -100,21 +93,20 @@ EventsExecutor::spin_some(std::chrono::nanoseconds max_duration)
   }
 
   // auto start = std::chrono::high_resolution_clock::now();
-  std::unique_lock<std::mutex> push_lock(push_mutex_);
+  // std::unique_lock<std::mutex> push_lock(push_mutex_);
   // Wait until timeout or event
   // event_queue_cv_.wait_for(push_lock, max_duration, has_event_predicate);
   // Time to swap queues as the wait is over
-  std::swap(execution_event_queue, event_queue_);
+  this->consume_all_events(event_queue_);
+  // std::swap(execution_event_queue, event_queue_);
   // After swapping the queues, we don't need the lock anymore
   // auto finish = std::chrono::high_resolution_clock::now();
   // std::chrono::duration<double, std::micro> elapsed = finish - start;
   // std::cout << elapsed.count() << std::endl;
-  push_lock.unlock();
+  // push_lock.unlock();
 
   // Execute all ready timers
   timers_manager_->execute_ready_timers();
-  // Consume all available events, this queue will be empty at the end of the function
-  this->consume_all_events(execution_event_queue);
 }
 
 void
@@ -262,6 +254,14 @@ EventsExecutor::consume_all_events(EventQueue & event_queue)
       this->execute_event(event);
     }
   } while (has_event);
+}
+
+void
+EventsExecutor::consume_all_events_blocking()
+{
+  rmw_listener_event_t event;
+  event_queue_.wait_dequeue(event);
+  this->execute_event(event);
 }
 
 void
