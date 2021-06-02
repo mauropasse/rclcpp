@@ -92,7 +92,7 @@ NodeTopics::add_subscription(
   callback_group->add_subscription(subscription);
 
   for (auto & key_event_pair : subscription->get_event_handlers()) {
-    auto publisher_event = key_event_pair.second;
+    auto subscription_event = key_event_pair.second;
     callback_group->add_waitable(subscription_event);
   }
 
