@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <functional>
+
 #include "rclcpp/experimental/subscription_intra_process_base.hpp"
 #include "rclcpp/detail/add_guard_condition_to_rcl_wait_set.hpp"
 
