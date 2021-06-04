@@ -215,15 +215,11 @@ private:
   execute_event(const ExecutorEvent & event);
 
   // Queue where entities can push events
-  rclcpp::experimental::buffers::EventsQueue::SharedPtr events_queue_;
+  rclcpp::experimental::buffers::EventsQueue::UniquePtr events_queue_;
 
   EventsExecutorEntitiesCollector::SharedPtr entities_collector_;
   EventsExecutorNotifyWaitable::SharedPtr executor_notifier_;
 
-  // Mutex to protect the insertion of events in the queue
-  std::mutex push_mutex_;
-  // Variable used to notify when an event is added to the queue
-  std::condition_variable events_queue_cv_;
   // Timers manager
   std::shared_ptr<TimersManager> timers_manager_;
 };

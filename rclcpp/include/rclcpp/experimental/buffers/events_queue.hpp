@@ -74,7 +74,7 @@ public:
   RCLCPP_PUBLIC
   virtual
   rclcpp::executors::ExecutorEvent
-  front() const = 0;
+  front() = 0;
 
   /**
    * @brief Test whether queue is empty
@@ -121,6 +121,22 @@ public:
   virtual
   rclcpp::executors::ExecutorEvent
   get_single_event() = 0;
+
+  RCLCPP_PUBLIC
+  virtual
+  bool
+  is_lock_free() const = 0;
+
+  /**
+   * @brief waits for an event until timeout
+   * @return true if event, false if timeout
+   */
+  RCLCPP_PUBLIC
+  virtual
+  bool
+  wait_for_event(
+    rclcpp::executors::ExecutorEvent & event,
+    std::chrono::nanoseconds timeout = std::chrono::nanoseconds::max()) = 0;
 };
 
 }  // namespace buffers

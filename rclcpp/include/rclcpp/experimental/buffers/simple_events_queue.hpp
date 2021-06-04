@@ -15,6 +15,7 @@
 #ifndef RCLCPP__EXPERIMENTAL__BUFFERS__SIMPLE_EVENTS_QUEUE_HPP_
 #define RCLCPP__EXPERIMENTAL__BUFFERS__SIMPLE_EVENTS_QUEUE_HPP_
 
+#include <mutex>
 #include <queue>
 #include <utility>
 
@@ -37,28 +38,31 @@ class SimpleEventsQueue : public EventsQueue
 {
 public:
   RCLCPP_PUBLIC
-  ~SimpleEventsQueue() = default;
+  ~SimpleEventsQueue() override = default;
 
   /**
    * @brief push event into the queue
    * @param event The event to push into the queue
    */
   RCLCPP_PUBLIC
-  virtual
   void
-  push(const rclcpp::executors::ExecutorEvent & event)
+  push(const rclcpp::executors::ExecutorEvent & event) override
   {
-    event_queue_.push(event);
+    {
+      std::unique_lock<std::mutex> lock(this->push_mutex_);
+      event_queue_.push(event);
+    }
+    events_queue_cv_.notify_one();
   }
 
   /**
    * @brief removes front event from the queue.
    */
   RCLCPP_PUBLIC
-  virtual
   void
-  pop()
+  pop() override
   {
+    std::unique_lock<std::mutex> lock(this->push_mutex_);
     event_queue_.pop();
   }
 
@@ -67,10 +71,10 @@ public:
    * @return the front event
    */
   RCLCPP_PUBLIC
-  virtual
   rclcpp::executors::ExecutorEvent
-  front() const
+  front() override
   {
+    std::unique_lock<std::mutex> lock(this->push_mutex_);
     return event_queue_.front();
   }
 
@@ -79,10 +83,10 @@ public:
    * @return true if the queue's size is 0, false otherwise.
    */
   RCLCPP_PUBLIC
-  virtual
   bool
-  empty() const
+  empty() const override
   {
+    std::unique_lock<std::mutex> lock(this->push_mutex_);
     return event_queue_.empty();
   }
 
@@ -91,10 +95,10 @@ public:
    * @return the number of elements in the queue.
    */
   RCLCPP_PUBLIC
-  virtual
   size_t
-  size() const
+  size() const override
   {
+    std::unique_lock<std::mutex> lock(this->push_mutex_);
     return event_queue_.size();
   }
 
@@ -102,11 +106,11 @@ public:
    * @brief Initializes the queue
    */
   RCLCPP_PUBLIC
-  virtual
   void
-  init()
+  init() override
   {
     // Make sure the queue is empty when we start
+    std::unique_lock<std::mutex> lock(this->push_mutex_);
     std::queue<rclcpp::executors::ExecutorEvent> local_queue;
     std::swap(event_queue_, local_queue);
   }
@@ -117,10 +121,16 @@ public:
    * @return std::queue with events
    */
   RCLCPP_PUBLIC
-  virtual
   std::queue<rclcpp::executors::ExecutorEvent>
-  pop_all_events()
+  pop_all_events() override
   {
+    // When condition variable is notified, check this predicate to proceed
+    auto has_event_predicate = [this]() {return !event_queue_.empty();};
+
+    std::unique_lock<std::mutex> lock(this->push_mutex_);
+    // We wait here until something has been pushed to the event queue
+    events_queue_cv_.wait(lock, has_event_predicate);
+
     std::queue<rclcpp::executors::ExecutorEvent> local_queue;
     std::swap(event_queue_, local_queue);
     return local_queue;
@@ -132,12 +142,63 @@ public:
    * @return a single event
    */
   RCLCPP_PUBLIC
-  virtual
   rclcpp::executors::ExecutorEvent
-  get_single_event()
+  get_single_event() override
+  {
+    std::unique_lock<std::mutex> lock(this->push_mutex_);
+    return get_single_event_unsafe();
+  }
+
+  /**
+   * @brief waits for an event until timeout, gets a single event
+   * @return true if event, false if timeout
+   */
+  RCLCPP_PUBLIC
+  bool
+  wait_for_event(
+    rclcpp::executors::ExecutorEvent & event,
+    std::chrono::nanoseconds timeout = std::chrono::nanoseconds::max()) override
+  {
+    auto has_event_predicate = [this]() {return !event_queue_.empty();};
+
+    std::unique_lock<std::mutex> lock(this->push_mutex_);
+
+    // We wait here until something has been pushed to the event queue or timeout
+    if (timeout != std::chrono::nanoseconds::max()) {
+      events_queue_cv_.wait_for(lock, timeout, has_event_predicate);
+      if (event_queue_.empty()) {
+        return false;
+      } else {
+        event = get_single_event_unsafe();
+        return true;
+      }
+    } else {
+      events_queue_cv_.wait(lock, has_event_predicate);
+      event = get_single_event_unsafe();
+      return true;
+    }
+  }
+
+  /**
+   * @brief Checks if the queue is lock free
+   * @return true if the queue is lock free
+   */
+  RCLCPP_PUBLIC
+  virtual
+  bool
+  is_lock_free() const override { return false; }
+
+private:
+  /**
+   * @brief gets a single entity event from the queue
+   * and decrements the event counter. This API is tied to the
+   * ExecutorEvent
+   * @return a single event
+   */
+  rclcpp::executors::ExecutorEvent
+  get_single_event_unsafe()
   {
     rclcpp::executors::ExecutorEvent & front_event = event_queue_.front();
-
     if (front_event.num_events > 1) {
       // We have more than a single event for the entity.
       // Decrement the counter by one, keeping the event in the front.
@@ -156,6 +217,11 @@ public:
 
 private:
   std::queue<rclcpp::executors::ExecutorEvent> event_queue_;
+  // Mutex to protect the insertion/extraction of events in the queue
+  mutable std::mutex push_mutex_;
+  // Variable used to notify when an event is added to the queue
+  std::condition_variable events_queue_cv_;
+
 };
 
 }  // namespace buffers
