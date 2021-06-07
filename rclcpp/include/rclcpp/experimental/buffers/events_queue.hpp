@@ -57,15 +57,7 @@ public:
   RCLCPP_PUBLIC
   virtual
   void
-  push(const rclcpp::executors::ExecutorEvent & event) = 0;
-
-  /**
-   * @brief removes front element from the queue.
-   */
-  RCLCPP_PUBLIC
-  virtual
-  void
-  pop() = 0;
+  enqueue(const rclcpp::executors::ExecutorEvent & event) = 0;
 
   /**
    * @brief gets the front event from the queue
@@ -74,7 +66,7 @@ public:
   RCLCPP_PUBLIC
   virtual
   rclcpp::executors::ExecutorEvent
-  front() = 0;
+  dequeue() = 0;
 
   /**
    * @brief Test whether queue is empty
@@ -93,39 +85,6 @@ public:
   virtual
   size_t
   size() const = 0;
-
-  /**
-   * @brief Initializes the queue
-   */
-  RCLCPP_PUBLIC
-  virtual
-  void
-  init() = 0;
-
-  /**
-   * @brief pops out all events stored in the object into an output queue.
-   * @return queue with events
-   */
-  RCLCPP_PUBLIC
-  virtual
-  std::queue<rclcpp::executors::ExecutorEvent>
-  pop_all_events() = 0;
-
-  /**
-   * @brief gets a single entity event from the queue
-   * @return a single entity event
-  */
-  // TODO(mauropasse): find an alternative to pop_all_events and
-  // get_single_event to use standard queue interfaces
-  RCLCPP_PUBLIC
-  virtual
-  rclcpp::executors::ExecutorEvent
-  get_single_event() = 0;
-
-  RCLCPP_PUBLIC
-  virtual
-  bool
-  is_lock_free() const = 0;
 
   /**
    * @brief waits for an event until timeout

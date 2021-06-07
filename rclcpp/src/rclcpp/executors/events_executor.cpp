@@ -35,7 +35,6 @@ EventsExecutor::EventsExecutor(
     throw std::invalid_argument("events_queue can't be a null pointer");
   }
   events_queue_ = std::move(events_queue);
-  events_queue_->init();
 
   // Create timers manager
   timers_manager_ = std::make_shared<TimersManager>(context_);
@@ -63,37 +62,20 @@ EventsExecutor::spin()
 
   timers_manager_->start();
 
-  if (events_queue_->is_lock_free()) {
-    while (rclcpp::ok(context_) && spinning.load()) {
-      // Wait until we get an event
-      ExecutorEvent event;
-      bool has_event = events_queue_->wait_for_event(event);
-      if (has_event) {
-        this->execute_event(event);
-      }
+  while (rclcpp::ok(context_) && spinning.load()) {
+    // Wait until we get an event
+    ExecutorEvent event;
+    events_queue_->wait_for_event(event);
+    this->execute_event(event);
 
-      // Process rest of events, if any
-      while (!events_queue_->empty())
-      {
-        ExecutorEvent event = events_queue_->get_single_event();
-        this->execute_event(event);
-      }
-    }
-  } else {
-    while (rclcpp::ok(context_) && spinning.load()) {
-      // Wait until we have events in the queue. Then move
-      // all events into a local queue (locking mutex only once)
-      // to allow entities to push new events while we execute
-      std::queue<ExecutorEvent> execution_events_queue = events_queue_->pop_all_events();
-
-      // Consume all available events
-      while (!execution_events_queue.empty()) {
-        ExecutorEvent event = execution_events_queue.front();
-        execution_events_queue.pop();
-        this->execute_event(event);
-      }
+    // Process rest of events, if any
+    while (!events_queue_->empty())
+    {
+      event = events_queue_->dequeue();
+      this->execute_event(event);
     }
   }
+
   // Stop the timers manager thread when we are done spinning
   timers_manager_->stop();
 }
@@ -148,7 +130,7 @@ EventsExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool exhau
       bool has_event = !events_queue_->empty();
 
       if (has_event) {
-        ExecutorEvent event = events_queue_->get_single_event();
+        ExecutorEvent event = events_queue_->dequeue();
         this->execute_event(event);
         executed_events++;
         continue;

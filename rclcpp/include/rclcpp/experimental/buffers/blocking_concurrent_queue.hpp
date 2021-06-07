@@ -52,20 +52,13 @@ public:
   }
 
   /**
-   * @brief push event into the queue
-   * @param event The event to push into the queue
+   * @brief enqueue event into the queue
+   * @param event The event to enqueue into the queue
    */
   RCLCPP_PUBLIC
   void
-  push(const rclcpp::executors::ExecutorEvent & event) override
+  enqueue(const rclcpp::executors::ExecutorEvent & event) override
   {
-    // The concurrent queue doesn't support front/pop operations.
-    // It does both at once with try_dequeue or wait_dequeue.
-    // This means we can't get an event and modify it while
-    // it's still in the queue, as we do on get_single_event of the
-    // SimpleEventsQueue. Due this, we need to push events separately,
-    // allowing to take single events without the need to modify values
-    // of the front event.
     rclcpp::executors::ExecutorEvent single_event = event;
     single_event.num_events = 1;
     for (size_t ev = 1; ev <= event.num_events; ev++ ) {
@@ -74,28 +67,18 @@ public:
   }
 
   /**
-   * @brief Stub for pop, as front method already pops it.
-   */
-  RCLCPP_PUBLIC
-  void
-  pop() override {}
-
-  /**
-   * @brief gets and pops the front event from the queue.
+   * @brief dequeue the front event from the queue.
    * The event is removed from the queue after this operation.
-   * Callers should make sure there's an event in the queue before calling.
+   * Callers should make sure the queue is not empty before calling.
    *
    * @return the front event
    */
   RCLCPP_PUBLIC
   rclcpp::executors::ExecutorEvent
-  front() override
+  dequeue() override
   {
     rclcpp::executors::ExecutorEvent event;
-    bool has_event = event_queue_.try_dequeue(event);
-    if (!has_event) {
-      throw std::runtime_error("Called front() on empty queue");
-    }
+    event_queue_.try_dequeue(event);
     return event;
   }
 
@@ -121,65 +104,6 @@ public:
   size() const override
   {
     return event_queue_.size_approx();
-  }
-
-  /**
-   * @brief Initializes the queue
-   */
-  RCLCPP_PUBLIC
-  void
-  init() override
-  {
-    // Make sure the queue is empty when we start
-    moodycamel::BlockingConcurrentQueue<rclcpp::executors::ExecutorEvent> local_queue;
-    event_queue_.swap(local_queue);
-  }
-
-  /**
-   * @brief gets a std queue with all events accumulated on it since
-   * the last call. The member queue is empty when the call returns.
-   * The use of this API should be avoided as makes a copy of events
-   * in the queue, when there's no need for it since is a lock free
-   * queue and other more efficient methods could be used
-   * @return std::queue with events
-   */
-  RCLCPP_PUBLIC
-  std::queue<rclcpp::executors::ExecutorEvent>
-  pop_all_events() override
-  {
-    std::queue<rclcpp::executors::ExecutorEvent> local_queue;
-    while (event_queue_.size_approx() != 0)
-    {
-      rclcpp::executors::ExecutorEvent single_event;
-      event_queue_.wait_dequeue(single_event);
-      local_queue.push(single_event);
-    }
-    return local_queue;
-  }
-
-  /**
-   * @brief Get front event. Non blocking
-   * @return a single event
-   */
-  RCLCPP_PUBLIC
-  rclcpp::executors::ExecutorEvent
-  get_single_event() override
-  {
-    // No need to decrement event counter, as this queue
-    // only holds single events (event.num_events = 1)
-    return front();
-  }
-
-  /**
-   * @brief Checks if the underlying atomic variables used by
-   * the queue are lock-free (they should be on most platforms).
-   * @return true if the queue is lock free
-   */
-  RCLCPP_PUBLIC
-  bool
-  is_lock_free() const override
-  {
-    return event_queue_.is_lock_free();
   }
 
   /**

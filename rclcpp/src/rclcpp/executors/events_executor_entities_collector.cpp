@@ -485,7 +485,7 @@ EventsExecutorEntitiesCollector::set_guard_condition_callback(
     num_events = 1;
     int gc_id = -1;
     ExecutorEvent event = {this, gc_id, WAITABLE_EVENT, num_events};
-    associated_executor_->events_queue_->push(event);
+    associated_executor_->events_queue_->enqueue(event);
   };
 
   guard_condition->set_on_trigger_callback(gc_callback);
@@ -589,7 +589,7 @@ EventsExecutorEntitiesCollector::create_entity_callback(
 {
   return [this, exec_entity_id, event_type](size_t num_events) {
     ExecutorEvent event = {exec_entity_id, -1, event_type, num_events};
-    associated_executor_->events_queue_->push(event);
+    associated_executor_->events_queue_->enqueue(event);
   };
 }
 
@@ -598,6 +598,6 @@ EventsExecutorEntitiesCollector::create_waitable_callback(void * exec_entity_id)
 {
   return [this, exec_entity_id](size_t num_events, int gen_entity_id) {
     ExecutorEvent event = {exec_entity_id, gen_entity_id, WAITABLE_EVENT, num_events};
-    associated_executor_->events_queue_->push(event);
+    associated_executor_->events_queue_->enqueue(event);
   };
 }
