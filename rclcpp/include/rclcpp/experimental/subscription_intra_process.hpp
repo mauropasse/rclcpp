@@ -186,7 +186,6 @@ private:
   execute_impl(std::shared_ptr<void> & data)
   {
     if (!data) {
-      RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "'data' is empty");
       return;
     }
 

@@ -90,7 +90,6 @@ public:
     std::lock_guard<std::mutex> lock(mutex_);
 
     if (!has_data_()) {
-      RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Calling dequeue on empty intra-process buffer");
       // This situation can happen on the EventsExecutor if we have more events in the queue
       // than messages in the history cache (set by the qos_policies.depth of the subscription)
       // For example if we set depth=1 and we get 2 messages really fast (so no time for
