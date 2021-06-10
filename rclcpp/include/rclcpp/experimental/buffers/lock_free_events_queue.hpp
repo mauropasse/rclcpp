@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RCLCPP__EXPERIMENTAL__BUFFERS__BLOCKING_CONCURRENT_QUEUE_HPP_
-#define RCLCPP__EXPERIMENTAL__BUFFERS__BLOCKING_CONCURRENT_QUEUE_HPP_
+#ifndef RCLCPP__EXPERIMENTAL__BUFFERS__LOCK_FREE_EVENTS_QUEUE_HPP_
+#define RCLCPP__EXPERIMENTAL__BUFFERS__LOCK_FREE_EVENTS_QUEUE_HPP_
 
 #include <queue>
 
@@ -120,7 +120,7 @@ public:
   }
 
 private:
-  moodycamel::LockFreeEventsQueue<rclcpp::executors::ExecutorEvent> event_queue_;
+  moodycamel::BlockingConcurrentQueue<rclcpp::executors::ExecutorEvent> event_queue_;
 };
 
 }  // namespace buffers
@@ -128,4 +128,4 @@ private:
 }  // namespace rclcpp
 
 
-#endif  // RCLCPP__EXPERIMENTAL__BUFFERS__BLOCKING_CONCURRENT_QUEUE_HPP_
+#endif  // RCLCPP__EXPERIMENTAL__BUFFERS__LOCK_FREE_EVENTS_QUEUE_HPP_
