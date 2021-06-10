@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RCLCPP__EXPERIMENTAL__BUFFERS__BLOCKING_CONCURRENT_QUEUE_HPP_
-#define RCLCPP__EXPERIMENTAL__BUFFERS__BLOCKING_CONCURRENT_QUEUE_HPP_
+#ifndef RCLCPP__EXPERIMENTAL__BUFFERS__LOCK_FREE_EVENTS_QUEUE_HPP_
+#define RCLCPP__EXPERIMENTAL__BUFFERS__LOCK_FREE_EVENTS_QUEUE_HPP_
 
 #include <queue>
 
@@ -38,11 +38,11 @@ namespace buffers
  * queue aims to fix the issue of publishers being blocked by the executor extracting
  * events from the queue in a different thread, causing expensive mutex contention.
  */
-class BlockingConcurrentQueue : public EventsQueue
+class LockFreeEventsQueue : public EventsQueue
 {
 public:
   RCLCPP_PUBLIC
-  ~BlockingConcurrentQueue() override
+  ~LockFreeEventsQueue() override
   {
     // It's important that all threads have finished using the queue
     // and the memory effects have fully propagated, before it is destructed.
@@ -61,25 +61,9 @@ public:
   {
     rclcpp::executors::ExecutorEvent single_event = event;
     single_event.num_events = 1;
-    for (size_t ev = 1; ev <= event.num_events; ev++ ) {
+    for (size_t ev = 0; ev < event.num_events; ev++) {
       event_queue_.enqueue(single_event);
     }
-  }
-
-  /**
-   * @brief dequeue the front event from the queue.
-   * The event is removed from the queue after this operation.
-   * Callers should make sure the queue is not empty before calling.
-   *
-   * @return the front event
-   */
-  RCLCPP_PUBLIC
-  rclcpp::executors::ExecutorEvent
-  dequeue() override
-  {
-    rclcpp::executors::ExecutorEvent event;
-    event_queue_.try_dequeue(event);
-    return event;
   }
 
   /**
@@ -107,22 +91,16 @@ public:
   }
 
   /**
-   * @brief waits for an event until timeout
+   * @brief gets the front event from the queue, eventually waiting for it
    * @return true if event, false if timeout
    */
   RCLCPP_PUBLIC
   bool
-  wait_for_event(
+  dequeue(
     rclcpp::executors::ExecutorEvent & event,
     std::chrono::nanoseconds timeout = std::chrono::nanoseconds::max()) override
   {
-    if (timeout != std::chrono::nanoseconds::max()) {
-      return event_queue_.wait_dequeue_timed(event, timeout);
-    }
-
-    // If no timeout specified, just wait for an event to arrive
-    event_queue_.wait_dequeue(event);
-    return true;
+    return event_queue_.wait_dequeue_timed(event, timeout);
   }
 
 private:
@@ -134,4 +112,4 @@ private:
 }  // namespace rclcpp
 
 
-#endif  // RCLCPP__EXPERIMENTAL__BUFFERS__BLOCKING_CONCURRENT_QUEUE_HPP_
+#endif  // RCLCPP__EXPERIMENTAL__BUFFERS__LOCK_FREE_EVENTS_QUEUE_HPP_
