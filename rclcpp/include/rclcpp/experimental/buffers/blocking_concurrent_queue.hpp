@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RCLCPP__EXPERIMENTAL__BUFFERS__SIMPLE_EVENTS_QUEUE_HPP_
-#define RCLCPP__EXPERIMENTAL__BUFFERS__SIMPLE_EVENTS_QUEUE_HPP_
+#ifndef RCLCPP__EXPERIMENTAL__BUFFERS__BLOCKING_CONCURRENT_QUEUE_HPP_
+#define RCLCPP__EXPERIMENTAL__BUFFERS__BLOCKING_CONCURRENT_QUEUE_HPP_
 
-#include <mutex>
 #include <queue>
-#include <utility>
 
+#include "rclcpp/experimental/buffers/concurrent_queue/blockingconcurrentqueue.h"
 #include "rclcpp/experimental/buffers/events_queue.hpp"
 
 namespace rclcpp
@@ -29,20 +28,31 @@ namespace buffers
 {
 
 /**
- * @brief This class implements an EventsQueue as a simple wrapper around a std::queue.
+ * @brief This class implements an EventsQueue as a simple wrapper around
+ * the blockingconcurrentqueue.h
+ * See https://github.com/cameron314/concurrentqueue
  * It does not perform any checks about the size of queue, which can grow
- * unbounded without being pruned.
- * The simplicity of this implementation makes it suitable for optimizing CPU usage.
+ * unbounded without being pruned. (there are options about this, read the docs).
+ * This implementation is lock free, producers and consumers can use the queue
+ * concurrently without the need for synchronization mechanisms. The use of this
+ * queue aims to fix the issue of publishers being blocked by the executor extracting
+ * events from the queue in a different thread, causing expensive mutex contention.
  */
-class SimpleEventsQueue : public EventsQueue
+class BlockingConcurrentQueue : public EventsQueue
 {
 public:
   RCLCPP_PUBLIC
-  ~SimpleEventsQueue() override = default;
+  ~BlockingConcurrentQueue() override
+  {
+    // It's important that all threads have finished using the queue
+    // and the memory effects have fully propagated, before it is destructed.
+    // Consume all events
+    rclcpp::executors::ExecutorEvent event;
+    while (event_queue_.try_dequeue(event)) {}
+  }
 
   /**
    * @brief enqueue event into the queue
-   * Thread safe
    * @param event The event to enqueue into the queue
    */
   RCLCPP_PUBLIC
@@ -51,20 +61,15 @@ public:
   {
     rclcpp::executors::ExecutorEvent single_event = event;
     single_event.num_events = 1;
-    {
-      std::unique_lock<std::mutex> lock(this->push_mutex_);
-      for (size_t ev = 1; ev <= event.num_events; ev++ ) {
-        event_queue_.push(single_event);
-      }
+    for (size_t ev = 1; ev <= event.num_events; ev++ ) {
+      event_queue_.enqueue(single_event);
     }
-    events_queue_cv_.notify_one();
   }
 
   /**
    * @brief dequeue the front event from the queue.
    * The event is removed from the queue after this operation.
    * Callers should make sure the queue is not empty before calling.
-   * Thread safe
    *
    * @return the front event
    */
@@ -72,41 +77,37 @@ public:
   rclcpp::executors::ExecutorEvent
   dequeue() override
   {
-    std::unique_lock<std::mutex> lock(this->push_mutex_);
-    rclcpp::executors::ExecutorEvent event = event_queue_.front();
-    event_queue_.pop();
+    rclcpp::executors::ExecutorEvent event;
+    event_queue_.try_dequeue(event);
     return event;
   }
 
   /**
    * @brief Test whether queue is empty
-   * Thread safe
    * @return true if the queue's size is 0, false otherwise.
    */
   RCLCPP_PUBLIC
   bool
   empty() const override
   {
-    std::unique_lock<std::mutex> lock(this->push_mutex_);
-    return event_queue_.empty();
+    return event_queue_.size_approx() == 0;
   }
 
   /**
    * @brief Returns the number of elements in the queue.
-   * Thread safe
+   * This estimate is only accurate if the queue has completely
+   * stabilized before it is called
    * @return the number of elements in the queue.
    */
   RCLCPP_PUBLIC
   size_t
   size() const override
   {
-    std::unique_lock<std::mutex> lock(this->push_mutex_);
-    return event_queue_.size();
+    return event_queue_.size_approx();
   }
 
   /**
-   * @brief waits for an event until timeout, gets a single event
-   * Thread safe
+   * @brief waits for an event until timeout
    * @return true if event, false if timeout
    */
   RCLCPP_PUBLIC
@@ -115,37 +116,17 @@ public:
     rclcpp::executors::ExecutorEvent & event,
     std::chrono::nanoseconds timeout = std::chrono::nanoseconds::max()) override
   {
-    auto has_event_predicate = [this]() {return !event_queue_.empty();};
-
-    std::unique_lock<std::mutex> lock(this->push_mutex_);
-
     if (timeout != std::chrono::nanoseconds::max()) {
-      // We wait here until timeout or until something is pushed into the queue
-      events_queue_cv_.wait_for(lock, timeout, has_event_predicate);
-      if (event_queue_.empty()) {
-        return false;
-      } else {
-        event = event_queue_.front();
-        event_queue_.pop();
-        return true;
-      }
-    } else {
-      // We wait here until something has been pushed into the queue
-      events_queue_cv_.wait(lock, has_event_predicate);
-      event = event_queue_.front();
-      event_queue_.pop();
-      return true;
+      return event_queue_.wait_dequeue_timed(event, timeout);
     }
+
+    // If no timeout specified, just wait for an event to arrive
+    event_queue_.wait_dequeue(event);
+    return true;
   }
 
 private:
-  // The underlying queue implementation
-  std::queue<rclcpp::executors::ExecutorEvent> event_queue_;
-  // Mutex to protect the insertion/extraction of events in the queue
-  mutable std::mutex push_mutex_;
-  // Variable used to notify when an event is added to the queue
-  std::condition_variable events_queue_cv_;
-
+  moodycamel::BlockingConcurrentQueue<rclcpp::executors::ExecutorEvent> event_queue_;
 };
 
 }  // namespace buffers
@@ -153,4 +134,4 @@ private:
 }  // namespace rclcpp
 
 
-#endif  // RCLCPP__EXPERIMENTAL__BUFFERS__SIMPLE_EVENTS_QUEUE_HPP_
+#endif  // RCLCPP__EXPERIMENTAL__BUFFERS__BLOCKING_CONCURRENT_QUEUE_HPP_
