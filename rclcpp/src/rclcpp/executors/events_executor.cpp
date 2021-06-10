@@ -125,9 +125,12 @@ EventsExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool exhau
       bool has_event = !events_queue_->empty();
 
       if (has_event) {
-        ExecutorEvent event = events_queue_->dequeue();
-        this->execute_event(event);
-        executed_events++;
+        ExecutorEvent event;
+        bool ret = events_queue_->dequeue(event);
+        if (ret) {
+            this->execute_event(event);
+            executed_events++;
+        }
         continue;
       }
     }
