@@ -67,22 +67,6 @@ public:
   }
 
   /**
-   * @brief dequeue the front event from the queue.
-   * The event is removed from the queue after this operation.
-   * Callers should make sure the queue is not empty before calling.
-   *
-   * @return the front event
-   */
-  RCLCPP_PUBLIC
-  rclcpp::executors::ExecutorEvent
-  dequeue() override
-  {
-    rclcpp::executors::ExecutorEvent event;
-    event_queue_.try_dequeue(event);
-    return event;
-  }
-
-  /**
    * @brief Test whether queue is empty
    * @return true if the queue's size is 0, false otherwise.
    */
