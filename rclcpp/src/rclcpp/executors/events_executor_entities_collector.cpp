@@ -359,6 +359,10 @@ EventsExecutorEntitiesCollector::remove_callback_group_from_map(
   // For all the entities in the group, unset their callbacks
   unset_callback_group_entities_callbacks(group_ptr);
 
+  // Mark this callback group as not associated with an executor anymore
+  std::atomic_bool & has_executor = group_ptr->get_associated_with_executor_atomic();
+  has_executor.store(false);
+
   // Check if this node still has other callback groups associated with the executor
   bool node_has_associated_callback_groups =
     has_node(node_ptr, weak_groups_associated_with_executor_to_nodes_) ||
