@@ -65,13 +65,8 @@ EventsExecutor::spin()
   while (rclcpp::ok(context_) && spinning.load()) {
     // Wait until we get an event
     ExecutorEvent event;
-    events_queue_->wait_for_event(event);
-    this->execute_event(event);
-
-    // Process rest of events, if any
-    while (!events_queue_->empty())
-    {
-      event = events_queue_->dequeue();
+    bool has_event = events_queue_->dequeue(event);
+    if (has_event) {
       this->execute_event(event);
     }
   }
@@ -171,7 +166,7 @@ EventsExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
   }
 
   ExecutorEvent event;
-  bool has_event = events_queue_->wait_for_event(event, timeout);
+  bool has_event = events_queue_->dequeue(event, timeout);
 
   // If we wake up from the wait with an event, it means that it
   // arrived before any of the timers expired.

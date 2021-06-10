@@ -38,11 +38,11 @@ namespace buffers
  * queue aims to fix the issue of publishers being blocked by the executor extracting
  * events from the queue in a different thread, causing expensive mutex contention.
  */
-class BlockingConcurrentQueue : public EventsQueue
+class LockFreeEventsQueue : public EventsQueue
 {
 public:
   RCLCPP_PUBLIC
-  ~BlockingConcurrentQueue() override
+  ~LockFreeEventsQueue() override
   {
     // It's important that all threads have finished using the queue
     // and the memory effects have fully propagated, before it is destructed.
@@ -61,7 +61,7 @@ public:
   {
     rclcpp::executors::ExecutorEvent single_event = event;
     single_event.num_events = 1;
-    for (size_t ev = 1; ev <= event.num_events; ev++ ) {
+    for (size_t ev = 0; ev < event.num_events; ev++) {
       event_queue_.enqueue(single_event);
     }
   }
@@ -107,26 +107,20 @@ public:
   }
 
   /**
-   * @brief waits for an event until timeout
+   * @brief gets the front event from the queue, eventually waiting for it
    * @return true if event, false if timeout
    */
   RCLCPP_PUBLIC
   bool
-  wait_for_event(
+  dequeue(
     rclcpp::executors::ExecutorEvent & event,
     std::chrono::nanoseconds timeout = std::chrono::nanoseconds::max()) override
   {
-    if (timeout != std::chrono::nanoseconds::max()) {
-      return event_queue_.wait_dequeue_timed(event, timeout);
-    }
-
-    // If no timeout specified, just wait for an event to arrive
-    event_queue_.wait_dequeue(event);
-    return true;
+    return event_queue_.wait_dequeue_timed(event, timeout);
   }
 
 private:
-  moodycamel::BlockingConcurrentQueue<rclcpp::executors::ExecutorEvent> event_queue_;
+  moodycamel::LockFreeEventsQueue<rclcpp::executors::ExecutorEvent> event_queue_;
 };
 
 }  // namespace buffers
