@@ -64,6 +64,7 @@ public:
    * @return true if event, false if timeout
    */
   RCLCPP_PUBLIC
+  virtual
   bool
   dequeue(
     rclcpp::executors::ExecutorEvent & event,
