@@ -60,8 +60,9 @@ public:
   enqueue(const rclcpp::executors::ExecutorEvent & event) = 0;
 
   /**
-   * @brief gets the front event from the queue, eventually waiting for it
-   * @return true if event, false if timeout
+   * @brief Extracts an event from the queue, eventually waiting until timeout
+   * if none is available.
+   * @return true if event has been found, false if timeout
    */
   RCLCPP_PUBLIC
   virtual

@@ -52,12 +52,35 @@ public:
     rclcpp::executors::ExecutorEvent single_event = event;
     single_event.num_events = 1;
     {
-      std::unique_lock<std::mutex> lock(this->push_mutex_);
-      for (size_t ev = 1; ev <= event.num_events; ev++ ) {
+      std::unique_lock<std::mutex> lock(mutex_);
+      for (size_t ev = 0; ev < event.num_events; ev++) {
         event_queue_.push(single_event);
       }
     }
     events_queue_cv_.notify_one();
+  }
+
+  /**
+   * @brief waits for an event until timeout, gets a single event
+   * Thread safe
+   * @return true if event, false if timeout
+   */
+  RCLCPP_PUBLIC
+  bool
+  dequeue(
+    rclcpp::executors::ExecutorEvent & event,
+    std::chrono::nanoseconds timeout = std::chrono::nanoseconds::max()) override
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    if (events_queue_cv_.wait_for(lock, timeout, [this]() {return !event_queue_.empty();}))
+    {
+      event = event_queue_.front();
+      event_queue_.pop();
+      return true;
+    }
+    
+    return false;
   }
 
   /**
@@ -69,7 +92,7 @@ public:
   bool
   empty() const override
   {
-    std::unique_lock<std::mutex> lock(this->push_mutex_);
+    std::unique_lock<std::mutex> lock(mutex_);
     return event_queue_.empty();
   }
 
@@ -82,36 +105,15 @@ public:
   size_t
   size() const override
   {
-    std::unique_lock<std::mutex> lock(this->push_mutex_);
+    std::unique_lock<std::mutex> lock(mutex_);
     return event_queue_.size();
-  }
-
-  /**
-   * @brief gets the front event from the queue, eventually waiting for it
-   * @return true if event, false if timeout
-   */
-  RCLCPP_PUBLIC
-  bool
-  dequeue(
-    rclcpp::executors::ExecutorEvent & event,
-    std::chrono::nanoseconds timeout = std::chrono::nanoseconds::max()) override
-  {
-    std::unique_lock<std::mutex> lock(this->push_mutex_);
-    bool notified = events_queue_cv_.wait_for(lock, timeout, [this]() {return !event_queue_.empty();});
-    if (notified) {
-      event = event_queue_.front();
-      event_queue_.pop();
-      return true;
-    } else {
-      return false;
-    }
   }
 
 private:
   // The underlying queue implementation
   std::queue<rclcpp::executors::ExecutorEvent> event_queue_;
   // Mutex to protect the insertion/extraction of events in the queue
-  mutable std::mutex push_mutex_;
+  mutable std::mutex mutex_;
   // Variable used to notify when an event is added to the queue
   std::condition_variable events_queue_cv_;
 
