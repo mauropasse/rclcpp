@@ -31,8 +31,6 @@
 #include "rclcpp/rate.hpp"
 #include "rclcpp/utilities.hpp"
 #include "rclcpp/visibility_control.hpp"
-#include "tracetools/tracetools.h"
-#include "tracetools/utils.hpp"
 
 #include "rcl/error_handling.h"
 #include "rcl/timer.h"
@@ -174,14 +172,6 @@ public:
   )
   : TimerBase(clock, period, context), callback_(std::forward<FunctorT>(callback))
   {
-    TRACEPOINT(
-      rclcpp_timer_callback_added,
-      static_cast<const void *>(get_timer_handle().get()),
-      static_cast<const void *>(&callback_));
-    TRACEPOINT(
-      rclcpp_callback_register,
-      static_cast<const void *>(&callback_),
-      tracetools::get_symbol(callback_));
   }
 
   /// Default destructor.
@@ -205,9 +195,7 @@ public:
     if (ret != RCL_RET_OK) {
       throw std::runtime_error("Failed to notify timer that callback occurred");
     }
-    TRACEPOINT(callback_start, static_cast<const void *>(&callback_), false);
     execute_callback_delegate<>();
-    TRACEPOINT(callback_end, static_cast<const void *>(&callback_));
   }
 
   // void specialization

@@ -48,7 +48,7 @@
 #include "rclcpp/visibility_control.hpp"
 #include "rclcpp/waitable.hpp"
 #include "rclcpp/topic_statistics/subscription_topic_statistics.hpp"
-#include "tracetools/tracetools.h"
+
 
 namespace rclcpp
 {
@@ -206,10 +206,6 @@ public:
         this->get_topic_name(),  // important to get like this, as it has the fully-qualified name
         qos_profile,
         resolve_intra_process_buffer_type(options.intra_process_buffer_type, callback));
-      TRACEPOINT(
-        rclcpp_subscription_init,
-        static_cast<const void *>(get_subscription_handle().get()),
-        static_cast<const void *>(subscription_intra_process_.get()));
 
       // Add it to the intra process manager.
       using rclcpp::experimental::IntraProcessManager;
@@ -221,21 +217,6 @@ public:
     if (subscription_topic_statistics != nullptr) {
       this->subscription_topic_statistics_ = std::move(subscription_topic_statistics);
     }
-
-    TRACEPOINT(
-      rclcpp_subscription_init,
-      static_cast<const void *>(get_subscription_handle().get()),
-      static_cast<const void *>(this));
-    TRACEPOINT(
-      rclcpp_subscription_callback_added,
-      static_cast<const void *>(this),
-      static_cast<const void *>(&any_callback_));
-    // The callback object gets copied, so if registration is done too early/before this point
-    // (e.g. in `AnySubscriptionCallback::set()`), its address won't match any address used later
-    // in subsequent tracepoints.
-#ifndef TRACETOOLS_DISABLED
-    any_callback_.register_callback_for_tracing();
-#endif
   }
 
   /// Called after construction to continue setup that requires shared_from_this().

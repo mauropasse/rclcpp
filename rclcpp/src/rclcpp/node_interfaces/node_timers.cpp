@@ -16,7 +16,7 @@
 
 #include <string>
 
-#include "tracetools/tracetools.h"
+
 
 using rclcpp::node_interfaces::NodeTimers;
 
@@ -43,9 +43,4 @@ NodeTimers::add_timer(
   }
 
   node_base_->trigger_notify_guard_condition();
-
-  TRACEPOINT(
-    rclcpp_timer_link_node,
-    static_cast<const void *>(timer->get_timer_handle().get()),
-    static_cast<const void *>(node_base_->get_rcl_node_handle()));
 }

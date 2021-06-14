@@ -33,7 +33,7 @@
 #include "rclcpp/experimental/subscription_intra_process_buffer.hpp"
 #include "rclcpp/type_support_decl.hpp"
 #include "rclcpp/waitable.hpp"
-#include "tracetools/tracetools.h"
+
 
 namespace rclcpp
 {
@@ -82,16 +82,6 @@ public:
       buffer_type),
     any_callback_(callback)
   {
-    TRACEPOINT(
-      rclcpp_subscription_callback_added,
-      static_cast<const void *>(this),
-      static_cast<const void *>(&any_callback_));
-    // The callback object gets copied, so if registration is done too early/before this point
-    // (e.g. in `AnySubscriptionCallback::set()`), its address won't match any address used later
-    // in subsequent tracepoints.
-#ifndef TRACETOOLS_DISABLED
-    any_callback_.register_callback_for_tracing();
-#endif
   }
 
   virtual ~SubscriptionIntraProcess() = default;

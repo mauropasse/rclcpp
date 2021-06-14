@@ -30,7 +30,7 @@
 #include "rmw/impl/cpp/demangle.hpp"
 #include "rmw/rmw.h"
 
-#include "tracetools/tracetools.h"
+
 
 #include "rclcpp/any_service_callback.hpp"
 #include "rclcpp/detail/cpp_callback_trampoline.hpp"
@@ -309,13 +309,6 @@ public:
 
       rclcpp::exceptions::throw_from_rcl_error(ret, "could not create service");
     }
-    TRACEPOINT(
-      rclcpp_service_callback_added,
-      static_cast<const void *>(get_service_handle().get()),
-      static_cast<const void *>(&any_callback_));
-#ifndef TRACETOOLS_DISABLED
-    any_callback_.register_callback_for_tracing();
-#endif
   }
 
   /// Default constructor.
@@ -344,13 +337,6 @@ public:
     }
 
     service_handle_ = service_handle;
-    TRACEPOINT(
-      rclcpp_service_callback_added,
-      static_cast<const void *>(get_service_handle().get()),
-      static_cast<const void *>(&any_callback_));
-#ifndef TRACETOOLS_DISABLED
-    any_callback_.register_callback_for_tracing();
-#endif
   }
 
   /// Default constructor.
@@ -381,13 +367,6 @@ public:
     // In this case, rcl owns the service handle memory
     service_handle_ = std::shared_ptr<rcl_service_t>(new rcl_service_t);
     service_handle_->impl = service_handle->impl;
-    TRACEPOINT(
-      rclcpp_service_callback_added,
-      static_cast<const void *>(get_service_handle().get()),
-      static_cast<const void *>(&any_callback_));
-#ifndef TRACETOOLS_DISABLED
-    any_callback_.register_callback_for_tracing();
-#endif
   }
 
   Service() = delete;
