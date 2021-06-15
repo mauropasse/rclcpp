@@ -7,7 +7,6 @@ find_package(Threads REQUIRED)
 find_package(ament_cmake_ros REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 find_package(builtin_interfaces REQUIRED)
-find_package(libstatistics_collector REQUIRED)
 find_package(rcl REQUIRED)
 find_package(rcl_interfaces REQUIRED)
 find_package(rcl_yaml_param_parser REQUIRED)
@@ -18,7 +17,6 @@ find_package(rosgraph_msgs REQUIRED)
 find_package(rosidl_runtime_cpp REQUIRED)
 find_package(rosidl_typesupport_c REQUIRED)
 find_package(rosidl_typesupport_cpp REQUIRED)
-find_package(statistics_msgs REQUIRED)
 
 # TODO(wjwwood): remove this when gtest can build on its own, when using target_compile_features()
 # Default to C++17
@@ -192,7 +190,6 @@ target_link_libraries(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT})
 # specific order: dependents before dependencies
 ament_target_dependencies(${PROJECT_NAME}
   "ament_index_cpp"
-  "libstatistics_collector"
   "rcl"
   "rcl_yaml_param_parser"
   "rcpputils"
@@ -201,7 +198,6 @@ ament_target_dependencies(${PROJECT_NAME}
   "rosgraph_msgs"
   "rosidl_typesupport_cpp"
   "rosidl_runtime_cpp"
-  "statistics_msgs"
 )
 
 # Causes the visibility macros to use dllexport rather than dllimport,
@@ -222,7 +218,6 @@ ament_export_libraries(${PROJECT_NAME})
 ament_export_targets(${PROJECT_NAME})
 
 ament_export_dependencies(ament_index_cpp)
-ament_export_dependencies(libstatistics_collector)
 ament_export_dependencies(rcl)
 ament_export_dependencies(rcpputils)
 ament_export_dependencies(rcutils)
@@ -232,7 +227,6 @@ ament_export_dependencies(rosidl_typesupport_cpp)
 ament_export_dependencies(rosidl_typesupport_c)
 ament_export_dependencies(rosidl_runtime_cpp)
 ament_export_dependencies(rcl_yaml_param_parser)
-ament_export_dependencies(statistics_msgs)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

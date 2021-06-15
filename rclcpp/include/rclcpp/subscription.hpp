@@ -47,7 +47,6 @@
 #include "rclcpp/type_support_decl.hpp"
 #include "rclcpp/visibility_control.hpp"
 #include "rclcpp/waitable.hpp"
-#include "rclcpp/topic_statistics/subscription_topic_statistics.hpp"
 
 
 namespace rclcpp
@@ -102,10 +101,6 @@ public:
   [[deprecated("use std::unique_ptr<ROSMessageType, ROSMessageTypeDeleter> instead")]] =
     std::unique_ptr<ROSMessageType, ROSMessageTypeDeleter>;
 
-private:
-  using SubscriptionTopicStatisticsSharedPtr =
-    std::shared_ptr<rclcpp::topic_statistics::SubscriptionTopicStatistics<ROSMessageType>>;
-
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(Subscription)
 
@@ -134,8 +129,7 @@ public:
     const rclcpp::QoS & qos,
     AnySubscriptionCallback<MessageT, AllocatorT> callback,
     const rclcpp::SubscriptionOptionsWithAllocator<AllocatorT> & options,
-    typename MessageMemoryStrategyT::SharedPtr message_memory_strategy,
-    SubscriptionTopicStatisticsSharedPtr subscription_topic_statistics = nullptr)
+    typename MessageMemoryStrategyT::SharedPtr message_memory_strategy)
   : SubscriptionBase(
       node_base,
       type_support_handle,
@@ -212,10 +206,6 @@ public:
       auto ipm = context->get_sub_context<IntraProcessManager>();
       uint64_t intra_process_subscription_id = ipm->add_subscription(subscription_intra_process_);
       this->setup_intra_process(intra_process_subscription_id, ipm);
-    }
-
-    if (subscription_topic_statistics != nullptr) {
-      this->subscription_topic_statistics_ = std::move(subscription_topic_statistics);
     }
   }
 
@@ -307,19 +297,8 @@ public:
     auto typed_message = std::static_pointer_cast<ROSMessageType>(message);
 
     std::chrono::time_point<std::chrono::system_clock> now;
-    if (subscription_topic_statistics_) {
-      // get current time before executing callback to
-      // exclude callback duration from topic statistics result.
-      now = std::chrono::system_clock::now();
-    }
 
     any_callback_.dispatch(typed_message, message_info);
-
-    if (subscription_topic_statistics_) {
-      const auto nanos = std::chrono::time_point_cast<std::chrono::nanoseconds>(now);
-      const auto time = rclcpp::Time(nanos.time_since_epoch().count());
-      subscription_topic_statistics_->handle_message(*typed_message, time);
-    }
   }
 
   void
@@ -382,9 +361,6 @@ private:
   const rclcpp::SubscriptionOptionsWithAllocator<AllocatorT> options_;
   typename message_memory_strategy::MessageMemoryStrategy<ROSMessageType, AllocatorT>::SharedPtr
     message_memory_strategy_;
-
-  /// Component which computes and publishes topic statistics for this subscriber
-  SubscriptionTopicStatisticsSharedPtr subscription_topic_statistics_{nullptr};
 
   using SubscriptionIntraProcessT = rclcpp::experimental::SubscriptionIntraProcess<
     ROSMessageType,

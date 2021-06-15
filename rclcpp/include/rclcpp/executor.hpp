@@ -42,6 +42,8 @@
 #include "rclcpp/visibility_control.hpp"
 #include "rclcpp/scope_exit.hpp"
 
+#include "rcpputils/thread_safety_annotations.hpp"
+
 namespace rclcpp
 {
 
