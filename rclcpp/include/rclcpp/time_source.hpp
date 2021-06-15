@@ -21,7 +21,6 @@
 #include "rcl/time.h"
 
 #include "builtin_interfaces/msg/time.hpp"
-#include "rosgraph_msgs/msg/clock.hpp"
 #include "rcl_interfaces/msg/parameter_event.hpp"
 
 #include "rclcpp/node.hpp"
@@ -145,19 +144,6 @@ private:
   // QoS of the clock subscription.
   rclcpp::QoS qos_;
 
-  // The subscription for the clock callback
-  using MessageT = rosgraph_msgs::msg::Clock;
-  using Alloc = std::allocator<void>;
-  using SubscriptionT = rclcpp::Subscription<MessageT, Alloc>;
-  std::shared_ptr<SubscriptionT> clock_subscription_{nullptr};
-  std::mutex clock_sub_lock_;
-  rclcpp::CallbackGroup::SharedPtr clock_callback_group_;
-  rclcpp::executors::SingleThreadedExecutor::SharedPtr clock_executor_;
-  std::promise<void> cancel_clock_executor_promise_;
-
-  // The clock callback itself
-  void clock_cb(std::shared_ptr<const rosgraph_msgs::msg::Clock> msg);
-
   // Create the subscription for the clock topic
   void create_clock_sub();
 
@@ -165,6 +151,7 @@ private:
   void destroy_clock_sub();
 
   // Parameter Event subscription
+  using Alloc = std::allocator<void>;
   using ParamMessageT = rcl_interfaces::msg::ParameterEvent;
   using ParamSubscriptionT = rclcpp::Subscription<ParamMessageT, Alloc>;
   std::shared_ptr<ParamSubscriptionT> parameter_subscription_;
@@ -190,8 +177,6 @@ private:
   // Local storage of validity of ROS time
   // This is needed when new clocks are added.
   bool ros_time_active_{false};
-  // Last set message to be passed to newly registered clocks
-  std::shared_ptr<const rosgraph_msgs::msg::Clock> last_msg_set_;
 
   // A lock to protect iterating the associated_clocks_ field.
   std::mutex clock_list_lock_;

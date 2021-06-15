@@ -13,7 +13,6 @@ find_package(rcl_yaml_param_parser REQUIRED)
 find_package(rcpputils REQUIRED)
 find_package(rcutils REQUIRED)
 find_package(rmw REQUIRED)
-find_package(rosgraph_msgs REQUIRED)
 find_package(rosidl_runtime_cpp REQUIRED)
 find_package(rosidl_typesupport_c REQUIRED)
 find_package(rosidl_typesupport_cpp REQUIRED)
@@ -195,7 +194,6 @@ ament_target_dependencies(${PROJECT_NAME}
   "rcpputils"
   "rcutils"
   "builtin_interfaces"
-  "rosgraph_msgs"
   "rosidl_typesupport_cpp"
   "rosidl_runtime_cpp"
 )
@@ -222,7 +220,6 @@ ament_export_dependencies(rcl)
 ament_export_dependencies(rcpputils)
 ament_export_dependencies(rcutils)
 ament_export_dependencies(builtin_interfaces)
-ament_export_dependencies(rosgraph_msgs)
 ament_export_dependencies(rosidl_typesupport_cpp)
 ament_export_dependencies(rosidl_typesupport_c)
 ament_export_dependencies(rosidl_runtime_cpp)

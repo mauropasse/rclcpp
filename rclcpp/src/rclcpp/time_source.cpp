@@ -161,9 +161,6 @@ void TimeSource::attachClock(std::shared_ptr<rclcpp::Clock> clock)
   associated_clocks_.push_back(clock);
   // Set the clock to zero unless there's a recently received message
   auto time_msg = std::make_shared<builtin_interfaces::msg::Time>();
-  if (last_msg_set_) {
-    time_msg = std::make_shared<builtin_interfaces::msg::Time>(last_msg_set_->clock);
-  }
   set_clock(time_msg, ros_time_active_, clock);
 }
 
@@ -216,82 +213,12 @@ void TimeSource::set_clock(
   }
 }
 
-void TimeSource::clock_cb(std::shared_ptr<const rosgraph_msgs::msg::Clock> msg)
-{
-  if (!this->ros_time_active_ && SET_TRUE == this->parameter_state_) {
-    enable_ros_time();
-  }
-  // Cache the last message in case a new clock is attached.
-  last_msg_set_ = msg;
-  auto time_msg = std::make_shared<builtin_interfaces::msg::Time>(msg->clock);
-
-  if (SET_TRUE == this->parameter_state_) {
-    std::lock_guard<std::mutex> guard(clock_list_lock_);
-    for (auto it = associated_clocks_.begin(); it != associated_clocks_.end(); ++it) {
-      set_clock(time_msg, true, *it);
-    }
-  }
-}
-
 void TimeSource::create_clock_sub()
 {
-  std::lock_guard<std::mutex> guard(clock_sub_lock_);
-  if (clock_subscription_) {
-    // Subscription already created.
-    return;
-  }
-
-  rclcpp::SubscriptionOptions options;
-  options.qos_overriding_options = rclcpp::QosOverridingOptions(
-    {
-      rclcpp::QosPolicyKind::Depth,
-      rclcpp::QosPolicyKind::Durability,
-      rclcpp::QosPolicyKind::History,
-      rclcpp::QosPolicyKind::Reliability,
-    });
-
-  if (use_clock_thread_) {
-    clock_callback_group_ = node_base_->create_callback_group(
-      rclcpp::CallbackGroupType::MutuallyExclusive,
-      false
-    );
-    options.callback_group = clock_callback_group_;
-    rclcpp::ExecutorOptions exec_options;
-    exec_options.context = node_base_->get_context();
-    clock_executor_ =
-      std::make_shared<rclcpp::executors::SingleThreadedExecutor>(exec_options);
-    if (!clock_executor_thread_.joinable()) {
-      cancel_clock_executor_promise_ = std::promise<void>{};
-      clock_executor_thread_ = std::thread(
-        [this]() {
-          auto future = cancel_clock_executor_promise_.get_future();
-          clock_executor_->add_callback_group(clock_callback_group_, node_base_);
-          clock_executor_->spin_until_future_complete(future);
-        }
-      );
-    }
-  }
-
-  clock_subscription_ = rclcpp::create_subscription<rosgraph_msgs::msg::Clock>(
-    node_parameters_,
-    node_topics_,
-    "/clock",
-    rclcpp::QoS(KeepLast(1)).best_effort(),
-    std::bind(&TimeSource::clock_cb, this, std::placeholders::_1),
-    options
-  );
 }
 
 void TimeSource::destroy_clock_sub()
 {
-  std::lock_guard<std::mutex> guard(clock_sub_lock_);
-  if (clock_executor_thread_.joinable()) {
-    cancel_clock_executor_promise_.set_value();
-    clock_executor_->cancel();
-    clock_executor_thread_.join();
-    clock_executor_->remove_callback_group(clock_callback_group_);
-  }
-  clock_subscription_.reset();
 }
 
 void TimeSource::on_parameter_event(
@@ -343,9 +270,6 @@ void TimeSource::enable_ros_time()
   // Update all attached clocks to zero or last recorded time
   std::lock_guard<std::mutex> guard(clock_list_lock_);
   auto time_msg = std::make_shared<builtin_interfaces::msg::Time>();
-  if (last_msg_set_) {
-    time_msg = std::make_shared<builtin_interfaces::msg::Time>(last_msg_set_->clock);
-  }
   for (auto it = associated_clocks_.begin(); it != associated_clocks_.end(); ++it) {
     set_clock(time_msg, true, *it);
   }
