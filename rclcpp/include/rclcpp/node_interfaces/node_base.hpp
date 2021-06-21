@@ -138,7 +138,7 @@ private:
 
   /// Guard condition for notifying the Executor of changes to this node.
   mutable std::recursive_mutex notify_guard_condition_mutex_;
-  rclcpp::GuardCondition notify_guard_condition_;
+  // rclcpp::GuardCondition notify_guard_condition_;
   bool notify_guard_condition_is_valid_;
 };
 

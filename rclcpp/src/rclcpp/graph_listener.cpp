@@ -41,8 +41,7 @@ GraphListener::GraphListener(const std::shared_ptr<Context> & parent_context)
 : weak_parent_context_(parent_context),
   rcl_parent_context_(parent_context->get_rcl_context()),
   is_started_(false),
-  is_shutdown_(false),
-  interrupt_guard_condition_(parent_context)
+  is_shutdown_(false)
 {
 }
 
@@ -150,6 +149,7 @@ GraphListener::run_loop()
       throw_from_rcl_error(ret, "failed to clear wait set");
     }
     // Put the interrupt guard condition in the wait set.
+    rclcpp::GuardCondition interrupt_guard_condition_;
     detail::add_guard_condition_to_rcl_wait_set(wait_set_, interrupt_guard_condition_);
 
     // Put graph guard conditions for each node into the wait set.
@@ -239,6 +239,7 @@ GraphListener::has_node(rclcpp::node_interfaces::NodeGraphInterface * node_graph
   if (!node_graph) {
     return false;
   }
+  rclcpp::GuardCondition interrupt_guard_condition_;
   // Acquire the nodes mutex using the barrier to prevent the run loop from
   // re-locking the nodes mutex after being interrupted.
   acquire_nodes_lock_(
@@ -260,6 +261,7 @@ GraphListener::add_node(rclcpp::node_interfaces::NodeGraphInterface * node_graph
   if (is_shutdown_.load()) {
     throw GraphListenerShutdownError();
   }
+  rclcpp::GuardCondition interrupt_guard_condition_;
 
   // Acquire the nodes mutex using the barrier to prevent the run loop from
   // re-locking the nodes mutex after being interrupted.
@@ -306,6 +308,7 @@ GraphListener::remove_node(rclcpp::node_interfaces::NodeGraphInterface * node_gr
     // If shutdown, then the run loop has been joined, so we can remove them directly.
     return remove_node_(&node_graph_interfaces_, node_graph);
   }
+  rclcpp::GuardCondition interrupt_guard_condition_;
   // Otherwise, first interrupt and lock against the run loop to safely remove the node.
   // Acquire the nodes mutex using the barrier to prevent the run loop from
   // re-locking the nodes mutex after being interrupted.
@@ -330,6 +333,7 @@ GraphListener::cleanup_wait_set()
 void
 GraphListener::__shutdown()
 {
+  rclcpp::GuardCondition interrupt_guard_condition_;
   std::lock_guard<std::mutex> shutdown_lock(shutdown_mutex_);
   if (!is_shutdown_.exchange(true)) {
     if (is_started_) {

@@ -44,7 +44,7 @@ NodeBase::NodeBase(
   node_handle_(nullptr),
   default_callback_group_(nullptr),
   associated_with_executor_(false),
-  notify_guard_condition_(context),
+  // notify_guard_condition_(context),
   notify_guard_condition_is_valid_(false)
 {
   // Create the rcl node and store it in a shared_ptr with a custom destructor.
@@ -242,6 +242,7 @@ NodeBase::get_associated_with_executor_atomic()
 rclcpp::GuardCondition &
 NodeBase::get_notify_guard_condition()
 {
+  rclcpp::GuardCondition notify_guard_condition_;
   std::lock_guard<std::recursive_mutex> notify_condition_lock(notify_guard_condition_mutex_);
   if (!notify_guard_condition_is_valid_) {
     throw std::runtime_error("Trying to get invalid notify guard condition");
@@ -285,5 +286,5 @@ NodeBase::resolve_topic_or_service_name(
 void
 NodeBase::trigger_notify_guard_condition()
 {
-  notify_guard_condition_.trigger();
+  // notify_guard_condition_.trigger();
 }

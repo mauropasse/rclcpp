@@ -487,6 +487,9 @@ public:
   std::vector<rclcpp::NetworkFlowEndpoint>
   get_network_flow_endpoints() const;
 
+// This file has been copied and modified by iRobot.
+// Copyright 2020 iRobot Corporation. All Rights Reserved.
+
 protected:
   template<typename EventCallbackT>
   void
@@ -500,7 +503,7 @@ protected:
       rcl_subscription_event_init,
       get_subscription_handle(),
       event_type);
-    qos_events_in_use_by_wait_set_.insert(std::make_pair(handler.get(), false));
+    qos_events_in_use_by_wait_set_.emplace(std::piecewise_construct, std::forward_as_tuple(handler.get()), std::forward_as_tuple(false));
     event_handlers_.insert(std::make_pair(event_type, handler));
   }
 
