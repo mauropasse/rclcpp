@@ -755,9 +755,9 @@ ServerBase::set_callback_to_entity(
   // This two-step setting, prevents a gap where the old std::function has
   // been replaced but the middleware hasn't been told about the new one yet.
   set_on_ready_callback(
+    entity_type,
     rclcpp::detail::cpp_callback_trampoline<const void *, size_t>,
-    static_cast<const void *>(&new_callback),
-    entity_type);
+    static_cast<const void *>(&new_callback));
 
   // Store the std::function to keep it in scope, also overwrites the existing one.
   auto it = entity_type_to_on_ready_callback_.find(entity_type);
@@ -774,17 +774,17 @@ ServerBase::set_callback_to_entity(
   if (it != entity_type_to_on_ready_callback_.end()) {
     auto & cb = it->second;
     set_on_ready_callback(
+      entity_type,
       rclcpp::detail::cpp_callback_trampoline<const void *, size_t>,
-      static_cast<const void *>(&cb),
-      entity_type);
+      static_cast<const void *>(&cb));
   }
 }
 
 void
 ServerBase::set_on_ready_callback(
+  EntityType entity_type,
   rcl_event_callback_t callback,
-  const void * user_data,
-  EntityType entity_type)
+  const void * user_data)
 {
   rcl_ret_t ret = RCL_RET_ERROR;
 
@@ -831,8 +831,8 @@ void
 ServerBase::clear_on_ready_callback()
 {
   std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
-  set_callback_to_entity(EntityType::GoalService, nullptr);
-  set_callback_to_entity(EntityType::ResultService, nullptr);
-  set_callback_to_entity(EntityType::CancelService, nullptr);
+  set_on_ready_callback(EntityType::GoalService, nullptr, nullptr);
+  set_on_ready_callback(EntityType::ResultService, nullptr, nullptr);
+  set_on_ready_callback(EntityType::CancelService, nullptr, nullptr);
   entity_type_to_on_ready_callback_.clear();
 }

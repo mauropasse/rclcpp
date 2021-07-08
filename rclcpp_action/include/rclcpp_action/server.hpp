@@ -293,9 +293,9 @@ protected:
   RCLCPP_ACTION_PUBLIC
   void
   set_on_ready_callback(
+    EntityType entity_type,
     rcl_event_callback_t callback,
-    const void * user_data,
-    EntityType entity_type);
+    const void * user_data);
 };
 
 /// Action Server

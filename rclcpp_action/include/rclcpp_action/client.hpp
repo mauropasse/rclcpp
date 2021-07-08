@@ -276,9 +276,9 @@ protected:
   RCLCPP_ACTION_PUBLIC
   void
   set_on_ready_callback(
+    EntityType entity_type,
     rcl_event_callback_t callback,
-    const void * user_data,
-    EntityType entity_type);
+    const void * user_data);
 
   std::recursive_mutex reentrant_mutex_;
   std::unordered_map<EntityType, std::function<void(size_t)>> entity_type_to_on_ready_callback_;
