@@ -438,13 +438,7 @@ private:
      */
     static bool timer_greater(TimerPtr a, TimerPtr b)
     {
-      if (a->is_canceled()) {
-        return true;
-      } else if (b->is_canceled()) {
-        return false;
-      } else {
-        return a->next_call_time() >= b->next_call_time();
-      }
+      return a->next_call_time() >= b->next_call_time();
     }
 
     std::vector<TimerPtr> owned_heap_;
