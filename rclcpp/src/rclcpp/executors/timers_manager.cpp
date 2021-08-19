@@ -137,7 +137,7 @@ bool TimersManager::execute_head_timer()
     return false;
   }
 
-  TimerPtr head = timers_heap.front();
+  TimerPtr head_timer = timers_heap.front();
 
   const bool timer_ready = head_timer->is_ready();
   if (timer_ready) {
