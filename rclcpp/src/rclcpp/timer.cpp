@@ -133,6 +133,27 @@ TimerBase::time_until_trigger()
   return std::chrono::nanoseconds(time_until_next_call);
 }
 
+rclcpp::Time
+TimerBase::next_call_time()
+{
+  bool is_canceled = false;
+  rcl_ret_t ret = rcl_timer_is_canceled(timer_handle_.get(), &is_canceled);
+  if (ret != RCL_RET_OK) {
+    rclcpp::exceptions::throw_from_rcl_error(ret, "Couldn't get timer cancelled state");
+  }
+  if (is_canceled) {
+    // We don't use rclcpp::Time::max() because we want to specify the clock type
+    return rclcpp::Time(std::numeric_limits<int32_t>::max(), 999999999, clock_->get_clock_type());
+  }
+
+  rcl_time_point_value_t time_point = 0;
+  ret = rcl_timer_get_next_call_time(timer_handle_.get(), &time_point);
+  if (ret != RCL_RET_OK) {
+    rclcpp::exceptions::throw_from_rcl_error(ret, "Timer could not get next call time");
+  }
+  return rclcpp::Time(time_point, clock_->get_clock_type());
+}
+
 std::shared_ptr<const rcl_timer_t>
 TimerBase::get_timer_handle()
 {

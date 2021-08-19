@@ -78,11 +78,6 @@ EventsExecutor::spin()
 void
 EventsExecutor::spin_some(std::chrono::nanoseconds max_duration)
 {
-  // In this context a 0 input max_duration means no duration limit
-  if (std::chrono::nanoseconds(0) == max_duration) {
-    max_duration = timers_manager_->MAX_TIME;
-  }
-
   return this->spin_some_impl(max_duration, false);
 }
 
@@ -107,17 +102,22 @@ EventsExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool exhau
   auto start = std::chrono::steady_clock::now();
 
   auto max_duration_not_elapsed = [max_duration, start]() {
-      auto elapsed_time = std::chrono::steady_clock::now() - start;
-      return elapsed_time < max_duration;
+      if (std::chrono::nanoseconds(0) == max_duration) {
+        // told to spin forever if need be
+        return true;
+      } else if (std::chrono::steady_clock::now() - start < max_duration) {
+        // told to spin only for some maximum amount of time
+        return true;
+      }
+      // spun too long
+      return false;
     };
 
-  size_t ready_events_at_start = 0;
+  // Get the number of events and timers ready at start
+  const size_t ready_events_at_start = events_queue_->size();
   size_t executed_events = 0;
-
-  if (!exhaustive) {
-    // Get the number of events ready at start
-    ready_events_at_start = events_queue_->size();
-  }
+  const size_t ready_timers_at_start = timers_manager_->get_number_ready_timers();
+  size_t executed_timers = 0;
 
   while (rclcpp::ok(context_) && spinning.load() && max_duration_not_elapsed()) {
     // Execute first ready event from queue if exists
@@ -135,18 +135,13 @@ EventsExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool exhau
       }
     }
 
-    bool timer_executed;
-
-    if (exhaustive) {
-      // Execute timer if is ready
-      timer_executed = timers_manager_->execute_head_timer();
-    } else {
-      // Execute timer if was ready at start
-      timer_executed = timers_manager_->execute_head_timer(start);
-    }
-
-    if (timer_executed) {
-      continue;
+    // Execute first timer if it is ready
+    if (exhaustive || (executed_timers < ready_timers_at_start)) {
+      bool timer_executed = timers_manager_->execute_head_timer();
+      if (timer_executed) {
+        executed_timers++;
+        continue;
+      }
     }
 
     // If there's no more work available, exit
@@ -159,7 +154,7 @@ EventsExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
 {
   // In this context a negative input timeout means no timeout
   if (timeout < 0ns) {
-    timeout = timers_manager_->MAX_TIME;
+    timeout = std::chrono::nanoseconds::max();
   }
 
   // Select the smallest between input timeout and timer timeout

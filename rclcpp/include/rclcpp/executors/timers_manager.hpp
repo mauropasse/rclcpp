@@ -35,11 +35,11 @@ namespace executors
 
 /**
  * @brief This class provides a way for storing and executing timer objects.
- * It APIs to suit the needs of different applications and execution models.
+ * It provides APIs to suit the needs of different applications and execution models.
  * All public APIs provided by this class are thread-safe.
  *
  * Timers management
- * This class provides APIs to add and remove timers.
+ * This class provides APIs to add/remove timers to/from an internal storage.
  * It keeps a list of weak pointers from added timers, and locks them only when
  * they need to be executed or modified.
  * Timers are kept ordered in a binary-heap priority queue.
@@ -81,6 +81,7 @@ public:
    * Function is thread safe and it can be called regardless of the state of the timers thread.
    *
    * @param timer the timer to add.
+   * @throws std::invalid_argument if timer is a nullptr.
    */
   void add_timer(rclcpp::TimerBase::SharedPtr timer);
 
@@ -114,35 +115,39 @@ public:
   /**
    * @brief Executes all the timers currently ready when the function was invoked.
    * This function will lock all the stored timers throughout its duration.
-   * Function is thread safe, but it will throw an error if the timers thread is running.
+   * This function is thread safe.
+   * @throws std::runtime_error if the timers thread was already running.
    */
   void execute_ready_timers();
 
   /**
-   * @brief Executes head timer if ready at time point.
-   * Function is thread safe, but it will throw an error if the timers thread is running.
-   *
-   * @param tp the time point to check for, where `max()` denotes that no check will be performed.
-   * @return true if head timer was ready at time point.
+   * @brief Get the number of timers that are currently ready.
+   * This function is thread safe.
+   * 
+   * @return size_t number of ready timers.
+   * @throws std::runtime_error if the timers thread was already running.
    */
-  bool execute_head_timer(
-    std::chrono::time_point<std::chrono::steady_clock> tp =
-    std::chrono::time_point<std::chrono::steady_clock>::max());
+   size_t get_number_ready_timers();
 
   /**
-   * @brief Get the amount of time before the next timer expires.
-   * Function is thread safe, but it will throw an error if the timers thread is running.
+   * @brief Executes head timer if ready.
+   * This function is thread safe.
+   *
+   * @return true if head timer was ready.
+   * @throws std::runtime_error if the timers thread was already running.
+   */
+  bool execute_head_timer();
+
+  /**
+   * @brief Get the amount of time before the next timer triggers.
+   * This function is thread safe.
    *
    * @return std::chrono::nanoseconds to wait,
    * the returned value could be negative if the timer is already expired
-   * or MAX_TIME if there are no timers stored in the object.
+   * or std::chrono::nanoseconds::max() if there are no timers stored in the object.
+   * @throws std::runtime_error if the timers thread was already running.
    */
   std::chrono::nanoseconds get_head_timeout();
-
-  // This is what the TimersManager uses to denote a duration forever.
-  // We don't use std::chrono::nanoseconds::max because it will overflow.
-  // See https://en.cppreference.com/w/cpp/thread/condition_variable/wait_for
-  static constexpr std::chrono::nanoseconds MAX_TIME = std::chrono::hours(90);
 
 private:
   RCLCPP_DISABLE_COPY(TimersManager)
@@ -155,11 +160,11 @@ private:
 
   /**
    * @brief This class allows to store weak pointers to timers in a heap-like data structure.
-   * The root of the heap is the timer that expires first.
+   * The root of the heap is the timer that triggers first.
    * Since this class uses weak ownership, it is not guaranteed that it represents a valid heap
    * at any point in time as timers could go out of scope, thus invalidating it.
-   * The "validate_and_lock" API allows to get ownership of the timers and also makes sure that
-   * the heap property is respected.
+   * The "validate_and_lock" API allows to restore the heap property and also returns a locked version
+   * of the timers heap.
    * This class is not thread safe and requires external mutexes to protect its usage.
    */
   class WeakTimersHeap
@@ -204,7 +209,7 @@ public:
     }
 
     /**
-     * @brief Returns a const reference to the front element
+     * @brief Returns a const reference to the front element.
      */
     const WeakTimerPtr & front() const
     {
@@ -212,7 +217,7 @@ public:
     }
 
     /**
-     * @brief Returns whether the heap is empty or not
+     * @brief Returns whether the heap is empty or not.
      */
     bool empty() const
     {
@@ -222,6 +227,7 @@ public:
     /**
      * @brief This function restores the current object as a valid heap
      * and it returns a locked version of it.
+     * Timers that went out of scope are removed from the container.
      * It is the only public API to access and manipulate the stored timers.
      *
      * @return TimersHeap owned timers corresponding to the current object
@@ -231,23 +237,23 @@ public:
       TimersHeap locked_heap;
       bool any_timer_destroyed = false;
 
-      auto it = weak_heap_.begin();
-
-      while (it != weak_heap_.end()) {
-        if (auto timer_shared_ptr = it->lock()) {
-          // This timer is valid, add it to the locked heap
-          // Note: we access private `owned_heap_` member field.
-          locked_heap.owned_heap_.push_back(std::move(timer_shared_ptr));
-          it++;
+      for (auto weak_timer : weak_heap_) {
+        auto timer = weak_timer.lock();
+        if (timer) {
+          // This timer is valid, so add it to the locked heap
+          // Note: we access friend private `owned_heap_` member field.
+          locked_heap.owned_heap_.push_back(std::move(timer)); 
         } else {
-          // This timer went out of scope, remove it
-          it = weak_heap_.erase(it);
-          any_timer_destroyed = true;
+          // This timer went out of scope, so we don't add it to locked heap
+          // and we mark the corresponding flag.
+          // It's not needed to erase it from weak heap, as we are going to re-heapify.
+          // Note: we can't exit from the loop here, as we need to find all valid timers.
+          any_timer_destroyed = true;   
         }
       }
 
-      // If a timer has gone out of scope, then the remaining elements may not represent
-      // a valid heap anymore. We need to re heapify the timers heap.
+      // If a timer has gone out of scope, then the remaining elements do not represent
+      // a valid heap anymore. We need to re-heapify the timers heap.
       if (any_timer_destroyed) {
         locked_heap.heapify();
         // Re-create the weak heap now that elements have been heapified again
@@ -268,7 +274,7 @@ public:
     void store(const TimersHeap & heap)
     {
       weak_heap_.clear();
-      // Note: we access private `owned_heap_` member field.
+      // Note: we access friend private `owned_heap_` member field.
       for (auto t : heap.owned_heap_) {
         weak_heap_.push_back(t);
       }
@@ -298,8 +304,8 @@ public:
     /**
      * @brief Try to add a new timer to the heap.
      * After the addition, the heap property is preserved.
-     * @param timer new timer to add
-     * @return true if timer has been added, false if it was already there
+     * @param timer new timer to add.
+     * @return true if timer has been added, false if it was already there.
      */
     bool add_timer(TimerPtr timer)
     {
@@ -318,8 +324,8 @@ public:
     /**
      * @brief Try to remove a timer from the heap.
      * After the removal, the heap property is preserved.
-     * @param timer timer to remove
-     * @return true if timer has been removed, false if it was not there
+     * @param timer timer to remove.
+     * @return true if timer has been removed, false if it was not there.
      */
     bool remove_timer(TimerPtr timer)
     {
@@ -330,13 +336,14 @@ public:
       }
 
       owned_heap_.erase(it);
-      std::make_heap(owned_heap_.begin(), owned_heap_.end(), timer_greater);
+      this->heapify();
 
       return true;
     }
 
     /**
-     * @brief Returns a reference to the front element
+     * @brief Returns a reference to the front element.
+     * @return reference to front element.
      */
     TimerPtr & front()
     {
@@ -344,7 +351,8 @@ public:
     }
 
     /**
-     * @brief Returns a const reference to the front element
+     * @brief Returns a const reference to the front element.
+     * @return const reference to front element.
      */
     const TimerPtr & front() const
     {
@@ -352,7 +360,8 @@ public:
     }
 
     /**
-     * @brief Returns whether the heap is empty or not
+     * @brief Returns whether the heap is empty or not.
+     * @return true if the heap is empty.
      */
     bool empty() const
     {
@@ -360,15 +369,38 @@ public:
     }
 
     /**
+     * @brief Returns the size of the heap.
+     * @return the number of valid timers in the heap.
+     */
+    size_t size() const
+    {
+      return owned_heap_.size();
+    }
+
+    /**
+     * @brief Get the number of timers that are currently ready.
+     * @return size_t number of ready timers.
+     */
+    size_t get_number_ready_timers() const
+    {
+      size_t ready_timers = 0;
+
+      for (TimerPtr t : owned_heap_) {
+        if (t->is_ready()) {
+          ready_timers++;    
+        }
+      }
+
+      return ready_timers;
+    }
+
+    /**
     * @brief Restore a valid heap after the root value has been replaced (e.g. timer triggered).
     */
     void heapify_root()
     {
-      // The following code is a more efficient version of doing
-      // pop_heap();
-      // pop_back();
-      // push_back();
-      // push_heap();
+      // The following code is a more efficient version than doing
+      // pop_heap, pop_back, push_back, push_heap
       // as it removes the need for the last push_heap
 
       // Push the modified element (i.e. the current root) at the bottom of the heap
@@ -402,11 +434,17 @@ public:
 private:
     /**
      * @brief Comparison function between timers.
-     * Returns true if `a` expires after `b`.
+     * @return true if `a` triggers after `b`.
      */
     static bool timer_greater(TimerPtr a, TimerPtr b)
     {
-      return a->time_until_trigger() > b->time_until_trigger();
+      if (a->is_canceled()) {
+        return true;
+      } else if (b->is_canceled()) {
+        return false;
+      } else {
+        return a->next_call_time() >= b->next_call_time();
+      }
     }
 
     std::vector<TimerPtr> owned_heap_;
@@ -419,12 +457,12 @@ private:
   void run_timers();
 
   /**
-   * @brief Get the amount of time before the next timer expires.
+   * @brief Get the amount of time before the next timer triggers.
    * This function is not thread safe, acquire a mutex before calling it.
    *
    * @return std::chrono::nanoseconds to wait,
    * the returned value could be negative if the timer is already expired
-   * or MAX_TIME if the heap is empty.
+   * or std::chrono::nanoseconds::max() if the heap is empty.
    * This function is not thread safe, acquire the timers_mutex_ before calling it.
    */
   std::chrono::nanoseconds get_head_timeout_unsafe();
@@ -436,35 +474,19 @@ private:
    */
   void execute_ready_timers_unsafe();
 
-  /**
-   * @brief Helper function that checks whether a timer was already ready
-   * at a specific time point.
-   * @param timer a pointer to the timer to check for
-   * @param tp the time point to check for
-   * @return true if timer was ready at tp
-   */
-  bool timer_was_ready_at_tp(
-    TimerPtr timer,
-    std::chrono::time_point<std::chrono::steady_clock> tp)
-  {
-    // A ready timer will return a negative duration when calling time_until_trigger
-    auto time_ready = std::chrono::steady_clock::now() + timer->time_until_trigger();
-    return time_ready < tp;
-  }
-
   // Thread used to run the timers execution task
   std::thread timers_thread_;
   // Protects access to timers
   std::mutex timers_mutex_;
   // Notifies the timers thread whenever timers are added/removed
   std::condition_variable timers_cv_;
-  // Flag used as predicate by timers_cv
+  // Flag used as predicate by timers_cv_ that denotes one or more timers being added/removed 
   bool timers_updated_ {false};
-  // Indicates whether the timers thread is currently running or requested to stop
+  // Indicates whether the timers thread is currently running or not
   std::atomic<bool> running_ {false};
-  // Context of the parent executor
+  // Parent context used to understand if ROS is still active
   std::shared_ptr<rclcpp::Context> context_;
-  // Timers heap with weak ownership
+  // Timers heap storage with weak ownership
   WeakTimersHeap weak_timers_heap_;
 };
 
