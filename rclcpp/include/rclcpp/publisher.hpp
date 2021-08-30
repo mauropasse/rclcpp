@@ -391,28 +391,28 @@ public:
   void
   publish(rclcpp::LoanedMessage<ROSMessageType, AllocatorT> && loaned_msg)
   {
-    if (!loaned_msg.is_valid()) {
-      throw std::runtime_error("loaned message is not valid");
-    }
-    if (intra_process_is_enabled_) {
-      // TODO(Karsten1987): support loaned message passed by intraprocess
-      throw std::runtime_error("storing loaned messages in intra process is not supported yet");
-    }
+    // if (!loaned_msg.is_valid()) {
+    //   throw std::runtime_error("loaned message is not valid");
+    // }
+    // if (intra_process_is_enabled_) {
+    //   // TODO(Karsten1987): support loaned message passed by intraprocess
+    //   throw std::runtime_error("storing loaned messages in intra process is not supported yet");
+    // }
 
     // verify that publisher supports loaned messages
     // TODO(Karsten1987): This case separation has to be done in rclcpp
     // otherwise we have to ensure that every middleware implements
     // `rmw_publish_loaned_message` explicitly the same way as `rmw_publish`
     // by taking a copy of the ros message.
-    if (this->can_loan_messages()) {
+    // if (this->can_loan_messages()) {
       // we release the ownership from the rclpp::LoanedMessage instance
       // and let the middleware clean up the memory.
       this->do_loaned_message_publish(std::move(loaned_msg.release()));
-    } else {
-      // we don't release the ownership, let the middleware copy the ros message
-      // and thus the destructor of rclcpp::LoanedMessage cleans up the memory.
-      this->do_inter_process_publish(loaned_msg.get());
-    }
+    // } else {
+    //   // we don't release the ownership, let the middleware copy the ros message
+    //   // and thus the destructor of rclcpp::LoanedMessage cleans up the memory.
+    //   this->do_inter_process_publish(loaned_msg.get());
+    // }
   }
 
   [[deprecated("use get_published_type_allocator() or get_ros_message_type_allocator() instead")]]

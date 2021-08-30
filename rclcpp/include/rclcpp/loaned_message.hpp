@@ -57,29 +57,30 @@ public:
    * \throws anything rclcpp::exceptions::throw_from_rcl_error can throw.
    */
   LoanedMessage(
-    const rclcpp::PublisherBase & pub,
+    rcl_publisher_t * pub_handle,
     std::allocator<MessageT> allocator)
-  : pub_(pub),
+  : pub_handle_(pub_handle),
     message_(nullptr),
     message_allocator_(std::move(allocator))
   {
-    if (pub_.can_loan_messages()) {
+
+    // if (pub_.can_loan_messages()) {
       void * message_ptr = nullptr;
       auto ret = rcl_borrow_loaned_message(
-        pub_.get_publisher_handle().get(),
+        pub_handle_,
         rosidl_typesupport_cpp::get_message_type_support_handle<MessageT>(),
         &message_ptr);
       if (RCL_RET_OK != ret) {
         rclcpp::exceptions::throw_from_rcl_error(ret);
       }
       message_ = static_cast<MessageT *>(message_ptr);
-    } else {
-      RCLCPP_INFO_ONCE(
-        rclcpp::get_logger("rclcpp"),
-        "Currently used middleware can't loan messages. Local allocator will be used.");
-      message_ = message_allocator_.allocate(1);
-      new (message_) MessageT();
-    }
+    // } else {
+    //   RCLCPP_INFO_ONCE(
+    //     rclcpp::get_logger("rclcpp"),
+    //     "Currently used middleware can't loan messages. Local allocator will be used.");
+    //   message_ = message_allocator_.allocate(1);
+    //   new (message_) MessageT();
+    // }
   }
 
   /// Constructor of the LoanedMessage class.
@@ -113,11 +114,11 @@ public:
   {}
 
   /// Move semantic for RVO
-  LoanedMessage(LoanedMessage<MessageT> && other)
-  : pub_(std::move(other.pub_)),
-    message_(std::move(other.message_)),
-    message_allocator_(std::move(other.message_allocator_))
-  {}
+  // LoanedMessage(LoanedMessage<MessageT> && other)
+  // : pub_(std::move(other.pub_)),
+  //   message_(std::move(other.message_)),
+  //   message_allocator_(std::move(other.message_allocator_))
+  // {}
 
   /// Destructor of the LoanedMessage class.
   /**
@@ -133,26 +134,26 @@ public:
    */
   virtual ~LoanedMessage()
   {
-    auto error_logger = rclcpp::get_logger("LoanedMessage");
+    // auto error_logger = rclcpp::get_logger("LoanedMessage");
 
     if (message_ == nullptr) {
       return;
     }
 
-    if (pub_.can_loan_messages()) {
+    //if (pub_.can_loan_messages()) {
       // return allocated memory to the middleware
       auto ret =
-        rcl_return_loaned_message_from_publisher(pub_.get_publisher_handle().get(), message_);
-      if (ret != RCL_RET_OK) {
-        RCLCPP_ERROR(
-          error_logger, "rcl_deallocate_loaned_message failed: %s", rcl_get_error_string().str);
-        rcl_reset_error();
-      }
-    } else {
-      // call destructor before deallocating
-      message_->~MessageT();
-      message_allocator_.deallocate(message_, 1);
-    }
+        rcl_return_loaned_message_from_publisher(pub_handle_, message_);
+      // if (ret != RCL_RET_OK) {
+      //   RCLCPP_ERROR(
+      //     error_logger, "rcl_deallocate_loaned_message failed: %s", rcl_get_error_string().str);
+      //   rcl_reset_error();
+      // }
+    // } else {
+    //   // call destructor before deallocating
+    //   message_->~MessageT();
+    //   message_allocator_.deallocate(message_, 1);
+    // }
     message_ = nullptr;
   }
 
@@ -199,25 +200,25 @@ public:
     auto msg = message_;
     message_ = nullptr;
 
-    if (pub_.can_loan_messages()) {
+    // if (pub_.can_loan_messages()) {
       return std::unique_ptr<MessageT, std::function<void(MessageT *)>>(msg, [](MessageT *) {});
-    }
+    // }
 
-    return std::unique_ptr<MessageT, std::function<void(MessageT *)>>(
-      msg,
-      [allocator = message_allocator_](MessageT * msg_ptr) mutable {
-        // call destructor before deallocating
-        msg_ptr->~MessageT();
-        allocator.deallocate(msg_ptr, 1);
-      });
+    // return std::unique_ptr<MessageT, std::function<void(MessageT *)>>(
+    //   msg,
+    //   [allocator = message_allocator_](MessageT * msg_ptr) mutable {
+    //     // call destructor before deallocating
+    //     msg_ptr->~MessageT();
+    //     allocator.deallocate(msg_ptr, 1);
+    //   });
   }
 
 protected:
-  const rclcpp::PublisherBase & pub_;
-
   MessageT * message_;
 
   MessageAllocator message_allocator_;
+
+  rcl_publisher_t * pub_handle_;
 
   /// Deleted copy constructor to preserve memory integrity.
   LoanedMessage(const LoanedMessage<MessageT> & other) = delete;
