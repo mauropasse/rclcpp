@@ -53,7 +53,7 @@ public:
 
   RCLCPP_PUBLIC
   void
-  add_guard_condition(const rclcpp::GuardCondition * guard_condition)
+  add_guard_condition(rclcpp::GuardCondition * guard_condition)
   {
     notify_guard_conditions_.push_back(guard_condition);
   }
@@ -62,10 +62,16 @@ public:
   void
   set_on_ready_callback(std::function<void(size_t, int)> callback) override
   {
-    (void)callback;
-    // for (auto gc : notify_guard_conditions_) {
-    //   gc->set_listener_callback();
-    // }
+    // The second argument of the callback should identify which guard condition
+    // triggered the event. However it's not relevant here as we only
+    // care about waking up the executor, so we pass a 0.
+    auto gc_callback = [callback](size_t count){
+      callback(count, 0);
+    };
+
+    for (auto gc : notify_guard_conditions_) {
+      gc->set_on_trigger_callback(gc_callback);
+    }
   }
 
   RCLCPP_PUBLIC
@@ -85,7 +91,7 @@ public:
   };
 
 private:
-  std::list<const rclcpp::GuardCondition *> notify_guard_conditions_;
+  std::list<rclcpp::GuardCondition *> notify_guard_conditions_;
 };
 
 }  // namespace executors
