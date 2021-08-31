@@ -73,13 +73,21 @@ public:
   {
     std::unique_lock<std::mutex> lock(mutex_);
 
-    if (events_queue_cv_.wait_for(lock, timeout, [this]() {return !event_queue_.empty();}))
-    {
+    // Initialize to true because it's only needed if we have a valid timeout
+    bool has_data = true;
+    if (timeout != std::chrono::nanoseconds::max()) {
+      has_data =
+        events_queue_cv_.wait_for(lock, timeout, [this]() {return !event_queue_.empty();});
+    } else {
+      events_queue_cv_.wait(lock, [this]() {return !event_queue_.empty();});
+    }
+
+    if (has_data) {
       event = event_queue_.front();
       event_queue_.pop();
       return true;
     }
-    
+
     return false;
   }
 
