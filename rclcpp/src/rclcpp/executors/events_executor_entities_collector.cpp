@@ -605,3 +605,58 @@ EventsExecutorEntitiesCollector::create_waitable_callback(void * exec_entity_id)
     associated_executor_->events_queue_->enqueue(event);
   };
 }
+
+size_t
+EventsExecutorEntitiesCollector::get_entity_depth(
+  const rclcpp::executors::ExecutorEvent & event)
+{
+  switch (event.type) {
+    case SUBSCRIPTION_EVENT:
+      {
+        auto subscription = get_subscription(event.exec_entity_id);
+
+        if (subscription) {
+          auto subscription_qos = subscription->get_actual_qos();
+          return subscription_qos.depth();
+        }
+        break;
+      }
+
+    case SERVICE_EVENT:
+      {
+        auto service = get_service(event.exec_entity_id);
+
+        if (service) {
+        }
+        break;
+      }
+
+    case CLIENT_EVENT:
+      {
+        auto client = get_client(event.exec_entity_id);
+
+        if (client) {
+        }
+        break;
+      }
+
+    case WAITABLE_EVENT:
+      {
+        auto waitable = get_waitable(event.exec_entity_id);
+        if (waitable) {
+          using rclcpp::experimental::SubscriptionIntraProcessBase;
+          if (auto sub_ipc = dynamic_cast<SubscriptionIntraProcessBase *>(waitable.get())) {
+            auto qos = sub_ipc->get_actual_qos();
+            return qos.depth;
+          } else {
+            // For waitables other than intra-process subscriptions that
+            // don't have QoS or queued events, we return 1.
+            return 1;
+          }
+        }
+        break;
+      }
+  }
+
+  return 0;
+}

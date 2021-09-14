@@ -27,6 +27,7 @@
 #include "rclcpp/executors/timers_manager.hpp"
 #include "rclcpp/experimental/buffers/events_queue.hpp"
 #include "rclcpp/experimental/buffers/simple_events_queue.hpp"
+#include "rclcpp/experimental/buffers/bounded_events_queue.hpp"
 #include "rclcpp/node.hpp"
 
 namespace rclcpp
@@ -68,7 +69,7 @@ public:
   RCLCPP_PUBLIC
   explicit EventsExecutor(
     rclcpp::experimental::buffers::EventsQueue::UniquePtr events_queue = std::make_unique<
-      rclcpp::experimental::buffers::SimpleEventsQueue>(),
+      rclcpp::experimental::buffers::BoundedEventsQueue>(),
     const rclcpp::ExecutorOptions & options = rclcpp::ExecutorOptions());
 
   /// Default destrcutor.

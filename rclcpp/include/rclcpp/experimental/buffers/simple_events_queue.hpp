@@ -117,6 +117,18 @@ public:
     return event_queue_.size();
   }
 
+  /**
+   * @brief Initializes the queue
+   */
+  RCLCPP_PUBLIC
+  virtual
+  void
+  init(rclcpp::executors::EventsExecutorEntitiesCollector::SharedPtr entities_collector)
+  {
+    // This queue doesn't use the entities_collector
+    (void) entities_collector;
+  }
+
 private:
   // The underlying queue implementation
   std::queue<rclcpp::executors::ExecutorEvent> event_queue_;
