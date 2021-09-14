@@ -21,6 +21,7 @@
 #include "rclcpp/visibility_control.hpp"
 
 #include "rclcpp/executors/events_executor_event_types.hpp"
+#include "rclcpp/executors/events_executor_entities_collector.hpp"
 
 namespace rclcpp
 {
@@ -101,6 +102,14 @@ public:
   virtual
   void
   init() = 0;
+
+  /**
+   * @brief Initializes the queue with entities collector
+   */
+  RCLCPP_PUBLIC
+  virtual
+  void
+  init(rclcpp::executors::EventsExecutorEntitiesCollector::SharedPtr entities_collector) = 0;
 
   /**
    * @brief pops out all events stored in the object into an output queue.

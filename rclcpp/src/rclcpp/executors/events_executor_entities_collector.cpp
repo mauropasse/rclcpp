@@ -479,18 +479,18 @@ EventsExecutorEntitiesCollector::set_guard_condition_callback(
   rclcpp::GuardCondition * guard_condition)
 {
   auto gc_callback = [this](size_t num_events) {
-    // Override num events (we don't care more than a single event)
-    num_events = 1;
-    int gc_id = -1;
-    ExecutorEvent event = {this, gc_id, WAITABLE_EVENT, num_events};
-    // Event queue mutex scope
-    {
-      std::unique_lock<std::mutex> lock(associated_executor_->push_mutex_);
-      associated_executor_->events_queue_->push(event);
-    }
-    // Notify that the event queue has some events in it.
-    associated_executor_->events_queue_cv_.notify_one();
-  };
+      // Override num events (we don't care more than a single event)
+      num_events = 1;
+      int gc_id = -1;
+      ExecutorEvent event = {this, gc_id, WAITABLE_EVENT, num_events};
+      // Event queue mutex scope
+      {
+        std::unique_lock<std::mutex> lock(associated_executor_->push_mutex_);
+        associated_executor_->events_queue_->push(event);
+      }
+      // Notify that the event queue has some events in it.
+      associated_executor_->events_queue_cv_.notify_one();
+    };
 
   guard_condition->set_on_trigger_callback(gc_callback);
 }
@@ -499,7 +499,7 @@ void
 EventsExecutorEntitiesCollector::unset_guard_condition_callback(
   rclcpp::GuardCondition * guard_condition)
 {
-   guard_condition->set_on_trigger_callback(nullptr);
+  guard_condition->set_on_trigger_callback(nullptr);
 }
 
 rclcpp::SubscriptionBase::SharedPtr
@@ -592,28 +592,83 @@ EventsExecutorEntitiesCollector::create_entity_callback(
   void * exec_entity_id, ExecutorEventType event_type)
 {
   return [this, exec_entity_id, event_type](size_t num_events) {
-    ExecutorEvent event = {exec_entity_id, -1, event_type, num_events};
-    // Event queue mutex scope
-    {
-      std::unique_lock<std::mutex> lock(associated_executor_->push_mutex_);
-      associated_executor_->events_queue_->push(event);
-    }
-    // Notify that the event queue has some events in it.
-    associated_executor_->events_queue_cv_.notify_one();
-  };
+           ExecutorEvent event = {exec_entity_id, -1, event_type, num_events};
+           // Event queue mutex scope
+           {
+             std::unique_lock<std::mutex> lock(associated_executor_->push_mutex_);
+             associated_executor_->events_queue_->push(event);
+           }
+           // Notify that the event queue has some events in it.
+           associated_executor_->events_queue_cv_.notify_one();
+         };
 }
 
 std::function<void(size_t, int)>
 EventsExecutorEntitiesCollector::create_waitable_callback(void * exec_entity_id)
 {
   return [this, exec_entity_id](size_t num_events, int gen_entity_id) {
-    ExecutorEvent event = {exec_entity_id, gen_entity_id, WAITABLE_EVENT, num_events};
-    // Event queue mutex scope
-    {
-      std::unique_lock<std::mutex> lock(associated_executor_->push_mutex_);
-      associated_executor_->events_queue_->push(event);
-    }
-    // Notify that the event queue has some events in it.
-    associated_executor_->events_queue_cv_.notify_one();
-  };
+           ExecutorEvent event = {exec_entity_id, gen_entity_id, WAITABLE_EVENT, num_events};
+           // Event queue mutex scope
+           {
+             std::unique_lock<std::mutex> lock(associated_executor_->push_mutex_);
+             associated_executor_->events_queue_->push(event);
+           }
+           // Notify that the event queue has some events in it.
+           associated_executor_->events_queue_cv_.notify_one();
+         };
+}
+
+size_t
+EventsExecutorEntitiesCollector::get_entity_qos_depth(
+  const rclcpp::executors::ExecutorEvent & event)
+{
+  switch (event.type) {
+    case SUBSCRIPTION_EVENT:
+      {
+        auto subscription = get_subscription(event.exec_entity_id);
+
+        if (subscription) {
+          auto subscription_qos = subscription->get_actual_qos();
+          return subscription_qos.depth();
+        }
+        break;
+      }
+
+    case SERVICE_EVENT:
+      {
+        auto service = get_service(event.exec_entity_id);
+
+        if (service) {
+        }
+        break;
+      }
+
+    case CLIENT_EVENT:
+      {
+        auto client = get_client(event.exec_entity_id);
+
+        if (client) {
+        }
+        break;
+      }
+
+    case WAITABLE_EVENT:
+      {
+        auto waitable = get_waitable(event.exec_entity_id);
+        if (waitable) {
+          using rclcpp::experimental::SubscriptionIntraProcessBase;
+          if (auto sub_ipc = dynamic_cast<SubscriptionIntraProcessBase *>(waitable.get())) {
+            auto qos = sub_ipc->get_actual_qos();
+            return qos.depth;
+          } else {
+            // For waitables other than intra-process subscriptions that
+            // don't have QoS or queued events, we return 1.
+            return 1;
+          }
+        }
+        break;
+      }
+  }
+
+  return 0;
 }

@@ -201,6 +201,10 @@ public:
     return nullptr;
   }
 
+  RCLCPP_PUBLIC
+  size_t
+  get_entity_qos_depth(const rclcpp::executors::ExecutorEvent & event);
+
 private:
   void
   set_callback_group_entities_callbacks(rclcpp::CallbackGroup::SharedPtr group);

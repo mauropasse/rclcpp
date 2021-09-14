@@ -112,6 +112,20 @@ public:
   }
 
   /**
+   * @brief Initializes the queue
+   */
+  RCLCPP_PUBLIC
+  virtual
+  void
+  init(rclcpp::executors::EventsExecutorEntitiesCollector::SharedPtr entities_collector)
+  {
+    // This queue doesn't use the entities_collector
+    (void) entities_collector;
+
+    init();
+  }
+
+  /**
    * @brief gets a queue with all events accumulated on it since
    * the last call. The member queue is empty when the call returns.
    * @return std::queue with events
