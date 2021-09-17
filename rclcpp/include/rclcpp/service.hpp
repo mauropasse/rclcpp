@@ -38,6 +38,7 @@
 #include "rclcpp/expand_topic_or_service_name.hpp"
 #include "rclcpp/logging.hpp"
 #include "rclcpp/macros.hpp"
+#include "rclcpp/qos.hpp"
 #include "rclcpp/type_support_decl.hpp"
 #include "rclcpp/visibility_control.hpp"
 
@@ -208,6 +209,15 @@ public:
     set_on_new_request_callback(nullptr, nullptr);
     on_new_request_callback_ = nullptr;
   }
+
+  /// Get the actual QoS settings, after the defaults have been determined.
+  /**
+   * \return The actual qos settings.
+   * \throws std::runtime_error if failed to get qos settings
+   */
+  RCLCPP_PUBLIC
+  rclcpp::QoS
+  get_actual_qos() const;
 
 protected:
   RCLCPP_DISABLE_COPY(ServiceBase)

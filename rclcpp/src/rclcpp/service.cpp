@@ -99,3 +99,16 @@ ServiceBase::set_on_new_request_callback(rcl_event_callback_t callback, const vo
     throw_from_rcl_error(ret, "failed to set the on new request callback for service");
   }
 }
+
+rclcpp::QoS
+ServiceBase::get_actual_qos() const
+{
+  const rmw_qos_profile_t * qos = rcl_service_get_actual_qos(service_handle_.get());
+  if (!qos) {
+    auto msg = std::string("failed to get service qos settings: ") + rcl_get_error_string().str;
+    rcl_reset_error();
+    throw std::runtime_error(msg);
+  }
+
+  return rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(*qos), *qos);
+}

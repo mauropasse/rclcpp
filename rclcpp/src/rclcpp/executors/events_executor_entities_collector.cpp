@@ -616,8 +616,7 @@ EventsExecutorEntitiesCollector::get_entity_depth(
         auto subscription = get_subscription(event.exec_entity_id);
 
         if (subscription) {
-          auto subscription_qos = subscription->get_actual_qos();
-          return subscription_qos.depth();
+          return subscription->get_actual_qos().depth();
         }
         break;
       }
@@ -627,6 +626,7 @@ EventsExecutorEntitiesCollector::get_entity_depth(
         auto service = get_service(event.exec_entity_id);
 
         if (service) {
+          return service->get_actual_qos().depth();
         }
         break;
       }
@@ -636,6 +636,7 @@ EventsExecutorEntitiesCollector::get_entity_depth(
         auto client = get_client(event.exec_entity_id);
 
         if (client) {
+          return client->get_actual_qos().depth();
         }
         break;
       }
@@ -646,8 +647,7 @@ EventsExecutorEntitiesCollector::get_entity_depth(
         if (waitable) {
           using rclcpp::experimental::SubscriptionIntraProcessBase;
           if (auto sub_ipc = dynamic_cast<SubscriptionIntraProcessBase *>(waitable.get())) {
-            auto qos = sub_ipc->get_actual_qos();
-            return qos.depth;
+            return sub_ipc->get_actual_qos().depth;
           } else {
             // For waitables other than intra-process subscriptions that
             // don't have QoS or queued events, we return 1.

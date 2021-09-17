@@ -213,3 +213,16 @@ ClientBase::set_on_new_response_callback(rcl_event_callback_t callback, const vo
     throw_from_rcl_error(ret, "failed to set the on new response callback for client");
   }
 }
+
+rclcpp::QoS
+ClientBase::get_actual_qos() const
+{
+  const rmw_qos_profile_t * qos = rcl_client_get_actual_qos(client_handle_.get());
+  if (!qos) {
+    auto msg = std::string("failed to get client qos settings: ") + rcl_get_error_string().str;
+    rcl_reset_error();
+    throw std::runtime_error(msg);
+  }
+
+  return rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(*qos), *qos);
+}
