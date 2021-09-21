@@ -45,7 +45,7 @@ public:
   ~BoundedEventsQueue() override
   {
     event_queue_.clear();
-    entity_id_to_events_map.clear();
+    entity_events.clear();
   }
 
   /**
@@ -100,7 +100,7 @@ public:
     if (has_data) {
       event = event_queue_.front();
       // Decrease the counter of events from this entity
-      decrease_entity_events_count(event.exec_entity_id);
+      decrease_entity_events_count(event);
       // Remove first element from queue
       event_queue_.erase(event_queue_.begin());
       return true;
@@ -152,86 +152,122 @@ private:
   /**
    * @brief Compares current amount of events in the queue of a particular entity
    * with the maximum allowed number of events for it.
+   * This function is not thread safe.
    * @return true if the limit of events in the queue has been reached for
    * the entity.
   */
   bool max_events_limit_reached(const rclcpp::executors::ExecutorEvent & event)
   {
-    auto it = entity_id_to_events_map.find(event.exec_entity_id);
-
-    if (it != entity_id_to_events_map.end()) {
-      // Events from this entity ID were found in queue. Get number of them
-      auto & entity_current_events_in_queue = it->second.first;
-      auto & entity_id_limit_events_in_queue = it->second.second;
-
-      if (entity_current_events_in_queue >= entity_id_limit_events_in_queue) {
-        return true;
-      } else {
-        // Update count in map
-        entity_current_events_in_queue++;
-      }
-    } else {
-      // If event is not present in queue, add it to the map to track count of events
-      if (entities_collector_) {
-        size_t entity_limit_events = entities_collector_->get_entity_depth(event);
-        auto entity_id_events = std::make_pair(1, entity_limit_events);
-        entity_id_to_events_map[event.exec_entity_id] = entity_id_events;
-      } else {
-        throw std::runtime_error(
-          "BoundedEventsQueue has to be initialized with entities collector.");
+    // Lets look for existing events like this one
+    for (auto & entity_event : entity_events) {
+      if (entity_event.entity_id == event.exec_entity_id) {
+        // Entity ID matched. Lets check about the sub-entity ID
+        if (entity_event.sub_entity_id == event.gen_entity_id) {
+          // Sub-entity ID also matched! Lets see how many events do we already have.
+          if (entity_event.current_events >= entity_event.max_events) {
+            // We reached the maximum amounts of events for this entity
+            return true;
+          } else {
+            // We haven't reached the maximum amounts of events for this
+            // entity. Increment its counter
+            entity_event.current_events++;
+            return false;
+          }
+        }
       }
     }
-    // If event is not present in queue or hasn't reached limit, return false
+
+    // If we are at this point, it means no events were found in the queue
+    // for the entity which generated the event. Lets keep track of it.
+    EntityEvents new_event;
+
+    new_event.entity_id = event.exec_entity_id;
+    new_event.sub_entity_id = event.gen_entity_id;
+    new_event.current_events = 1;
+
+    // Get max amount of events allowed for this entity
+    if (entities_collector_) {
+      new_event.max_events = entities_collector_->get_entity_qos_depth(event);
+    } else {
+      throw std::runtime_error(
+        "BoundedEventsQueue has to be initialized with entities collector.");
+    }
+
+    entity_events.push_back(new_event);
     return false;
   }
 
-  void decrease_entity_events_count(const void * entity_id)
+  /**
+   * @brief Decrease the counter of events of the entity which
+   * generated the event.
+   * This function is not thread safe.
+  */
+  void decrease_entity_events_count(const rclcpp::executors::ExecutorEvent & event)
   {
-    auto it = entity_id_to_events_map.find(entity_id);
-
-    if (it != entity_id_to_events_map.end()) {
-      // Events from this entity ID were found in queue. Get number of them
-      auto & entity_current_events_in_queue = it->second.first;
-
-      if (entity_current_events_in_queue == 1) {
-        // If we only have one event, remove entity ID from map.
-        entity_id_to_events_map.erase(it);
-      } else {
-        entity_current_events_in_queue--;
+    for (auto it = entity_events.begin(); it != entity_events.end(); ++it) {
+      if (it->entity_id == event.exec_entity_id) {
+        // Entity ID matched. Lets check about the sub-entity ID
+        if (it->sub_entity_id == event.gen_entity_id) {
+          // Sub-entity ID also matched! Let's decrease the counter.
+          if (it->current_events == 1) {
+            // If we only have one event, remove entity event from vector.
+            entity_events.erase(it);
+          } else {
+            it->current_events--;
+          }
+          // We're done here. Return
+          return;
+        }
       }
     }
+
+    throw std::runtime_error("Tried to decrease counter of non-existing event!");
   }
 
+  /**
+   * @brief To keep correct time ordering of events, remove
+   * the first event (oldest, maybe expired) and add a new one in
+   * the back were newer events are.
+   * This function is not thread safe.
+  */
   void
   remove_first_and_push_back(const rclcpp::executors::ExecutorEvent & event)
   {
     for (auto it = event_queue_.begin(); it != event_queue_.end(); ++it) {
       if (it->exec_entity_id == event.exec_entity_id) {
-        event_queue_.erase(it);
-        break;
+        if (it->gen_entity_id == event.gen_entity_id) {
+          event_queue_.erase(it);
+          break;
+        }
       }
     }
 
     event_queue_.push_back(event);
   }
 
-private:
   // The underlying queue implementation
   std::vector<rclcpp::executors::ExecutorEvent> event_queue_;
   // Mutex to protect the insertion/extraction of events in the queue
   mutable std::mutex mutex_;
   // Variable used to notify when an event is added to the queue
   std::condition_variable events_queue_cv_;
-
-  typedef std::pair<size_t /*Current num events*/, size_t /*Max limit of events*/> EntityEvents;
-  std::unordered_map<const void *, EntityEvents> entity_id_to_events_map;
+  // The entities collector associated with the executor, which provides
+  // useful info to bound the queue
   rclcpp::executors::EventsExecutorEntitiesCollector::SharedPtr entities_collector_;
-
+  // Struct to count events in the queue from different entities
+  struct EntityEvents
+  {
+    const void * entity_id;
+    int sub_entity_id;
+    size_t current_events;
+    size_t max_events;
+  };
+  // Vector to hold info about events present in the queue
+  std::vector<EntityEvents> entity_events;
 };
 
 }  // namespace buffers
 }  // namespace experimental
 }  // namespace rclcpp
-
 
 #endif  // RCLCPP__EXPERIMENTAL__BUFFERS__BOUNDED_EVENTS_QUEUE_HPP_

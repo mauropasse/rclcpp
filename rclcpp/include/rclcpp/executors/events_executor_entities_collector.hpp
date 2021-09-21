@@ -211,7 +211,7 @@ public:
 
   RCLCPP_PUBLIC
   size_t
-  get_entity_depth(const rclcpp::executors::ExecutorEvent & event);
+  get_entity_qos_depth(const rclcpp::executors::ExecutorEvent & event);
 
 private:
   void

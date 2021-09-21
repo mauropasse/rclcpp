@@ -607,7 +607,7 @@ EventsExecutorEntitiesCollector::create_waitable_callback(void * exec_entity_id)
 }
 
 size_t
-EventsExecutorEntitiesCollector::get_entity_depth(
+EventsExecutorEntitiesCollector::get_entity_qos_depth(
   const rclcpp::executors::ExecutorEvent & event)
 {
   switch (event.type) {
