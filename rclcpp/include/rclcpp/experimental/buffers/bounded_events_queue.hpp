@@ -17,7 +17,9 @@
 
 #include <mutex>
 #include <queue>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "rclcpp/experimental/buffers/events_queue.hpp"
 #include "rclcpp/executors/events_executor_entities_collector.hpp"
@@ -41,6 +43,19 @@ namespace buffers
 class BoundedEventsQueue : public EventsQueue
 {
 public:
+  enum class QueuePolicy
+  {
+    NotBounded,
+    BoundedNoTimeOrdering,
+    BoundedWithTimeOrdering,
+  };
+
+  RCLCPP_PUBLIC
+  explicit BoundedEventsQueue(QueuePolicy policy = QueuePolicy::BoundedWithTimeOrdering)
+  {
+    queue_policy_ = policy;
+  }
+
   RCLCPP_PUBLIC
   ~BoundedEventsQueue() override
   {
@@ -64,10 +79,17 @@ public:
     {
       std::unique_lock<std::mutex> lock(mutex_);
       for (size_t ev = 0; ev < event.num_events; ev++) {
-        if (!max_events_limit_reached(event)) {
+        if(queue_policy_ == QueuePolicy::NotBounded) {
+          // Just push the event. No checks
           event_queue_.push_back(single_event);
         } else {
-          remove_first_and_push_back(event);
+          if (!max_events_limit_reached(event)) {
+            // Push the event only if the limit has not been reached
+            event_queue_.push_back(single_event);
+          } else if(queue_policy_ == QueuePolicy::BoundedWithTimeOrdering) {
+            // Relocate the event, if we want to keep time ordering of events
+            remove_first_and_push_back(event);
+          }
         }
       }
     }
@@ -100,7 +122,9 @@ public:
     if (has_data) {
       event = event_queue_.front();
       // Decrease the counter of events from this entity
-      decrease_entity_events_count(event);
+      if(queue_policy_ != QueuePolicy::NotBounded) {
+        decrease_entity_events_count(event);
+      }
       // Remove first element from queue
       event_queue_.erase(event_queue_.begin());
       return true;
@@ -264,6 +288,9 @@ private:
   };
   // Vector to hold info about events present in the queue
   std::vector<EntityEvents> entity_events;
+
+  // Queue policy
+  QueuePolicy queue_policy_;
 };
 
 }  // namespace buffers

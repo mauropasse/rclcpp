@@ -109,6 +109,18 @@ public:
     return event_queue_.size_approx();
   }
 
+  /**
+   * @brief Initializes the queue
+   */
+  RCLCPP_PUBLIC
+  virtual
+  void
+  init(rclcpp::executors::EventsExecutorEntitiesCollector::SharedPtr entities_collector)
+  {
+    // This queue doesn't use the entities_collector
+    (void) entities_collector;
+  }
+
 private:
   moodycamel::BlockingConcurrentQueue<rclcpp::executors::ExecutorEvent> event_queue_;
 };

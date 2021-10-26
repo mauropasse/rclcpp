@@ -136,7 +136,6 @@ private:
   mutable std::mutex mutex_;
   // Variable used to notify when an event is added to the queue
   std::condition_variable events_queue_cv_;
-
 };
 
 }  // namespace buffers

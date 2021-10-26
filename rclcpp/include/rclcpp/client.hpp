@@ -237,6 +237,13 @@ public:
 
   /// Get the actual QoS settings, after the defaults have been determined.
   /**
+   * The actual configuration applied when using RMW_QOS_POLICY_*_SYSTEM_DEFAULT
+   * can only be resolved after the creation of the client, and it
+   * depends on the underlying rmw implementation.
+   * If the underlying setting in use can't be represented in ROS terms,
+   * it will be set to RMW_QOS_POLICY_*_UNKNOWN.
+   * May throw runtime_error when an unexpected error occurs.
+   *
    * \return The actual qos settings.
    * \throws std::runtime_error if failed to get qos settings
    */
