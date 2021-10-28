@@ -68,8 +68,11 @@ public:
    *
    * @param context custom context to be used.
    * Shared ownership of the context is held until destruction.
+   * @param async_timer_execution Option to execute timers asynchronously.
    */
-  explicit TimersManager(std::shared_ptr<rclcpp::Context> context);
+  explicit TimersManager(
+    std::shared_ptr<rclcpp::Context> context,
+    bool async_timer_execution = false);
 
   /**
    * @brief Destruct the TimersManager object making sure to stop thread and release memory.
@@ -151,6 +154,11 @@ public:
 
 private:
   RCLCPP_DISABLE_COPY(TimersManager)
+
+  // Option to execute timers asynchronously. This
+  // usually is done by creating a timer event which
+  // is then executed by the executor spin thread.
+  bool async_timer_execution_ = false;
 
   using TimerPtr = rclcpp::TimerBase::SharedPtr;
   using WeakTimerPtr = rclcpp::TimerBase::WeakPtr;

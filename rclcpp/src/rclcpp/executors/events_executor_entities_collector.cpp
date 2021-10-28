@@ -74,6 +74,7 @@ EventsExecutorEntitiesCollector::~EventsExecutorEntitiesCollector()
 
   // Clear all containers
   weak_nodes_.clear();
+  weak_timers_map_.clear();
   weak_clients_map_.clear();
   weak_services_map_.clear();
   weak_waitables_map_.clear();
@@ -168,7 +169,7 @@ EventsExecutorEntitiesCollector::execute(std::shared_ptr<void> & data)
 {
   (void)data;
   // This function is called when the associated executor is notified that something changed.
-  // We do not know if an entity has been added or remode so we have to rebuild everything.
+  // We do not know if an entity has been added or removed so we have to rebuild everything.
 
   timers_manager_->clear();
 
@@ -229,6 +230,9 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
     [this](const rclcpp::TimerBase::SharedPtr & timer) {
       if (timer) {
         timers_manager_->add_timer(timer);
+        weak_timers_map_.emplace(timer.get(), timer);
+
+        timer->set_on_ready_callback(create_timer_callback(timer.get()));
       }
       return false;
     });
@@ -285,6 +289,7 @@ EventsExecutorEntitiesCollector::unset_callback_group_entities_callbacks(
     [this](const rclcpp::TimerBase::SharedPtr & timer) {
       if (timer) {
         timers_manager_->remove_timer(timer);
+        weak_timers_map_.erase(timer.get());
       }
       return false;
     });
@@ -502,6 +507,25 @@ EventsExecutorEntitiesCollector::unset_guard_condition_callback(
    guard_condition->set_on_trigger_callback(nullptr);
 }
 
+rclcpp::TimerBase::SharedPtr
+EventsExecutorEntitiesCollector::get_timer(const void * timer_id)
+{
+  auto it = weak_timers_map_.find(timer_id);
+
+  if (it != weak_timers_map_.end()) {
+    auto timer_weak_ptr = it->second;
+    auto timer_shared_ptr = timer_weak_ptr.lock();
+
+    if (timer_shared_ptr) {
+      return timer_shared_ptr;
+    }
+
+    // The timer expired, remove from map
+    weak_timers_map_.erase(it);
+  }
+  return nullptr;
+}
+
 rclcpp::SubscriptionBase::SharedPtr
 EventsExecutorEntitiesCollector::get_subscription(const void * subscription_id)
 {
@@ -587,6 +611,15 @@ EventsExecutorEntitiesCollector::add_waitable(rclcpp::Waitable::SharedPtr waitab
     create_waitable_callback(waitable.get()));
 }
 
+std::function<void()>
+EventsExecutorEntitiesCollector::create_timer_callback(void * timer_id)
+{
+  return [this, timer_id]() {
+    ExecutorEvent event = {timer_id, -1, TIMER_EVENT, 1};
+    associated_executor_->events_queue_->enqueue(event);
+  };
+}
+
 std::function<void(size_t)>
 EventsExecutorEntitiesCollector::create_entity_callback(
   void * exec_entity_id, ExecutorEventType event_type)
@@ -611,6 +644,10 @@ EventsExecutorEntitiesCollector::get_entity_qos_depth(
   const rclcpp::executors::ExecutorEvent & event)
 {
   switch (event.type) {
+    case TIMER_EVENT:
+      {
+        return 1;
+      }
     case SUBSCRIPTION_EVENT:
       {
         auto subscription = get_subscription(event.exec_entity_id);

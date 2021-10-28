@@ -27,6 +27,7 @@
 #include "rclcpp/clock.hpp"
 #include "rclcpp/context.hpp"
 #include "rclcpp/function_traits.hpp"
+#include "rclcpp/logging.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp/rate.hpp"
 #include "rclcpp/utilities.hpp"
@@ -38,6 +39,7 @@
 #include "rcl/timer.h"
 
 #include "rmw/error_handling.h"
+#include "rmw/impl/cpp/demangle.hpp"
 #include "rmw/rmw.h"
 
 namespace rclcpp
@@ -96,6 +98,11 @@ public:
   virtual void
   execute_callback() = 0;
 
+  /// Call the callback function when the timer signal is emitted.
+  RCLCPP_PUBLIC
+  virtual void
+  execute_callback_delegate() = 0;
+
   RCLCPP_PUBLIC
   std::shared_ptr<const rcl_timer_t>
   get_timer_handle();
@@ -146,11 +153,109 @@ public:
   bool
   exchange_in_use_by_wait_set_state(bool in_use_state);
 
+  /// Set a callback to be called when timer is ready.
+  /**
+   * The callback receives a size_t which represents <complete description>
+   * since the last time this callback was called.
+   * Normally this is 1, but can be > 1 if messages were received before any
+   * callback was set.
+   *
+   * You should aim to make this callback fast and not blocking.
+   * If you need to do a lot of work or wait for some other event, you should
+   * spin it off to another thread, otherwise you risk ...
+   *
+   * Calling it again will clear any previously set callback.
+   *
+   * This function is thread-safe.
+   *
+   * If you want more information available in the callback, like the timer
+   * or other information, you may use a lambda with captures or std::bind.
+   *
+   * \sa rcl_timer_set_on_ready_callback
+   *
+   * \param[in] callback functor to be called when a timer is ready
+   */
+  RCLCPP_PUBLIC
+  void
+  set_on_ready_callback(std::function<void()> callback)
+  {
+    if (!callback) {
+      throw std::invalid_argument(
+              "The callback passed to set_on_ready_callback "
+              "is not callable.");
+    }
+
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
+    on_ready_callback_ =
+      [callback, this]() {
+        try {
+          callback();
+        } catch (const std::exception & exception) {
+          RCLCPP_ERROR_STREAM(
+            // TODO(wjwwood): get this class access to the node logger it is associated with
+            rclcpp::get_logger("rclcpp"),
+            "rclcpp::TimerBase@" << this <<
+              " caught " << rmw::impl::cpp::demangle(exception) <<
+              " exception in user-provided callback for the 'on ready' callback: " <<
+              exception.what());
+        } catch (...) {
+          RCLCPP_ERROR_STREAM(
+            rclcpp::get_logger("rclcpp"),
+            "rclcpp::TimerBase@" << this <<
+              " caught unhandled exception in user-provided callback " <<
+              "for the 'on ready' callback");
+        }
+      };
+
+    if (triggered_) {
+      on_ready_callback_();
+      triggered_ = false;
+    }
+  }
+
+  /// Unset the callback registered ready timer (if any).
+  RCLCPP_PUBLIC
+  void
+  clear_on_ready_callback()
+  {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+    on_ready_callback_ = nullptr;
+  }
+
+  void
+  execute_on_ready_callback()
+  {
+    update_next_call_time();
+
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+    if (on_ready_callback_) {
+      on_ready_callback_();
+    } else {
+      triggered_ = true;
+    }
+  }
+
 protected:
   Clock::SharedPtr clock_;
   std::shared_ptr<rcl_timer_t> timer_handle_;
 
   std::atomic<bool> in_use_by_wait_set_{false};
+
+  void update_next_call_time()
+  {
+    rcl_ret_t ret = rcl_timer_call(timer_handle_.get());
+    if (ret == RCL_RET_TIMER_CANCELED) {
+      return;
+    }
+    if (ret != RCL_RET_OK) {
+      throw std::runtime_error("Failed to notify timer that callback occurred");
+    }
+  }
+
+  std::recursive_mutex reentrant_mutex_;
+  std::function<void()> on_ready_callback_{nullptr};
+  bool triggered_ = false;
 };
 
 
@@ -207,13 +312,15 @@ public:
   void
   execute_callback() override
   {
-    rcl_ret_t ret = rcl_timer_call(timer_handle_.get());
-    if (ret == RCL_RET_TIMER_CANCELED) {
-      return;
-    }
-    if (ret != RCL_RET_OK) {
-      throw std::runtime_error("Failed to notify timer that callback occurred");
-    }
+    update_next_call_time();
+    TRACEPOINT(callback_start, static_cast<const void *>(&callback_), false);
+    execute_callback_delegate<>();
+    TRACEPOINT(callback_end, static_cast<const void *>(&callback_));
+  }
+
+  void
+  execute_callback_delegate() override
+  {
     TRACEPOINT(callback_start, static_cast<const void *>(&callback_), false);
     execute_callback_delegate<>();
     TRACEPOINT(callback_end, static_cast<const void *>(&callback_));
@@ -226,7 +333,7 @@ public:
       rclcpp::function_traits::same_arguments<CallbackT, VoidCallbackType>::value
     >::type * = nullptr
   >
-  void
+  inline void
   execute_callback_delegate()
   {
     callback_();
@@ -238,7 +345,7 @@ public:
       rclcpp::function_traits::same_arguments<CallbackT, TimerCallbackType>::value
     >::type * = nullptr
   >
-  void
+  inline void
   execute_callback_delegate()
   {
     callback_(*this);

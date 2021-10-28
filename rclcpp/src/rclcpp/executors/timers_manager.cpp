@@ -19,9 +19,12 @@
 
 using rclcpp::executors::TimersManager;
 
-TimersManager::TimersManager(std::shared_ptr<rclcpp::Context> context)
+TimersManager::TimersManager(
+  std::shared_ptr<rclcpp::Context> context,
+  bool async_timer_execution)
 {
   context_ = context;
+  async_timer_execution_ = async_timer_execution;
 }
 
 TimersManager::~TimersManager()
@@ -141,8 +144,12 @@ bool TimersManager::execute_head_timer()
 
   const bool timer_ready = head_timer->is_ready();
   if (timer_ready) {
-    // Invoke the timer callback
-    head_timer->execute_callback();
+    if (async_timer_execution_) {
+      head_timer->execute_on_ready_callback();
+    } else {
+      head_timer->execute_callback();
+    }
+    // Executing a timer will result in updating its time_until_trigger, so re-heapify
     timers_heap.heapify_root();
     weak_timers_heap_.store(timers_heap);
   }
@@ -194,8 +201,11 @@ void TimersManager::execute_ready_timers_unsafe()
   const size_t number_ready_timers = locked_heap.get_number_ready_timers();
   size_t executed_timers = 0;
   while (executed_timers < number_ready_timers && head_timer->is_ready()) {
-    // Execute head timer
-    head_timer->execute_callback();
+    if (async_timer_execution_) {
+      head_timer->execute_on_ready_callback();
+    } else {
+      head_timer->execute_callback();
+    }
     executed_timers++;
     // Executing a timer will result in updating its time_until_trigger, so re-heapify
     locked_heap.heapify_root();
