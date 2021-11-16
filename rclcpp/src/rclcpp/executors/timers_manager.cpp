@@ -14,6 +14,7 @@
 
 #include <memory>
 #include <stdexcept>
+#include <iostream>
 
 #include "rclcpp/executors/timers_manager.hpp"
 
@@ -21,10 +22,12 @@ using rclcpp::executors::TimersManager;
 
 TimersManager::TimersManager(
   std::shared_ptr<rclcpp::Context> context,
-  bool async_timer_execution)
+  std::function<void(void *)> on_ready_callback)
 {
   context_ = context;
-  async_timer_execution_ = async_timer_execution;
+  if (on_ready_callback) {
+    on_ready_callback_ = on_ready_callback;
+  }
 }
 
 TimersManager::~TimersManager()
@@ -131,30 +134,68 @@ bool TimersManager::execute_head_timer()
             "TimersManager::execute_head_timer() can't be used while timers thread is running");
   }
 
-  std::unique_lock<std::mutex> lock(timers_mutex_);
-
-  TimersHeap timers_heap = weak_timers_heap_.validate_and_lock();
+  TimersHeap locked_heap;
+  {
+    std::unique_lock<std::mutex> lock(timers_mutex_);
+    TimersHeap locked_heap = weak_timers_heap_.validate_and_lock();
+  }
 
   // Nothing to do if we don't have any timer
-  if (timers_heap.empty()) {
+  if (locked_heap.empty()) {
     return false;
   }
 
-  TimerPtr head_timer = timers_heap.front();
+  TimerPtr head_timer = locked_heap.front();
 
   const bool timer_ready = head_timer->is_ready();
   if (timer_ready) {
-    if (async_timer_execution_) {
-      head_timer->execute_on_ready_callback();
+    if (on_ready_callback_) {
+      // Remove timer from heap since we don't want to track it anymore
+      locked_heap.pop(head_timer);
+      std::unique_lock<std::mutex> lock(execution_list_mutex_);
+      execution_list_.push(std::move(head_timer));
+      on_ready_callback_(head_timer.get());
     } else {
       head_timer->execute_callback();
+      // Executing a timer will result in updating its time_until_trigger, so re-heapify
+      locked_heap.heapify_root();
     }
-    // Executing a timer will result in updating its time_until_trigger, so re-heapify
-    timers_heap.heapify_root();
-    weak_timers_heap_.store(timers_heap);
+    std::unique_lock<std::mutex> lock(timers_mutex_);
+    weak_timers_heap_.store(locked_heap);
   }
 
   return timer_ready;
+}
+
+void TimersManager::execute_ready_timer(const void * timer_id)
+{
+  // Nothing to do if we don't have any timer
+  TimerPtr locked_ready_timer;
+  {
+    std::unique_lock<std::mutex> lock(execution_list_mutex_);
+
+    if (execution_list_.empty()) {
+      return;
+    }
+
+    auto weak_ready_timer = execution_list_.front();
+    execution_list_.pop();
+
+    locked_ready_timer = weak_ready_timer.lock();
+  }
+
+  if (locked_ready_timer) {
+    // if (locked_ready_timer.get() != timer_id) {
+    //   std::cout << "Timer do not match" << std::endl;
+    //   // throw std::runtime_error("Timer do not match");
+    // }
+    locked_ready_timer->execute_callback();
+    // Re add timer to
+    std::unique_lock<std::mutex> lock(timers_mutex_);
+    weak_timers_heap_.add_timer(locked_ready_timer);
+    timers_updated_ = true;
+    timers_cv_.notify_one(); // Should notify or not?? I think yes because we need to recalculate head time to sleep
+  }
 }
 
 std::chrono::nanoseconds TimersManager::get_head_timeout_unsafe()
@@ -201,14 +242,19 @@ void TimersManager::execute_ready_timers_unsafe()
   const size_t number_ready_timers = locked_heap.get_number_ready_timers();
   size_t executed_timers = 0;
   while (executed_timers < number_ready_timers && head_timer->is_ready()) {
-    if (async_timer_execution_) {
-      head_timer->execute_on_ready_callback();
+    if (on_ready_callback_) {
+      // Remove timer from heap since we don't want to track it anymore
+      locked_heap.pop(head_timer);
+
+      std::unique_lock<std::mutex> lock(execution_list_mutex_);
+      execution_list_.push(std::move(head_timer));
+      on_ready_callback_(head_timer.get());
     } else {
       head_timer->execute_callback();
+      // Executing a timer will result in updating its time_until_trigger, so re-heapify
+      locked_heap.heapify_root();
     }
     executed_timers++;
-    // Executing a timer will result in updating its time_until_trigger, so re-heapify
-    locked_heap.heapify_root();
     // Get new head timer
     head_timer = locked_heap.front();
   }

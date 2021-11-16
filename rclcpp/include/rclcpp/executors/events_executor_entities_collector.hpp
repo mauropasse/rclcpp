@@ -151,15 +151,6 @@ public:
 
   ///
   /**
-   * Get the timer shared pointer corresponding
-   * to a timer identifier
-   */
-  RCLCPP_PUBLIC
-  rclcpp::TimerBase::SharedPtr
-  get_timer(const void * timer_id);
-
-  ///
-  /**
    * Get the subscription shared pointer corresponding
    * to a subscription identifier
    */
@@ -235,9 +226,6 @@ private:
   void
   unset_guard_condition_callback(rclcpp::GuardCondition * guard_condition);
 
-  std::function<void()>
-  create_timer_callback(void * timer_id);
-
   std::function<void(size_t)>
   create_entity_callback(void * exec_entity_id, ExecutorEventType type);
 
@@ -284,7 +272,6 @@ private:
   // Maps: entity identifiers to weak pointers from the entities registered in the executor
   // so in the case of an event providing and ID, we can retrieve and own the corresponding
   // entity while it performs work
-  std::unordered_map<const void *, rclcpp::TimerBase::WeakPtr> weak_timers_map_;
   std::unordered_map<const void *, rclcpp::SubscriptionBase::WeakPtr> weak_subscriptions_map_;
   std::unordered_map<const void *, rclcpp::ServiceBase::WeakPtr> weak_services_map_;
   std::unordered_map<const void *, rclcpp::ClientBase::WeakPtr> weak_clients_map_;

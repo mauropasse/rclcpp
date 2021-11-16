@@ -32,7 +32,15 @@ EventsExecutor::EventsExecutor(
 : rclcpp::Executor(options)
 {
   // Create timers manager
-  timers_manager_ = std::make_shared<TimersManager>(context_, async_timer_execution);
+  if (async_timer_execution) {
+    auto timer_on_ready_cb = [this](void * timer_id) {
+      ExecutorEvent event = {timer_id, -1, TIMER_EVENT, 1};
+      this->events_queue_->enqueue(event);
+    };
+    timers_manager_ = std::make_shared<TimersManager>(context_, timer_on_ready_cb);
+  } else {
+    timers_manager_ = std::make_shared<TimersManager>(context_);
+  }
 
   // Create entities collector
   entities_collector_ = std::make_shared<EventsExecutorEntitiesCollector>(this);
@@ -138,6 +146,7 @@ EventsExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool exhau
     }
 
     // Execute first timer if it is ready
+    // Check here if we still do the correct thing
     if (exhaustive || (executed_timers < ready_timers_at_start)) {
       bool timer_executed = timers_manager_->execute_head_timer();
       if (timer_executed) {
@@ -170,6 +179,7 @@ EventsExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
 
   // If we wake up from the wait with an event, it means that it
   // arrived before any of the timers expired.
+  // Check here if we still do the correct thing
   if (has_event) {
     this->execute_event(event);
   } else {
@@ -220,15 +230,10 @@ EventsExecutor::execute_event(const ExecutorEvent & event)
   switch (event.type) {
     case TIMER_EVENT:
       {
-        auto timer = entities_collector_->get_timer(event.exec_entity_id);
-
-        if (timer) {
-          for (size_t i = 0; i < event.num_events; i++) {
-            timer->execute_callback_delegate();
-          }
-        }
+        timers_manager_->execute_ready_timer(event.exec_entity_id);
         break;
       }
+
     case SUBSCRIPTION_EVENT:
       {
         auto subscription = entities_collector_->get_subscription(event.exec_entity_id);

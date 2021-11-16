@@ -21,6 +21,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <queue>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -68,11 +69,11 @@ public:
    *
    * @param context custom context to be used.
    * Shared ownership of the context is held until destruction.
-   * @param async_timer_execution Option to execute timers asynchronously.
+   * @param on_ready_callback The timers on ready callback
    */
   explicit TimersManager(
     std::shared_ptr<rclcpp::Context> context,
-    bool async_timer_execution = false);
+    std::function<void(void *)> on_ready_callback = nullptr);
 
   /**
    * @brief Destruct the TimersManager object making sure to stop thread and release memory.
@@ -142,6 +143,14 @@ public:
   bool execute_head_timer();
 
   /**
+   * @brief Executes first of all ready timers
+   * This function is thread safe.
+   *
+   * @return true if head timer was ready.
+   */
+  void execute_ready_timer(const void * timer_id);
+
+  /**
    * @brief Get the amount of time before the next timer triggers.
    * This function is thread safe.
    *
@@ -155,10 +164,8 @@ public:
 private:
   RCLCPP_DISABLE_COPY(TimersManager)
 
-  // Option to execute timers asynchronously. This
-  // usually is done by creating a timer event which
-  // is then executed by the executor spin thread.
-  bool async_timer_execution_ = false;
+  // Callback to be called when timer is ready
+  std::function<void(void *)> on_ready_callback_ = nullptr;
 
   using TimerPtr = rclcpp::TimerBase::SharedPtr;
   using WeakTimerPtr = rclcpp::TimerBase::WeakPtr;
@@ -420,6 +427,20 @@ public:
     }
 
     /**
+    * @brief Remove first heap element. The owned_heap_ size decreases by one.
+    */
+    void pop(TimerPtr timer)
+    {
+      std::pop_heap(owned_heap_.begin(), owned_heap_.end(), timer_greater);
+      owned_heap_.pop_back();
+
+      auto it = std::find(owned_heap_.begin(), owned_heap_.end(), timer);
+      if (it != owned_heap_.end()) {
+        throw std::runtime_error("Popped but found");
+      }
+    }
+
+    /**
      * @brief Completely restores the structure to a valid heap
      */
     void heapify()
@@ -490,6 +511,9 @@ private:
   std::shared_ptr<rclcpp::Context> context_;
   // Timers heap storage with weak ownership
   WeakTimersHeap weak_timers_heap_;
+
+  std::queue<WeakTimerPtr> execution_list_;
+  std::mutex execution_list_mutex_;
 };
 
 }  // namespace executors
