@@ -21,7 +21,6 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
-#include <queue>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -143,10 +142,10 @@ public:
   bool execute_head_timer();
 
   /**
-   * @brief Executes first of all ready timers
+   * @brief Executes timer identified by its ID.
    * This function is thread safe.
    *
-   * @return true if head timer was ready.
+   * @param timer_id the timer ID of the timer to execute
    */
   void execute_ready_timer(const void * timer_id);
 
@@ -221,6 +220,17 @@ public:
       }
 
       return removed;
+    }
+
+    TimerPtr get_timer(const void * timer_id)
+    {
+      for (auto & weak_timer : weak_heap_) {
+        auto timer = weak_timer.lock();
+        if (timer.get() == timer_id) {
+          return timer;
+        }
+      }
+      return nullptr;
     }
 
     /**
@@ -427,20 +437,6 @@ public:
     }
 
     /**
-    * @brief Remove first heap element. The owned_heap_ size decreases by one.
-    */
-    void pop(TimerPtr timer)
-    {
-      std::pop_heap(owned_heap_.begin(), owned_heap_.end(), timer_greater);
-      owned_heap_.pop_back();
-
-      auto it = std::find(owned_heap_.begin(), owned_heap_.end(), timer);
-      if (it != owned_heap_.end()) {
-        throw std::runtime_error("Popped but found");
-      }
-    }
-
-    /**
      * @brief Completely restores the structure to a valid heap
      */
     void heapify()
@@ -511,9 +507,6 @@ private:
   std::shared_ptr<rclcpp::Context> context_;
   // Timers heap storage with weak ownership
   WeakTimersHeap weak_timers_heap_;
-
-  std::queue<WeakTimerPtr> execution_list_;
-  std::mutex execution_list_mutex_;
 };
 
 }  // namespace executors

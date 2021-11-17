@@ -64,6 +64,7 @@ public:
   /// Default constructor. See the default constructor for Executor.
   /**
    * \param[in] async_timer_execution Option to execute timers asynchronously.
+   * Instead of executing the timers, they push a timer event into the queue.
    * \param[in] events_queue The queue used to store events.
    * \param[in] options Options used to configure the executor.
    */

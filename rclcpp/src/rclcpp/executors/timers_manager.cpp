@@ -14,7 +14,6 @@
 
 #include <memory>
 #include <stdexcept>
-#include <iostream>
 
 #include "rclcpp/executors/timers_manager.hpp"
 
@@ -134,11 +133,8 @@ bool TimersManager::execute_head_timer()
             "TimersManager::execute_head_timer() can't be used while timers thread is running");
   }
 
-  TimersHeap locked_heap;
-  {
-    std::unique_lock<std::mutex> lock(timers_mutex_);
-    TimersHeap locked_heap = weak_timers_heap_.validate_and_lock();
-  }
+  std::unique_lock<std::mutex> lock(timers_mutex_);
+  TimersHeap locked_heap = weak_timers_heap_.validate_and_lock();
 
   // Nothing to do if we don't have any timer
   if (locked_heap.empty()) {
@@ -150,17 +146,13 @@ bool TimersManager::execute_head_timer()
   const bool timer_ready = head_timer->is_ready();
   if (timer_ready) {
     if (on_ready_callback_) {
-      // Remove timer from heap since we don't want to track it anymore
-      locked_heap.pop(head_timer);
-      std::unique_lock<std::mutex> lock(execution_list_mutex_);
-      execution_list_.push(std::move(head_timer));
       on_ready_callback_(head_timer.get());
+      head_timer->update_next_call_time();
     } else {
       head_timer->execute_callback();
-      // Executing a timer will result in updating its time_until_trigger, so re-heapify
-      locked_heap.heapify_root();
     }
-    std::unique_lock<std::mutex> lock(timers_mutex_);
+    // Executing a timer will result in updating its time_until_trigger, so re-heapify
+    locked_heap.heapify_root();
     weak_timers_heap_.store(locked_heap);
   }
 
@@ -169,32 +161,13 @@ bool TimersManager::execute_head_timer()
 
 void TimersManager::execute_ready_timer(const void * timer_id)
 {
-  // Nothing to do if we don't have any timer
-  TimerPtr locked_ready_timer;
+  TimerPtr ready_timer;
   {
-    std::unique_lock<std::mutex> lock(execution_list_mutex_);
-
-    if (execution_list_.empty()) {
-      return;
-    }
-
-    auto weak_ready_timer = execution_list_.front();
-    execution_list_.pop();
-
-    locked_ready_timer = weak_ready_timer.lock();
-  }
-
-  if (locked_ready_timer) {
-    // if (locked_ready_timer.get() != timer_id) {
-    //   std::cout << "Timer do not match" << std::endl;
-    //   // throw std::runtime_error("Timer do not match");
-    // }
-    locked_ready_timer->execute_callback();
-    // Re add timer to
     std::unique_lock<std::mutex> lock(timers_mutex_);
-    weak_timers_heap_.add_timer(locked_ready_timer);
-    timers_updated_ = true;
-    timers_cv_.notify_one(); // Should notify or not?? I think yes because we need to recalculate head time to sleep
+    ready_timer = weak_timers_heap_.get_timer(timer_id);
+  }
+  if (ready_timer) {
+    ready_timer->execute_callback_delegate();
   }
 }
 
@@ -243,17 +216,13 @@ void TimersManager::execute_ready_timers_unsafe()
   size_t executed_timers = 0;
   while (executed_timers < number_ready_timers && head_timer->is_ready()) {
     if (on_ready_callback_) {
-      // Remove timer from heap since we don't want to track it anymore
-      locked_heap.pop(head_timer);
-
-      std::unique_lock<std::mutex> lock(execution_list_mutex_);
-      execution_list_.push(std::move(head_timer));
       on_ready_callback_(head_timer.get());
+      head_timer->update_next_call_time();
     } else {
       head_timer->execute_callback();
-      // Executing a timer will result in updating its time_until_trigger, so re-heapify
-      locked_heap.heapify_root();
     }
+    // Executing a timer will result in updating its time_until_trigger, so re-heapify
+    locked_heap.heapify_root();
     executed_timers++;
     // Get new head timer
     head_timer = locked_heap.front();

@@ -33,7 +33,7 @@ EventsExecutor::EventsExecutor(
 {
   // Create timers manager
   if (async_timer_execution) {
-    auto timer_on_ready_cb = [this](void * timer_id) {
+    auto timer_on_ready_cb = [this](const void * timer_id) {
       ExecutorEvent event = {timer_id, -1, TIMER_EVENT, 1};
       this->events_queue_->enqueue(event);
     };
@@ -146,7 +146,6 @@ EventsExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool exhau
     }
 
     // Execute first timer if it is ready
-    // Check here if we still do the correct thing
     if (exhaustive || (executed_timers < ready_timers_at_start)) {
       bool timer_executed = timers_manager_->execute_head_timer();
       if (timer_executed) {
@@ -179,7 +178,6 @@ EventsExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
 
   // If we wake up from the wait with an event, it means that it
   // arrived before any of the timers expired.
-  // Check here if we still do the correct thing
   if (has_event) {
     this->execute_event(event);
   } else {
