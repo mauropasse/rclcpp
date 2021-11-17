@@ -35,16 +35,6 @@ namespace buffers
 class WaitSetEventsQueue : public EventsQueue
 {
 public:
-  RCLCPP_PUBLIC
-  ~WaitSetEventsQueue() override
-  {
-    timers_wait_set_.clear();
-    clients_wait_set_.clear();
-    services_wait_set_.clear();
-    waitables_wait_set_.clear();
-    subscriptions_wait_set_.clear();
-  }
-
   /**
    * @brief enqueue event into the wait set
    * Thread safe
@@ -113,10 +103,11 @@ public:
   size_t size() const override
   {
     std::unique_lock<std::mutex> lock(wait_set_mutex_);
-
-    return timers_wait_set_.size() + subscriptions_wait_set_.size() +
-           services_wait_set_.size() + clients_wait_set_.size() +
-           waitables_wait_set_.size();
+    return count_events(timers_wait_set_) +
+           count_events(subscriptions_wait_set_) +
+           count_events(services_wait_set_) +
+           count_events(clients_wait_set_) +
+           count_events(waitables_wait_set_);
   }
 
   /**
@@ -204,8 +195,8 @@ private:
       if (current_events < max_events) {
         // We haven't reached the maximum amounts of events for this
         // entity. Increment its counter, limited by max events.
-        auto num_events = current_events + event.num_events;
-        current_events = (num_events <= max_events) ? num_events : max_events;
+        size_t num_events = current_events + event.num_events;
+        it->second = std::min(num_events, max_events);
         return;
       } else {
         // We reached the maximum amounts of events for this entity.
@@ -346,9 +337,32 @@ private:
 
   inline bool is_empty_unsafe() const
   {
-    return timers_wait_set_.empty() && subscriptions_wait_set_.empty() &&
-           services_wait_set_.empty() && clients_wait_set_.empty() &&
-           waitables_wait_set_.empty();
+    if (!waitables_wait_set_.empty()) {
+      return false;
+    }
+    if (!timers_wait_set_.empty()) {
+      return false;
+    }
+    if (!subscriptions_wait_set_.empty()) {
+      return false;
+    }
+    if (!services_wait_set_.empty()) {
+      return false;
+    }
+    if (!clients_wait_set_.empty()) {
+      return false;
+    }
+
+    return true;
+  }
+
+  inline size_t count_events(const WaitSetMap & wait_set) const
+  {
+    size_t num_events = 0;
+    for (auto & entity : wait_set) {
+      num_events += entity.second;
+    }
+    return num_events;
   }
 
   // Mutex to protect the waitset
