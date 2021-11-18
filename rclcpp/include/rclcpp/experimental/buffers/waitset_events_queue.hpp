@@ -15,8 +15,8 @@
 #ifndef RCLCPP__EXPERIMENTAL__BUFFERS__WAITSET_EVENTS_QUEUE_HPP_
 #define RCLCPP__EXPERIMENTAL__BUFFERS__WAITSET_EVENTS_QUEUE_HPP_
 
+#include <list>
 #include <mutex>
-#include <unordered_map>
 #include <utility>
 
 #include "rclcpp/experimental/buffers/events_queue.hpp"
@@ -126,24 +126,18 @@ private:
   // usually set by the entity QoS depth.
   struct EntityEvent {
     rclcpp::executors::ExecutorEvent event;
-    size_t max_events{0};
+    size_t num_events;
+    size_t max_events;
 
-    EntityEvent(rclcpp::executors::ExecutorEvent e) : event(e) {}
+    EntityEvent(
+      rclcpp::executors::ExecutorEvent e, size_t num_evs, size_t max_evs)
+        : event(e), num_events(num_evs), max_events(max_evs) {}
 
-    bool operator==(const EntityEvent & rhs) const
+    bool operator==(const rclcpp::executors::ExecutorEvent & rhs) const
     {
-      return (event.exec_entity_id == rhs.event.exec_entity_id) &&
-             (event.gen_entity_id == rhs.event.gen_entity_id);
+      return (event.exec_entity_id == rhs.exec_entity_id) &&
+             (event.gen_entity_id == rhs.gen_entity_id);
     }
-
-    struct HashFunction {
-      size_t operator()(const EntityEvent & rhs) const
-      {
-        size_t a = std::hash<const void *>()(rhs.event.exec_entity_id);
-        size_t b = std::hash<int>()(rhs.event.gen_entity_id);
-        return a ^ (b << 1);
-      }
-    };
   };
 
   /**
@@ -174,29 +168,24 @@ private:
     }
   }
 
-  typedef std::unordered_map<EntityEvent, size_t, EntityEvent::HashFunction> WaitSetMap;
-
   /**
    * @brief Adds event to the the wait set if it is new, otherwise increase counter
    */
   void add_to_wait_set(
     const rclcpp::executors::ExecutorEvent & event,
-    WaitSetMap & wait_set)
+    std::list<EntityEvent> & wait_set)
   {
-    EntityEvent new_event(event);
     // Lets look for existing events like this one
-    auto it = wait_set.find(new_event);
+    auto it = std::find(wait_set.begin(), wait_set.end(), event);
 
     if (it != wait_set.end()) {
       // Not the first event from this entity in waitset,
       // so lets compute number of events for this kind.
-      auto & current_events = it->second;
-      auto & max_events = it->first.max_events;
-      if (current_events < max_events) {
+      if (it->num_events < it->max_events) {
         // We haven't reached the maximum amounts of events for this
         // entity. Increment its counter, limited by max events.
-        size_t num_events = current_events + event.num_events;
-        it->second = std::min(num_events, max_events);
+        size_t num_events = it->num_events + event.num_events;
+        it->num_events = std::min(num_events, it->max_events);
         return;
       } else {
         // We reached the maximum amounts of events for this entity.
@@ -206,18 +195,18 @@ private:
 
     // If we are at this point, it means no elements were found in the wait set
     // for the entity which generated the event. Lets keep track of it.
-    new_event.max_events = entities_collector_->get_entity_qos_depth(event);
+    size_t max_events = entities_collector_->get_entity_qos_depth(event);
 
     if (event.type != currently_executing_) {
       // Just push the new event, we're not using the iterator from this waitset
-      wait_set.emplace(new_event, event.num_events);
+      wait_set.emplace_back(event, event.num_events, max_events);
     } else {
       // Push the new event and update the iterator if needed
       if (wait_set.empty()) {
-        wait_set.emplace(new_event, event.num_events);
+        wait_set.emplace_back(event, event.num_events, max_events);
         event_iterator_ = wait_set.begin();
       } else {
-        wait_set.emplace(new_event, event.num_events);
+        wait_set.emplace_back(event, event.num_events, max_events);
       }
     }
   }
@@ -229,8 +218,8 @@ private:
   rclcpp::executors::ExecutorEvent get_next_event()
   {
     while (true) {
-      WaitSetMap * current_wait_set;
-      WaitSetMap * next_wait_set;
+      std::list<EntityEvent> * current_wait_set;
+      std::list<EntityEvent> * next_wait_set;
       rclcpp::executors::ExecutorEventType next_to_execute;
 
       switch (currently_executing_) {
@@ -269,7 +258,7 @@ private:
         event_iterator_ = next_wait_set->begin();
         currently_executing_ = next_to_execute;
       } else {
-        rclcpp::executors::ExecutorEvent next_event = event_iterator_->first.event;
+        rclcpp::executors::ExecutorEvent next_event = event_iterator_->event;
         decrease_events_count(current_wait_set);
         if (event_iterator_ == current_wait_set->end()) {
           event_iterator_ = next_wait_set->begin();
@@ -284,14 +273,13 @@ private:
   // next element in wait set.
   // If the events counter becomes zero, remove event from wait set.
   //
-  inline void decrease_events_count(WaitSetMap * wait_set)
+  inline void decrease_events_count(std::list<EntityEvent> * wait_set)
   {
     // Decrease events counter
-    auto & current_events = event_iterator_->second;
-    current_events--;
+    event_iterator_->num_events--;
 
     // Update iterator to point to next element
-    if (current_events == 0) {
+    if (event_iterator_->num_events == 0) {
       event_iterator_ = wait_set->erase(event_iterator_);
     } else {
       event_iterator_++;
@@ -319,11 +307,11 @@ private:
     return true;
   }
 
-  inline size_t count_events(const WaitSetMap & wait_set) const
+  inline size_t count_events(const std::list<EntityEvent> & wait_set) const
   {
     size_t num_events = 0;
     for (auto & entity : wait_set) {
-      num_events += entity.second;
+      num_events += entity.num_events;
     }
     return num_events;
   }
@@ -340,14 +328,14 @@ private:
   // Waitset maps splited by entity type, for convenience.
   // They map each entity with the number of events from them
   // in the wait set.
-  WaitSetMap timers_wait_set_;
-  WaitSetMap subscriptions_wait_set_;
-  WaitSetMap services_wait_set_;
-  WaitSetMap clients_wait_set_;
-  WaitSetMap waitables_wait_set_;
+  std::list<EntityEvent> timers_wait_set_;
+  std::list<EntityEvent> subscriptions_wait_set_;
+  std::list<EntityEvent> services_wait_set_;
+  std::list<EntityEvent> clients_wait_set_;
+  std::list<EntityEvent> waitables_wait_set_;
 
   // Iterator pointing to next ready executable.
-  WaitSetMap::iterator event_iterator_;
+  std::list<EntityEvent>::iterator event_iterator_;
 
   // Event type used to know what entity to retrieve next when
   // calling dequeue
