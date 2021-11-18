@@ -225,98 +225,66 @@ private:
   // Iterate the wait set getting events in order as followed in rcl/wait.c
   // i.e; timers, subscriptions, services, clients, waitables.
   // If this function is called, is because we know there's at least one
-  // event in the wait set to retrieve. Otherwise will keep calling
-  // itself recursively.
+  // event in the wait set to retrieve. Otherwise will keep stuck in a loop
   rclcpp::executors::ExecutorEvent get_next_event()
   {
-    switch (currently_executing_) {
-      case rclcpp::executors::TIMER_EVENT:
-        if (timers_wait_set_.empty()) {
-          update_next_event(rclcpp::executors::SUBSCRIPTION_EVENT, subscriptions_wait_set_);
-          return get_next_event();
-        } else {
-          rclcpp::executors::ExecutorEvent next_event = event_iterator_->first.event;
-          decrease_events_count(timers_wait_set_);
-          if (event_iterator_ == timers_wait_set_.end()) {
-            update_next_event(rclcpp::executors::SUBSCRIPTION_EVENT, subscriptions_wait_set_);
-          }
-          return next_event;
-        }
-        break;
+    while (true) {
+      WaitSetMap * current_wait_set;
+      WaitSetMap * next_wait_set;
+      rclcpp::executors::ExecutorEventType next_to_execute;
 
-      case rclcpp::executors::SUBSCRIPTION_EVENT:
-        if (subscriptions_wait_set_.empty()) {
-          update_next_event(rclcpp::executors::SERVICE_EVENT, services_wait_set_);
-          return get_next_event();
-        } else {
-          rclcpp::executors::ExecutorEvent next_event = event_iterator_->first.event;
-          decrease_events_count(subscriptions_wait_set_);
-          if (event_iterator_ == subscriptions_wait_set_.end()) {
-            update_next_event(rclcpp::executors::SERVICE_EVENT, services_wait_set_);
-          }
-          return next_event;
-        }
-        break;
+      switch (currently_executing_) {
+        case rclcpp::executors::TIMER_EVENT:
+          current_wait_set = &timers_wait_set_;
+          next_wait_set = &subscriptions_wait_set_;
+          next_to_execute = rclcpp::executors::SUBSCRIPTION_EVENT;
+          break;
 
-      case rclcpp::executors::SERVICE_EVENT:
-        if (services_wait_set_.empty()) {
-          update_next_event(rclcpp::executors::CLIENT_EVENT, clients_wait_set_);
-          return get_next_event();
-        } else {
-          rclcpp::executors::ExecutorEvent next_event = event_iterator_->first.event;
-          decrease_events_count(services_wait_set_);
-          if (event_iterator_ == services_wait_set_.end()) {
-            update_next_event(rclcpp::executors::CLIENT_EVENT, clients_wait_set_);
-          }
-          return next_event;
-        }
-        break;
+        case rclcpp::executors::SUBSCRIPTION_EVENT:
+          current_wait_set = &subscriptions_wait_set_;
+          next_wait_set = &services_wait_set_;
+          next_to_execute = rclcpp::executors::SERVICE_EVENT;
+          break;
 
-      case rclcpp::executors::CLIENT_EVENT:
-        if (clients_wait_set_.empty()) {
-          update_next_event(rclcpp::executors::WAITABLE_EVENT, waitables_wait_set_);
-          return get_next_event();
-        } else {
-          rclcpp::executors::ExecutorEvent next_event = event_iterator_->first.event;
-          decrease_events_count(clients_wait_set_);
-          if (event_iterator_ == clients_wait_set_.end()) {
-            update_next_event(rclcpp::executors::WAITABLE_EVENT, waitables_wait_set_);
-          }
-          return next_event;
-        }
-        break;
+        case rclcpp::executors::SERVICE_EVENT:
+          current_wait_set = &services_wait_set_;
+          next_wait_set = &clients_wait_set_;
+          next_to_execute = rclcpp::executors::CLIENT_EVENT;
+          break;
 
-      case rclcpp::executors::WAITABLE_EVENT:
-        if (waitables_wait_set_.empty()) {
-          update_next_event(rclcpp::executors::TIMER_EVENT, timers_wait_set_);
-          return get_next_event();
-        } else {
-          rclcpp::executors::ExecutorEvent next_event = event_iterator_->first.event;
-          decrease_events_count(waitables_wait_set_);
-          if (event_iterator_ == waitables_wait_set_.end()) {
-            update_next_event(rclcpp::executors::TIMER_EVENT, timers_wait_set_);
-          }
-          return next_event;
+        case rclcpp::executors::CLIENT_EVENT:
+          current_wait_set = &clients_wait_set_;
+          next_wait_set = &waitables_wait_set_;
+          next_to_execute = rclcpp::executors::WAITABLE_EVENT;
+          break;
+
+        case rclcpp::executors::WAITABLE_EVENT:
+          current_wait_set = &waitables_wait_set_;
+          next_wait_set = &timers_wait_set_;
+          next_to_execute = rclcpp::executors::TIMER_EVENT;
+          break;
+      }
+
+      if (current_wait_set->empty()) {
+        event_iterator_ = next_wait_set->begin();
+        currently_executing_ = next_to_execute;
+      } else {
+        rclcpp::executors::ExecutorEvent next_event = event_iterator_->first.event;
+        decrease_events_count(current_wait_set);
+        if (event_iterator_ == current_wait_set->end()) {
+          event_iterator_ = next_wait_set->begin();
+          currently_executing_ = next_to_execute;
         }
-        break;
+        return next_event;
+      }
     }
-  }
-
-  // Updates iterator to next event and the next type
-  // of event to retrieve when calling dequeue.
-  inline void update_next_event(
-    rclcpp::executors::ExecutorEventType execute_next,
-    WaitSetMap & next_wait_set)
-  {
-    event_iterator_ = next_wait_set.begin();
-    currently_executing_ = execute_next;
   }
 
   // Decrease events counter and update event iterator to point to
   // next element in wait set.
   // If the events counter becomes zero, remove event from wait set.
   //
-  inline void decrease_events_count(WaitSetMap & wait_set)
+  inline void decrease_events_count(WaitSetMap * wait_set)
   {
     // Decrease events counter
     auto & current_events = event_iterator_->second;
@@ -324,7 +292,7 @@ private:
 
     // Update iterator to point to next element
     if (current_events == 0) {
-      event_iterator_ = wait_set.erase(event_iterator_);
+      event_iterator_ = wait_set->erase(event_iterator_);
     } else {
       event_iterator_++;
     }
