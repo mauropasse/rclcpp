@@ -206,11 +206,6 @@ private:
 
     // If we are at this point, it means no elements were found in the wait set
     // for the entity which generated the event. Lets keep track of it.
-    if (!entities_collector_) {
-      throw std::runtime_error(
-          "WaitSetEventsQueue has to be initialized with entities collector.");
-    }
-
     new_event.max_events = entities_collector_->get_entity_qos_depth(event);
 
     if (event.type != currently_executing_) {
