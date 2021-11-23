@@ -18,12 +18,12 @@
 namespace rclcpp
 {
 
-/// Used as argument in create_publisher and create_subscriber.
+/// Used as argument in create_publisher, create_subscriber, create_service and create_client.
 enum class IntraProcessSetting
 {
-  /// Explicitly enable intraprocess comm at publisher/subscription level.
+  /// Explicitly enable intraprocess comm at publisher/subscription/client/service level.
   Enable,
-  /// Explicitly disable intraprocess comm at publisher/subscription level.
+  /// Explicitly disable intraprocess comm at publisher/subscription/client/service level.
   Disable,
   /// Take intraprocess configuration from the node.
   NodeDefault

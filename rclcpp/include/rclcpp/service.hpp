@@ -27,6 +27,7 @@
 
 #include "rclcpp/any_service_callback.hpp"
 #include "rclcpp/exceptions.hpp"
+#include "rclcpp/intra_process_setting.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp/type_support_decl.hpp"
 #include "rclcpp/expand_topic_or_service_name.hpp"
@@ -168,14 +169,17 @@ public:
    * \param[in] service_name Name of the topic to publish to.
    * \param[in] any_callback User defined callback to call when a client request is received.
    * \param[in] service_options options for the subscription.
+   * \param[in] ip_setting Intra-process communication setting for the service.
    */
   Service(
     std::shared_ptr<rcl_node_t> node_handle,
     const std::string & service_name,
     AnyServiceCallback<ServiceT> any_callback,
-    rcl_service_options_t & service_options)
+    rcl_service_options_t & service_options,
+    rclcpp::IntraProcessSetting ip_setting)
   : ServiceBase(node_handle), any_callback_(any_callback)
   {
+    (void) ip_setting;
     using rosidl_typesupport_cpp::get_service_type_support_handle;
     auto service_type_support_handle = get_service_type_support_handle<ServiceT>();
 

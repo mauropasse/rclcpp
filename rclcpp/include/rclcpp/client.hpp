@@ -33,6 +33,7 @@
 
 #include "rclcpp/exceptions.hpp"
 #include "rclcpp/function_traits.hpp"
+#include "rclcpp/intra_process_setting.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp/node_interfaces/node_graph_interface.hpp"
 #include "rclcpp/type_support_decl.hpp"
@@ -332,14 +333,17 @@ public:
    * \param[in] node_graph The node graph interface of the corresponding node.
    * \param[in] service_name Name of the topic to publish to.
    * \param[in] client_options options for the subscription.
+   * \param[in] ip_setting Intra-process communication setting for the client.
    */
   Client(
     rclcpp::node_interfaces::NodeBaseInterface * node_base,
     rclcpp::node_interfaces::NodeGraphInterface::SharedPtr node_graph,
     const std::string & service_name,
-    rcl_client_options_t & client_options)
+    rcl_client_options_t & client_options,
+    rclcpp::IntraProcessSetting ip_setting)
   : ClientBase(node_base, node_graph)
   {
+    (void) ip_setting;
     using rosidl_typesupport_cpp::get_service_type_support_handle;
     auto service_type_support_handle =
       get_service_type_support_handle<ServiceT>();
