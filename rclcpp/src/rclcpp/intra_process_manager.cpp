@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "rclcpp/experimental/intra_process_manager.hpp"
-
 #include <atomic>
 #include <memory>
 #include <mutex>
+
+#include "rclcpp/experimental/intra_process_manager.hpp"
+#include "rclcpp/experimental/service_intra_process_buffer.hpp"
 
 namespace rclcpp
 {
@@ -80,6 +81,55 @@ IntraProcessManager::add_subscription(SubscriptionIntraProcessBase::SharedPtr su
   }
 
   return sub_id;
+}
+
+uint64_t
+IntraProcessManager::add_client(ClientIntraProcessBase::SharedPtr client)
+{
+  std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+
+  uint64_t client_id = IntraProcessManager::get_next_unique_id();
+  clients_[client_id] = client;
+
+  // adds the client id to all the matchable services
+  for (auto & pair : services_) {
+    auto intra_process_service = pair.second.lock();
+    if (!intra_process_service) {
+      continue;
+    }
+    if (can_communicate(client, intra_process_service)) {
+      uint64_t service_id = pair.first;
+      client_to_services_.emplace(client_id, service_id);
+      intra_process_service->add_intra_process_client(client, client_id);
+    }
+  }
+
+  return client_id;
+}
+
+uint64_t
+IntraProcessManager::add_service(ServiceIntraProcessBase::SharedPtr service)
+{
+  std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+
+  uint64_t service_id = IntraProcessManager::get_next_unique_id();
+  services_[service_id] = service;
+
+  // adds the service id to all the matchable clients
+  for (auto & pair : clients_) {
+    auto client = pair.second.lock();
+    if (!client) {
+      continue;
+    }
+    if (can_communicate(client, service)) {
+      uint64_t client_id = pair.first;
+      client_to_services_.emplace(client_id, service_id);
+
+      service->add_intra_process_client(client, client_id);
+    }
+  }
+
+  return service_id;
 }
 
 void
@@ -172,6 +222,58 @@ IntraProcessManager::get_subscription_intra_process(uint64_t intra_process_subsc
   }
 }
 
+ServiceIntraProcessBase::SharedPtr
+IntraProcessManager::get_service_intra_process(uint64_t intra_process_service_id)
+{
+  std::shared_lock<std::shared_timed_mutex> lock(mutex_);
+
+  auto service_it = services_.find(intra_process_service_id);
+  if (service_it == services_.end()) {
+    return nullptr;
+  } else {
+    auto service = service_it->second.lock();
+    if (service) {
+      return service;
+    } else {
+      services_.erase(service_it);
+      return nullptr;
+    }
+  }
+}
+
+bool
+IntraProcessManager::service_is_available(uint64_t intra_process_client_id)
+{
+  std::shared_lock<std::shared_timed_mutex> lock(mutex_);
+
+  auto service_it = client_to_services_.find(intra_process_client_id);
+
+  if (service_it != client_to_services_.end()) {
+    // A server matching the client has been found
+    return true;
+  }
+  return false;
+}
+
+ClientIntraProcessBase::SharedPtr
+IntraProcessManager::get_client_intra_process(uint64_t intra_process_client_id)
+{
+  std::shared_lock<std::shared_timed_mutex> lock(mutex_);
+
+  auto client_it = clients_.find(intra_process_client_id);
+  if (client_it == clients_.end()) {
+    return nullptr;
+  } else {
+    auto client = client_it->second.lock();
+    if (client) {
+      return client;
+    } else {
+      clients_.erase(client_it);
+      return nullptr;
+    }
+  }
+}
+
 uint64_t
 IntraProcessManager::get_next_unique_id()
 {
@@ -221,6 +323,26 @@ IntraProcessManager::can_communicate(
   if (check_result.compatibility == rclcpp::QoSCompatibility::Error) {
     return false;
   }
+
+  return true;
+}
+
+bool
+IntraProcessManager::can_communicate(
+  ClientIntraProcessBase::SharedPtr client,
+  ServiceIntraProcessBase::SharedPtr service) const
+{
+  // publisher and subscription must be on the same topic
+  if (strcmp(client->get_service_name(), service->get_service_name()) != 0) {
+    return false;
+  }
+
+  // auto check_result = rclcpp::qos_check_compatible(
+  //   client->get_actual_qos(), service->get_actual_qos());
+
+  // if (check_result.compatibility == rclcpp::QoSCompatibility::Error) {
+  //   return false;
+  // }
 
   return true;
 }

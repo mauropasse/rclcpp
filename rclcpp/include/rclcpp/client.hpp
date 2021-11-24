@@ -32,13 +32,15 @@
 #include "rcl/wait.h"
 
 #include "rclcpp/exceptions.hpp"
+#include "rclcpp/expand_topic_or_service_name.hpp"
+#include "rclcpp/experimental/client_intra_process_buffer.hpp"
+#include "rclcpp/experimental/intra_process_manager.hpp"
 #include "rclcpp/function_traits.hpp"
 #include "rclcpp/intra_process_setting.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp/node_interfaces/node_graph_interface.hpp"
 #include "rclcpp/type_support_decl.hpp"
 #include "rclcpp/utilities.hpp"
-#include "rclcpp/expand_topic_or_service_name.hpp"
 #include "rclcpp/visibility_control.hpp"
 
 #include "rcutils/logging_macros.h"
@@ -216,6 +218,25 @@ public:
   bool
   exchange_in_use_by_wait_set_state(bool in_use_state);
 
+  using IntraProcessManagerWeakPtr =
+    std::weak_ptr<rclcpp::experimental::IntraProcessManager>;
+
+  /// Implementation detail.
+  RCLCPP_PUBLIC
+  void
+  setup_intra_process(
+    uint64_t intra_process_client_id,
+    IntraProcessManagerWeakPtr weak_ipm);
+
+  /// Return the waitable for intra-process
+  /**
+   * \return the waitable sharedpointer for intra-process, or nullptr if intra-process is not setup.
+   * \throws std::runtime_error if the intra process manager is destroyed
+   */
+  RCLCPP_PUBLIC
+  rclcpp::Waitable::SharedPtr
+  get_intra_process_waitable() const;
+
 protected:
   RCLCPP_DISABLE_COPY(ClientBase)
 
@@ -238,6 +259,10 @@ protected:
   std::shared_ptr<rcl_client_t> client_handle_;
 
   std::atomic<bool> in_use_by_wait_set_{false};
+
+  bool use_intra_process_{false};
+  IntraProcessManagerWeakPtr weak_ipm_;
+  uint64_t intra_process_client_id_;
 };
 
 template<typename ServiceT>
@@ -343,7 +368,6 @@ public:
     rclcpp::IntraProcessSetting ip_setting)
   : ClientBase(node_base, node_graph)
   {
-    (void) ip_setting;
     using rosidl_typesupport_cpp::get_service_type_support_handle;
     auto service_type_support_handle =
       get_service_type_support_handle<ServiceT>();
@@ -365,6 +389,21 @@ public:
           true);
       }
       rclcpp::exceptions::throw_from_rcl_error(ret, "could not create client");
+    }
+
+    // Setup intra process publishing if requested.
+    if (ip_setting == IntraProcessSetting::Enable) {
+      // Create a ClientIntraProcess which will be given to the intra-process manager.
+      client_intra_process_ = std::make_shared<ClientIntraProcessT>(
+        context_,
+        this->get_service_name(),
+        client_options.qos);
+
+      // Add it to the intra process manager.
+      using rclcpp::experimental::IntraProcessManager;
+      auto ipm = context_->get_sub_context<IntraProcessManager>();
+      uint64_t intra_process_client_id = ipm->add_client(client_intra_process_);
+      this->setup_intra_process(intra_process_client_id, ipm);
     }
   }
 
@@ -486,7 +525,7 @@ public:
     Promise promise;
     auto future = promise.get_future();
     auto req_id = async_send_request_impl(
-      *request,
+      std::move(request),
       std::move(promise));
     return FutureAndRequestId(std::move(future), req_id);
   }
@@ -521,7 +560,7 @@ public:
     Promise promise;
     auto shared_future = promise.get_future().share();
     auto req_id = async_send_request_impl(
-      *request,
+      std::move(request),
       std::make_tuple(
         CallbackType{std::forward<CallbackT>(cb)},
         shared_future,
@@ -552,7 +591,7 @@ public:
     PromiseWithRequest promise;
     auto shared_future = promise.get_future().share();
     auto req_id = async_send_request_impl(
-      *request,
+      request,
       std::make_tuple(
         CallbackWithRequestType{std::forward<CallbackT>(cb)},
         request,
@@ -665,10 +704,25 @@ protected:
     CallbackWithRequestTypeValueVariant>;
 
   int64_t
-  async_send_request_impl(const Request & request, CallbackInfoVariant value)
+  async_send_request_impl(SharedRequest request, CallbackInfoVariant value)
   {
+    if (use_intra_process_) {
+      auto ipm = weak_ipm_.lock();
+      if (!ipm) {
+        throw std::runtime_error(
+                "intra process send called after destruction of intra process manager");
+      }
+      bool intra_process_server_available = ipm->service_is_available(intra_process_client_id_);
+
+      if (intra_process_server_available) {
+        ipm->send_intra_process_client_request<ServiceT>(
+          intra_process_client_id_, std::move(request), std::move(value));
+        return sequence_number_++;
+      }
+    }
+
     int64_t sequence_number;
-    rcl_ret_t ret = rcl_send_request(get_client_handle().get(), &request, &sequence_number);
+    rcl_ret_t ret = rcl_send_request(get_client_handle().get(), &(*request), &sequence_number);
     if (RCL_RET_OK != ret) {
       rclcpp::exceptions::throw_from_rcl_error(ret, "failed to send request");
     }
@@ -706,6 +760,11 @@ protected:
       CallbackInfoVariant>>
   pending_requests_;
   std::mutex pending_requests_mutex_;
+
+private:
+  using ClientIntraProcessT = rclcpp::experimental::ClientIntraProcessBuffer<ServiceT>;
+  std::shared_ptr<ClientIntraProcessT> client_intra_process_;
+  std::atomic_uint sequence_number_{1};
 };
 
 }  // namespace rclcpp

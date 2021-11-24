@@ -31,6 +31,10 @@
 #include <vector>
 
 #include "rclcpp/allocator/allocator_deleter.hpp"
+#include "rclcpp/experimental/client_intra_process_base.hpp"
+#include "rclcpp/experimental/client_intra_process_buffer.hpp"
+#include "rclcpp/experimental/service_intra_process_base.hpp"
+#include "rclcpp/experimental/service_intra_process_buffer.hpp"
 #include "rclcpp/experimental/subscription_intra_process.hpp"
 #include "rclcpp/experimental/subscription_intra_process_base.hpp"
 #include "rclcpp/experimental/subscription_intra_process_buffer.hpp"
@@ -117,6 +121,14 @@ public:
   uint64_t
   add_subscription(rclcpp::experimental::SubscriptionIntraProcessBase::SharedPtr subscription);
 
+  RCLCPP_PUBLIC
+  uint64_t
+  add_client(rclcpp::experimental::ClientIntraProcessBase::SharedPtr client);
+
+  RCLCPP_PUBLIC
+  uint64_t
+  add_service(rclcpp::experimental::ServiceIntraProcessBase::SharedPtr service);
+
   /// Unregister a subscription using the subscription's unique id.
   /**
    * This method does not allocate memory.
@@ -126,6 +138,14 @@ public:
   RCLCPP_PUBLIC
   void
   remove_subscription(uint64_t intra_process_subscription_id);
+
+  RCLCPP_PUBLIC
+  void
+  remove_client(uint64_t intra_process_client_id);
+
+  RCLCPP_PUBLIC
+  void
+  remove_service(uint64_t intra_process_service_id);
 
   /// Register a publisher with the manager, returns the publisher unique id.
   /**
@@ -237,6 +257,45 @@ public:
   }
 
   template<
+    typename ServiceT,
+    typename RequestT,
+    typename CallbackInfoVariantT>
+  void
+  send_intra_process_client_request(
+    uint64_t intra_process_client_id_,
+    RequestT request,
+    CallbackInfoVariantT value)
+  {
+    std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+
+    auto client_it = client_to_services_.find(intra_process_client_id_);
+
+    if (client_it == client_to_services_.end()) {
+      RCLCPP_WARN(
+        rclcpp::get_logger("rclcpp"),
+        "Calling send_intra_process_client_request for invalid or no "
+        "longer existing client id");
+      return;
+    }
+    uint64_t service_id = client_it->second;
+
+    auto service_it = services_.find(service_id);
+    if (service_it == services_.end()) {
+      throw std::runtime_error(
+              "There are no services to do intra-process send. Do Inter process.");
+    }
+    auto service_intra_process_base = service_it->second.lock();
+    if (service_intra_process_base) {
+      auto service = std::dynamic_pointer_cast<
+        rclcpp::experimental::ServiceIntraProcessBuffer<ServiceT>>(service_intra_process_base);
+      service->store_intra_process_request(
+        intra_process_client_id_, std::move(request), std::move(value));
+    } else {
+      services_.erase(service_it);
+    }
+  }
+
+  template<
     typename MessageT,
     typename Alloc = std::allocator<void>,
     typename Deleter = std::default_delete<MessageT>>
@@ -304,6 +363,18 @@ public:
   rclcpp::experimental::SubscriptionIntraProcessBase::SharedPtr
   get_subscription_intra_process(uint64_t intra_process_subscription_id);
 
+  RCLCPP_PUBLIC
+  rclcpp::experimental::ClientIntraProcessBase::SharedPtr
+  get_client_intra_process(uint64_t intra_process_client_id);
+
+  RCLCPP_PUBLIC
+  rclcpp::experimental::ServiceIntraProcessBase::SharedPtr
+  get_service_intra_process(uint64_t intra_process_service_id);
+
+  RCLCPP_PUBLIC
+  bool
+  service_is_available(uint64_t intra_process_client_id);
+
 private:
   struct SplittedSubscriptions
   {
@@ -320,6 +391,15 @@ private:
   using PublisherToSubscriptionIdsMap =
     std::unordered_map<uint64_t, SplittedSubscriptions>;
 
+  using ClientMap =
+    std::unordered_map<uint64_t, rclcpp::experimental::ClientIntraProcessBase::WeakPtr>;
+
+  using ServiceMap =
+    std::unordered_map<uint64_t, rclcpp::experimental::ServiceIntraProcessBase::WeakPtr>;
+
+  using ClientToServiceIdsMap =
+    std::unordered_map<uint64_t, uint64_t>;
+
   RCLCPP_PUBLIC
   static
   uint64_t
@@ -334,6 +414,12 @@ private:
   can_communicate(
     rclcpp::PublisherBase::SharedPtr pub,
     rclcpp::experimental::SubscriptionIntraProcessBase::SharedPtr sub) const;
+
+  RCLCPP_PUBLIC
+  bool
+  can_communicate(
+    rclcpp::experimental::ClientIntraProcessBase::SharedPtr client,
+    rclcpp::experimental::ServiceIntraProcessBase::SharedPtr service) const;
 
   template<
     typename MessageT,
@@ -422,6 +508,9 @@ private:
   PublisherToSubscriptionIdsMap pub_to_subs_;
   SubscriptionMap subscriptions_;
   PublisherMap publishers_;
+  ClientToServiceIdsMap client_to_services_;
+  ClientMap clients_;
+  ServiceMap services_;
 
   mutable std::shared_timed_mutex mutex_;
 };

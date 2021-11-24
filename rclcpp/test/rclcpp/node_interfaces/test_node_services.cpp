@@ -30,7 +30,7 @@ class TestService : public rclcpp::ServiceBase
 {
 public:
   explicit TestService(rclcpp::Node * node)
-  : rclcpp::ServiceBase(node->get_node_base_interface()->get_shared_rcl_node_handle()) {}
+  : rclcpp::ServiceBase(node->get_node_base_interface()) {}
 
   std::shared_ptr<void> create_request() override {return nullptr;}
   std::shared_ptr<rmw_request_id_t> create_request_header() override {return nullptr;}

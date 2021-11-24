@@ -21,14 +21,16 @@
 #include <string>
 
 #include "rclcpp/any_service_callback.hpp"
+#include "rclcpp/node_interfaces/node_base_interface.hpp"
 #include "rclcpp/macros.hpp"
 #include "rmw/error_handling.h"
 #include "rmw/rmw.h"
 
 using rclcpp::ServiceBase;
 
-ServiceBase::ServiceBase(std::shared_ptr<rcl_node_t> node_handle)
-: node_handle_(node_handle)
+ServiceBase::ServiceBase(std::shared_ptr<rclcpp::node_interfaces::NodeBaseInterface> node_base)
+: node_handle_(node_base->get_shared_rcl_node_handle()),
+  context_(node_base->get_context())
 {}
 
 ServiceBase::~ServiceBase()
@@ -83,4 +85,33 @@ bool
 ServiceBase::exchange_in_use_by_wait_set_state(bool in_use_state)
 {
   return in_use_by_wait_set_.exchange(in_use_state);
+}
+
+void
+ServiceBase::setup_intra_process(
+  uint64_t intra_process_service_id,
+  IntraProcessManagerWeakPtr weak_ipm)
+{
+  intra_process_service_id_ = intra_process_service_id;
+  weak_ipm_ = weak_ipm;
+  use_intra_process_ = true;
+}
+
+rclcpp::Waitable::SharedPtr
+ServiceBase::get_intra_process_waitable() const
+{
+  // If not using intra process, shortcut to nullptr.
+  if (!use_intra_process_) {
+    return nullptr;
+  }
+  // Get the intra process manager.
+  auto ipm = weak_ipm_.lock();
+  if (!ipm) {
+    throw std::runtime_error(
+            "ClientBase::get_intra_process_waitable() called "
+            "after destruction of intra process manager");
+  }
+
+  // Use the id to retrieve the subscription intra-process from the intra-process manager.
+  return ipm->get_service_intra_process(intra_process_service_id_);
 }
