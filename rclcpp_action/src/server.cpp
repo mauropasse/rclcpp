@@ -268,6 +268,8 @@ ServerBase::take_data()
 std::shared_ptr<void>
 ServerBase::take_data_by_entity_id(int id)
 {
+  pimpl_->cancel_request_ready_ = false;
+
   // Find the action server entity which is ready
   switch (static_cast<EntityType>(id)) {
     case EntityType::GoalService:
