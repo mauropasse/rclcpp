@@ -68,7 +68,7 @@ public:
 
   virtual
   std::shared_ptr<void>
-  take_data() = 0;
+  take_data() override = 0;
 
   void
   execute(std::shared_ptr<void> & data) override = 0;
