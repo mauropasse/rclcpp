@@ -76,7 +76,7 @@ public:
 
   RCLCPP_PUBLIC
   std::shared_ptr<void>
-  take_data()
+  take_data() override
   {
     // This waitable doesn't handle any data
     return nullptr;
@@ -84,7 +84,7 @@ public:
 
   RCLCPP_PUBLIC
   std::shared_ptr<void>
-  take_data_by_entity_id(int id)
+  take_data_by_entity_id(int id) override
   {
     (void) id;
     return take_data();
