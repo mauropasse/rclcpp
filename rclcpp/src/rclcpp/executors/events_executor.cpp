@@ -61,6 +61,7 @@ EventsExecutor::spin()
   RCLCPP_SCOPE_EXIT(this->spinning.store(false););
 
   timers_manager_->start();
+  RCLCPP_SCOPE_EXIT(timers_manager_->stop(););
 
   while (rclcpp::ok(context_) && spinning.load()) {
     // Wait until we get an event
@@ -70,9 +71,6 @@ EventsExecutor::spin()
       this->execute_event(event);
     }
   }
-
-  // Stop the timers manager thread when we are done spinning
-  timers_manager_->stop();
 }
 
 void
