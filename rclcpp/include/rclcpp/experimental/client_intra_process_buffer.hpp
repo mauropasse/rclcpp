@@ -84,16 +84,13 @@ public:
 
   struct ClientResponse
   {
-    // Do we need this request_header?
-    std::shared_ptr<rmw_request_id_t> request_header;
     SharedResponse response;
     CallbackInfoVariant value;
 
     ClientResponse(
-      std::shared_ptr<rmw_request_id_t> req_header,
       SharedResponse resp,
       CallbackInfoVariant val)
-    : request_header(req_header), response(resp), value(std::move(val)) {}
+    : response(resp), value(std::move(val)) {}
   };
 
   std::shared_ptr<void>
@@ -137,13 +134,12 @@ public:
 
   void
   store_intra_process_response(
-    std::shared_ptr<rmw_request_id_t> request_header,
     SharedResponse response,
     CallbackInfoVariant value)
   {
     // Mauro: There is a copy here, why not using RequestSharedPtr?
     // I have to modify client.hpp, but can be done.
-    queue_.emplace(request_header, response, std::move(value));
+    queue_.emplace(std::move(response), std::move(value));
     trigger_guard_condition();
   }
 

@@ -290,7 +290,7 @@ public:
         service_options.qos);
 
       // Add it to the intra process manager.
-      uint64_t intra_process_service_id = ipm->add_service(service_intra_process_);
+      uint64_t intra_process_service_id = ipm->add_intra_process_service(service_intra_process_);
       this->setup_intra_process(intra_process_service_id, ipm);
     }
   }

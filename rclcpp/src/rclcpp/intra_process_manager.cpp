@@ -84,7 +84,7 @@ IntraProcessManager::add_subscription(SubscriptionIntraProcessBase::SharedPtr su
 }
 
 uint64_t
-IntraProcessManager::add_client(ClientIntraProcessBase::SharedPtr client)
+IntraProcessManager::add_intra_process_client(ClientIntraProcessBase::SharedPtr client)
 {
   std::unique_lock<std::shared_timed_mutex> lock(mutex_);
 
@@ -108,14 +108,14 @@ IntraProcessManager::add_client(ClientIntraProcessBase::SharedPtr client)
 }
 
 uint64_t
-IntraProcessManager::add_service(ServiceIntraProcessBase::SharedPtr service)
+IntraProcessManager::add_intra_process_service(ServiceIntraProcessBase::SharedPtr service)
 {
   std::unique_lock<std::shared_timed_mutex> lock(mutex_);
 
   uint64_t service_id = IntraProcessManager::get_next_unique_id();
   services_[service_id] = service;
 
-  // adds the service id to all the matchable clients
+  // adds the clients id of matchable clients
   for (auto & pair : clients_) {
     auto client = pair.second.lock();
     if (!client) {

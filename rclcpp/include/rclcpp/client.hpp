@@ -402,7 +402,7 @@ public:
       // Add it to the intra process manager.
       using rclcpp::experimental::IntraProcessManager;
       auto ipm = context_->get_sub_context<IntraProcessManager>();
-      uint64_t intra_process_client_id = ipm->add_client(client_intra_process_);
+      uint64_t intra_process_client_id = ipm->add_intra_process_client(client_intra_process_);
       this->setup_intra_process(intra_process_client_id, ipm);
     }
   }
@@ -715,12 +715,14 @@ protected:
       bool intra_process_server_available = ipm->service_is_available(intra_process_client_id_);
 
       if (intra_process_server_available) {
+        // Send intra-process request
         ipm->send_intra_process_client_request<ServiceT>(
           intra_process_client_id_, std::move(request), std::move(value));
         return sequence_number_++;
       }
     }
 
+    // Send inter-process request
     int64_t sequence_number;
     rcl_ret_t ret = rcl_send_request(get_client_handle().get(), &(*request), &sequence_number);
     if (RCL_RET_OK != ret) {

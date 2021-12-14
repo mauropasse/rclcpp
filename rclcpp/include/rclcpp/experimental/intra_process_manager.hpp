@@ -123,11 +123,11 @@ public:
 
   RCLCPP_PUBLIC
   uint64_t
-  add_client(rclcpp::experimental::ClientIntraProcessBase::SharedPtr client);
+  add_intra_process_client(rclcpp::experimental::ClientIntraProcessBase::SharedPtr client);
 
   RCLCPP_PUBLIC
   uint64_t
-  add_service(rclcpp::experimental::ServiceIntraProcessBase::SharedPtr service);
+  add_intra_process_service(rclcpp::experimental::ServiceIntraProcessBase::SharedPtr service);
 
   /// Unregister a subscription using the subscription's unique id.
   /**

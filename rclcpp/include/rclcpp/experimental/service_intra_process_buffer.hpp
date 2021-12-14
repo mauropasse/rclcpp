@@ -114,12 +114,10 @@ public:
   {
     auto ptr = std::static_pointer_cast<ClientIDtoRequestMap>(data);
 
-    auto typed_request = std::move(ptr->second.first);
-    CallbackInfoVariant value = std::move(ptr->second.second);
-    // Check about request header
-    auto request_header = std::make_shared<rmw_request_id_t>();
+    SharedRequest & typed_request = ptr->second.first;
+    CallbackInfoVariant & value = ptr->second.second;
 
-    SharedResponse response = any_callback_.dispatch(nullptr, request_header, typed_request);
+    SharedResponse response = any_callback_.dispatch(nullptr, nullptr, std::move(typed_request));
 
     uint64_t intra_process_client_id = ptr->first;
 
@@ -143,7 +141,7 @@ public:
         auto client = std::dynamic_pointer_cast<
           rclcpp::experimental::ClientIntraProcessBuffer<ServiceT>>(
           client_intra_process_base);
-        client->store_intra_process_response(request_header, response, std::move(value));
+        client->store_intra_process_response(response, std::move(value));
       } else {
         clients_.erase(client_it);
       }
