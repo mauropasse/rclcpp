@@ -28,6 +28,10 @@
 #include <typeinfo>
 
 #include "rclcpp/allocator/allocator_deleter.hpp"
+#include "rclcpp/experimental/action_client_intra_process.hpp"
+#include "rclcpp/experimental/action_client_intra_process_base.hpp"
+#include "rclcpp/experimental/action_server_intra_process.hpp"
+#include "rclcpp/experimental/action_server_intra_process_base.hpp"
 #include "rclcpp/experimental/client_intra_process.hpp"
 #include "rclcpp/experimental/client_intra_process_base.hpp"
 #include "rclcpp/experimental/ros_message_intra_process_buffer.hpp"
@@ -138,6 +142,28 @@ public:
   uint64_t
   add_intra_process_service(rclcpp::experimental::ServiceIntraProcessBase::SharedPtr service);
 
+  /// Register an intra-process action client with the manager,
+  /// returns the action client unique id.
+  /**
+   * \param client the ActionClientIntraProcessBase to register.
+   * \return an unsigned 64-bit integer which is the action client's unique id.
+   */
+  RCLCPP_PUBLIC
+  uint64_t
+  add_intra_process_action_client(
+    rclcpp::experimental::ActionClientIntraProcessBase::SharedPtr client);
+
+  /// Register an intra-process action service with the manager,
+  /// returns the action service unique id.
+  /**
+   * \param service the ActionServerIntraProcessBase to register.
+   * \return an unsigned 64-bit integer which is the action service's unique id.
+   */
+  RCLCPP_PUBLIC
+  uint64_t
+  add_intra_process_action_server(
+    rclcpp::experimental::ActionServerIntraProcessBase::SharedPtr service);
+
   /// Unregister a subscription using the subscription's unique id.
   /**
    * This method does not allocate memory.
@@ -164,6 +190,22 @@ public:
   void
   remove_service(uint64_t intra_process_service_id);
 
+  /// Unregister an action client using the action client's unique id.
+  /**
+   * \param ipc_action_client_id id of the client to remove.
+   */
+  RCLCPP_PUBLIC
+  void
+  remove_action_client(uint64_t ipc_action_client_id);
+
+  /// Unregister an action server using the action server's unique id.
+  /**
+   * \param ipc_action_server_id id of the service to remove.
+   */
+  RCLCPP_PUBLIC
+  void
+  remove_action_server(uint64_t ipc_action_server_id);
+
   /// Register a publisher with the manager, returns the publisher unique id.
   /**
    * This method stores the publisher intra process object, together with
@@ -187,6 +229,63 @@ public:
   RCLCPP_PUBLIC
   void
   remove_publisher(uint64_t intra_process_publisher_id);
+
+  // Store an intra-process action client ID along its current
+  // goal UUID, since later when the server process a request
+  // it'll use the goal UUID to retrieve the client which asked for
+  // the result.
+  RCLCPP_PUBLIC
+  void
+  store_intra_process_action_client_goal_uuid(
+    uint64_t ipc_action_client_id,
+    size_t uuid);
+
+  // Remove an action client goal UUID entry
+  RCLCPP_PUBLIC
+  void
+  remove_intra_process_action_client_goal_uuid(size_t uuid);
+
+  RCLCPP_PUBLIC
+  uint64_t
+  get_action_client_id_from_goal_uuid(size_t uuid);
+
+  /// Return true if the given rmw_gid_t matches any stored Publishers.
+  RCLCPP_PUBLIC
+  bool
+  matches_any_publishers(const rmw_gid_t * id) const;
+
+  /// Return the number of intraprocess subscriptions that are matched with a given publisher id.
+  RCLCPP_PUBLIC
+  size_t
+  get_subscription_count(uint64_t intra_process_publisher_id) const;
+
+  RCLCPP_PUBLIC
+  rclcpp::experimental::SubscriptionIntraProcessBase::SharedPtr
+  get_subscription_intra_process(uint64_t intra_process_subscription_id);
+
+  RCLCPP_PUBLIC
+  rclcpp::experimental::ClientIntraProcessBase::SharedPtr
+  get_client_intra_process(uint64_t intra_process_client_id);
+
+  RCLCPP_PUBLIC
+  rclcpp::experimental::ServiceIntraProcessBase::SharedPtr
+  get_service_intra_process(uint64_t intra_process_service_id);
+
+  RCLCPP_PUBLIC
+  rclcpp::experimental::ActionClientIntraProcessBase::SharedPtr
+  get_action_client_intra_process(uint64_t intra_process_action_client_id);
+
+  RCLCPP_PUBLIC
+  rclcpp::experimental::ActionServerIntraProcessBase::SharedPtr
+  get_action_server_intra_process(uint64_t intra_process_action_server_id);
+
+  RCLCPP_PUBLIC
+  bool
+  service_is_available(uint64_t intra_process_client_id);
+
+  RCLCPP_PUBLIC
+  bool
+  action_server_is_available(uint64_t ipc_action_client_id);
 
   /// Publishes an intra-process message, passed as a unique pointer.
   /**
