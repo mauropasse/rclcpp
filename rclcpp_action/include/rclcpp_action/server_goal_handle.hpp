@@ -23,6 +23,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <iostream>
 
 #include "rclcpp_action/visibility_control.hpp"
 #include "rclcpp_action/types.hpp"

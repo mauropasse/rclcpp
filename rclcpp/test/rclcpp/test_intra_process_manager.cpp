@@ -379,6 +379,52 @@ public:
   }
 };
 
+class ActionClientIntraProcessBase
+{
+public:
+  RCLCPP_SMART_PTR_ALIASES_ONLY(ActionClientIntraProcessBase)
+
+  const char *
+  get_action_name() const
+  {
+    return nullptr;
+  }
+
+  QoS get_actual_qos() const
+  {
+    QoS qos(0);
+    return qos;
+  }
+};
+
+template<typename ActionT>
+class ActionClientIntraProcess : public ActionClientIntraProcessBase
+{
+};
+
+class ActionServerIntraProcessBase
+{
+public:
+  RCLCPP_SMART_PTR_ALIASES_ONLY(ActionServerIntraProcessBase)
+
+  const char *
+  get_action_name() const
+  {
+    return nullptr;
+  }
+
+  QoS get_actual_qos() const
+  {
+    QoS qos(0);
+    return qos;
+  }
+};
+
+template<typename ActionT>
+class ActionServerIntraProcess : public ActionServerIntraProcessBase
+{
+};
+
 }  // namespace mock
 }  // namespace experimental
 }  // namespace rclcpp
@@ -393,6 +439,10 @@ public:
 #define RCLCPP__EXPERIMENTAL__SERVICE_INTRA_PROCESS_BASE_HPP_
 #define RCLCPP__EXPERIMENTAL__CLIENT_INTRA_PROCESS_HPP_
 #define RCLCPP__EXPERIMENTAL__CLIENT_INTRA_PROCESS_BASE_HPP_
+#define RCLCPP__EXPERIMENTAL__ACTION_CLIENT_INTRA_PROCESS_HPP_
+#define RCLCPP__EXPERIMENTAL__ACTION_CLIENT_INTRA_PROCESS_BASE_HPP_
+#define RCLCPP__EXPERIMENTAL__ACTION_SERVER_INTRA_PROCESS_HPP_
+#define RCLCPP__EXPERIMENTAL__ACTION_SERVER_INTRA_PROCESS_BASE_HPP_
 // Force ipm to use our mock publisher class.
 #define Publisher mock::Publisher
 #define PublisherBase mock::PublisherBase
@@ -404,6 +454,11 @@ public:
 #define ServiceIntraProcess mock::ServiceIntraProcess
 #define ClientIntraProcessBase mock::ClientIntraProcessBase
 #define ClientIntraProcess mock::ClientIntraProcess
+#define ActionClientIntraProcessBase mock::ActionClientIntraProcessBase
+#define ActionClientIntraProcess mock::ActionClientIntraProcess
+#define ActionServerIntraProcessBase mock::ActionServerIntraProcessBase
+#define ActionServerIntraProcess mock::ActionServerIntraProcess
+
 #include "../src/rclcpp/intra_process_manager.cpp"
 #undef Publisher
 #undef PublisherBase
@@ -414,6 +469,10 @@ public:
 #undef ServiceIntraProcess
 #undef ClientIntraProcessBase
 #undef ClientIntraProcess
+#undef ActionClientIntraProcessBase
+#undef ActionClientIntraProcess
+#undef ActionServerIntraProcessBase
+#undef ActionServerIntraProcess
 
 using ::testing::_;
 using ::testing::UnorderedElementsAre;
