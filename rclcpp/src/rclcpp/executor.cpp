@@ -893,3 +893,9 @@ Executor::has_node(
       return other_ptr == node_ptr;
     }) != weak_groups_to_nodes.end();
 }
+
+bool
+Executor::is_spinning()
+{
+  return spinning;
+}
