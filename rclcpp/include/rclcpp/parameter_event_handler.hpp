@@ -52,7 +52,7 @@ struct ParameterEventCallbackHandle
   RCLCPP_SMART_PTR_DEFINITIONS(ParameterEventCallbackHandle)
 
   using ParameterEventCallbackType =
-    std::function<void (const rcl_interfaces::msg::ParameterEvent::SharedPtr &)>;
+    std::function<void (const rcl_interfaces::msg::ParameterEvent &)>;
 
   ParameterEventCallbackType callback;
 };
@@ -293,12 +293,6 @@ protected:
   RCLCPP_PUBLIC
   void
   event_callback(const rcl_interfaces::msg::ParameterEvent::SharedPtr event);
-
-  // Utility function for resolving node path.
-  std::string resolve_path(const std::string & path);
-
-  // Node interface used for base functionality
-  std::shared_ptr<rclcpp::node_interfaces::NodeBaseInterface> node_base_;
 
   // *INDENT-OFF* Uncrustify doesn't handle indented public/private labels
   // Hash function for string pair required in std::unordered_map
