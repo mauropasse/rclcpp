@@ -138,7 +138,6 @@ EventsExecutorEntitiesCollector::add_callback_group(
     !has_node(node_ptr, weak_groups_to_nodes_associated_with_executor_);
 
   if (is_new_node) {
-
     auto notify_guard_condition = &(node_ptr->get_notify_guard_condition());
     // Set an event callback for the node's notify guard condition, so if new entities are added
     // or removed to this node we will receive an event.
