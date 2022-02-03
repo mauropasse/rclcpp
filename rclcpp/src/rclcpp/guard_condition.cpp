@@ -74,6 +74,8 @@ GuardCondition::get_rcl_guard_condition() const
 void
 GuardCondition::trigger()
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   if (on_trigger_callback_) {
     on_trigger_callback_(1);
   } else {
@@ -104,6 +106,8 @@ GuardCondition::add_to_wait_set(rcl_wait_set_t * wait_set) const
 void
 GuardCondition::set_on_trigger_callback(std::function<void(size_t)> callback)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   if (callback) {
     on_trigger_callback_ = callback;
 
