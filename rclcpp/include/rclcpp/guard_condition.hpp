@@ -112,6 +112,7 @@ protected:
   rclcpp::Context::SharedPtr context_;
   rcl_guard_condition_t rcl_guard_condition_;
   std::atomic<bool> in_use_by_wait_set_{false};
+  std::recursive_mutex reentrant_mutex_;
   std::function<void(size_t)> on_trigger_callback_{nullptr};
   size_t unread_count_{0};
 };
