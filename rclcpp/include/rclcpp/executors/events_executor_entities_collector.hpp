@@ -251,6 +251,8 @@ private:
   set_entities_event_callbacks_from_map(
     const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes);
 
+  std::recursive_mutex reentrant_mutex_;
+
   // maps callback groups to nodes.
   WeakCallbackGroupsToNodesMap weak_groups_associated_with_executor_to_nodes_;
   // maps callback groups to nodes.

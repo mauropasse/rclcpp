@@ -36,6 +36,8 @@ EventsExecutorEntitiesCollector::EventsExecutorEntitiesCollector(
 
 EventsExecutorEntitiesCollector::~EventsExecutorEntitiesCollector()
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   // Disassociate all callback groups
   for (const auto & pair : weak_groups_associated_with_executor_to_nodes_) {
     auto group = pair.first.lock();
@@ -86,6 +88,7 @@ EventsExecutorEntitiesCollector::~EventsExecutorEntitiesCollector()
 void
 EventsExecutorEntitiesCollector::init()
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
   // Add the EventsExecutorEntitiesCollector shared_ptr to waitables map
   weak_waitables_map_.emplace(this, this->shared_from_this());
 }
@@ -99,6 +102,8 @@ EventsExecutorEntitiesCollector::add_node(
   if (has_executor.exchange(true)) {
     throw std::runtime_error("Node has already been added to an executor.");
   }
+
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
 
   // Get node callback groups, add them to weak_groups_to_nodes_associated_with_executor_
   for (const auto & weak_group : node_ptr->get_callback_groups()) {
@@ -128,6 +133,8 @@ EventsExecutorEntitiesCollector::add_callback_group(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr,
   WeakCallbackGroupsToNodesMap & weak_groups_to_nodes)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   // If the callback_group already has an executor, throw error
   std::atomic_bool & has_executor = group_ptr->get_associated_with_executor_atomic();
   if (has_executor.exchange(true)) {
@@ -165,9 +172,11 @@ EventsExecutorEntitiesCollector::add_callback_group(
 void
 EventsExecutorEntitiesCollector::execute(std::shared_ptr<void> & data)
 {
-  (void)data;
   // This function is called when the associated executor is notified that something changed.
   // We do not know if an entity has been added or remode so we have to rebuild everything.
+  (void)data;
+
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
 
   timers_manager_->clear();
 
@@ -337,6 +346,8 @@ EventsExecutorEntitiesCollector::remove_callback_group_from_map(
   rclcpp::CallbackGroup::SharedPtr group_ptr,
   WeakCallbackGroupsToNodesMap & weak_groups_to_nodes)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr;
   rclcpp::CallbackGroup::WeakPtr weak_group_ptr = group_ptr;
 
@@ -387,6 +398,9 @@ EventsExecutorEntitiesCollector::remove_node(
     throw std::runtime_error("Node needs to be associated with an executor.");
     return;
   }
+
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   // Check if this node is currently stored here
   auto node_it = weak_nodes_.begin();
   while (node_it != weak_nodes_.end()) {
@@ -450,6 +464,9 @@ std::vector<rclcpp::CallbackGroup::WeakPtr>
 EventsExecutorEntitiesCollector::get_all_callback_groups()
 {
   std::vector<rclcpp::CallbackGroup::WeakPtr> groups;
+
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   for (const auto & group_node_ptr : weak_groups_associated_with_executor_to_nodes_) {
     groups.push_back(group_node_ptr.first);
   }
@@ -463,6 +480,9 @@ std::vector<rclcpp::CallbackGroup::WeakPtr>
 EventsExecutorEntitiesCollector::get_manually_added_callback_groups()
 {
   std::vector<rclcpp::CallbackGroup::WeakPtr> groups;
+
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   for (const auto & group_node_ptr : weak_groups_associated_with_executor_to_nodes_) {
     groups.push_back(group_node_ptr.first);
   }
@@ -473,6 +493,9 @@ std::vector<rclcpp::CallbackGroup::WeakPtr>
 EventsExecutorEntitiesCollector::get_automatically_added_callback_groups_from_nodes()
 {
   std::vector<rclcpp::CallbackGroup::WeakPtr> groups;
+
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   for (const auto & group_node_ptr : weak_groups_to_nodes_associated_with_executor_) {
     groups.push_back(group_node_ptr.first);
   }
@@ -504,6 +527,8 @@ EventsExecutorEntitiesCollector::unset_guard_condition_callback(
 rclcpp::SubscriptionBase::SharedPtr
 EventsExecutorEntitiesCollector::get_subscription(const void * subscription_id)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   auto it = weak_subscriptions_map_.find(subscription_id);
 
   if (it != weak_subscriptions_map_.end()) {
@@ -523,6 +548,8 @@ EventsExecutorEntitiesCollector::get_subscription(const void * subscription_id)
 rclcpp::ClientBase::SharedPtr
 EventsExecutorEntitiesCollector::get_client(const void * client_id)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   auto it = weak_clients_map_.find(client_id);
 
   if (it != weak_clients_map_.end()) {
@@ -542,6 +569,8 @@ EventsExecutorEntitiesCollector::get_client(const void * client_id)
 rclcpp::ServiceBase::SharedPtr
 EventsExecutorEntitiesCollector::get_service(const void * service_id)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   auto it = weak_services_map_.find(service_id);
 
   if (it != weak_services_map_.end()) {
@@ -561,6 +590,8 @@ EventsExecutorEntitiesCollector::get_service(const void * service_id)
 rclcpp::Waitable::SharedPtr
 EventsExecutorEntitiesCollector::get_waitable(const void * waitable_id)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   auto it = weak_waitables_map_.find(waitable_id);
 
   if (it != weak_waitables_map_.end()) {
@@ -580,6 +611,8 @@ EventsExecutorEntitiesCollector::get_waitable(const void * waitable_id)
 void
 EventsExecutorEntitiesCollector::add_waitable(rclcpp::Waitable::SharedPtr waitable)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   weak_waitables_map_.emplace(waitable.get(), waitable);
 
   waitable->set_on_ready_callback(
