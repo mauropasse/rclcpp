@@ -88,7 +88,7 @@ public:
   {
     rclcpp::init(0, nullptr);
     entities_collector_ =
-      std::make_shared<rclcpp::executors::StaticExecutorEntitiesCollector>();
+      std::make_shared<rclcpp::executors::detail::StaticExecutorEntitiesCollector>();
   }
 
   void TearDown()
@@ -96,7 +96,7 @@ public:
     rclcpp::shutdown();
   }
 
-  rclcpp::executors::StaticExecutorEntitiesCollector::SharedPtr entities_collector_;
+  rclcpp::executors::detail::StaticExecutorEntitiesCollector::SharedPtr entities_collector_;
 };
 
 TEST_F(TestStaticExecutorEntitiesCollector, construct_destruct) {
