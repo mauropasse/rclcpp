@@ -211,6 +211,39 @@ ServerBase::is_ready(rcl_wait_set_t * wait_set)
 }
 
 std::shared_ptr<void>
+ServerBase::take_data_by_entity_id(int id)
+{
+  pimpl_->cancel_request_ready_ = false;
+
+  // Find the action server entity which is ready
+  switch (static_cast<EntityType>(id)) {
+    case EntityType::GoalService:
+      {
+        pimpl_->goal_request_ready_ = true;
+        break;
+      }
+
+    case EntityType::ResultService:
+      {
+        pimpl_->result_request_ready_ = true;
+        break;
+      }
+
+    case EntityType::CancelService:
+      {
+        pimpl_->cancel_request_ready_ = true;
+        break;
+      }
+
+    default:
+      throw std::runtime_error("ServerBase::take_data. Unknown entity type.");
+      break;
+  }
+
+  return take_data();
+}
+
+std::shared_ptr<void>
 ServerBase::take_data()
 {
   if (pimpl_->goal_request_ready_.load()) {

@@ -544,6 +544,49 @@ ClientBase::clear_on_ready_callback()
 }
 
 std::shared_ptr<void>
+ClientBase::take_data_by_entity_id(int id)
+{
+  // Find the action client entity which is ready
+  switch (static_cast<EntityType>(id)) {
+    case EntityType::GoalClient:
+      {
+        pimpl_->is_goal_response_ready = true;
+        break;
+      }
+
+    case EntityType::ResultClient:
+      {
+        pimpl_->is_result_response_ready = true;
+        break;
+      }
+
+    case EntityType::CancelClient:
+      {
+        pimpl_->is_cancel_response_ready = true;
+        break;
+      }
+
+    case EntityType::FeedbackSubscription:
+      {
+        pimpl_->is_feedback_ready = true;
+        break;
+      }
+
+    case EntityType::StatusSubscription:
+      {
+        pimpl_->is_status_ready = true;
+        break;
+      }
+
+    default:
+      throw std::runtime_error("ClientBase::take_data: Unknown entity type.");
+      break;
+  }
+
+  return take_data();
+}
+
+std::shared_ptr<void>
 ClientBase::take_data()
 {
   if (pimpl_->is_feedback_ready) {
