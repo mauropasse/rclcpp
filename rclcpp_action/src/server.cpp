@@ -55,9 +55,6 @@ public:
   // Do not declare this before clock_ as this depends on clock_(see #1526)
   std::shared_ptr<rcl_action_server_t> action_server_;
 
-  // Timer for expiring goals
-  rclcpp::TimerBase::SharedPtr timer_;
-
   size_t num_subscriptions_ = 0;
   size_t num_timers_ = 0;
   size_t num_clients_ = 0;
@@ -115,14 +112,16 @@ ServerBase::ServerBase(
   rcl_node_t * rcl_node = node_base->get_rcl_node_handle();
   rcl_clock_t * rcl_clock = pimpl_->clock_->get_clock_handle();
 
-  pimpl_->timer_ = create_timer(
+  timer_ = create_timer(
     node_base,
     node_timers,
-    pimpl_->clock_,
+    node_clock->get_clock(),
     rclcpp::Duration(std::chrono::nanoseconds(options.result_timeout.nanoseconds)),
     [this]() {
       std::lock_guard<std::recursive_mutex> lock(callbacks_mutex_);
+      std::cout << "if (timer_expired_callback_)" << std::endl;
       if (timer_expired_callback_) {
+        std::cout << "calling timer_expired_callback_" << std::endl;
         timer_expired_callback_(1);
       }
     });
@@ -134,7 +133,7 @@ ServerBase::ServerBase(
     type_support,
     name.c_str(),
     &options,
-    pimpl_->timer_->get_timer_handle().get());
+    timer_->get_timer_handle().get());
 
   if (RCL_RET_OK != ret) {
     rclcpp::exceptions::throw_from_rcl_error(ret);
@@ -594,6 +593,7 @@ ServerBase::execute_check_expired_goals()
   // Allocate expecting only one goal to expire at a time
   rcl_action_goal_info_t expired_goals[1];
   size_t num_expired = 1;
+  std::cout << "execute_check_expired_goals" << std::endl;
 
   // Loop in case more than 1 goal expired
   while (num_expired > 0u) {

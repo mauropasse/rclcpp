@@ -317,6 +317,8 @@ protected:
   std::recursive_mutex callbacks_mutex_;
   // Storage for std::function callbacks to keep them in scope
   std::unordered_map<EntityType, std::function<void(size_t)>> entity_type_to_on_ready_callback_;
+  // Timer for expiring goals
+  rclcpp::TimerBase::SharedPtr timer_;
   std::function<void(size_t)> timer_expired_callback_{nullptr};
 
   /// Set a callback to be called when the specified entity is ready
