@@ -109,7 +109,8 @@ TEST_F(TestClient, construction_with_free_function) {
       node->get_node_services_interface(),
       "service",
       rmw_qos_profile_services_default,
-      nullptr);
+      nullptr,
+      rclcpp::IntraProcessSetting::Disable);
   }
   {
     ASSERT_THROW(
@@ -120,7 +121,8 @@ TEST_F(TestClient, construction_with_free_function) {
         node->get_node_services_interface(),
         "invalid_?service",
         rmw_qos_profile_services_default,
-        nullptr);
+        nullptr,
+        rclcpp::IntraProcessSetting::Disable);
     }, rclcpp::exceptions::InvalidServiceNameError);
   }
 }
