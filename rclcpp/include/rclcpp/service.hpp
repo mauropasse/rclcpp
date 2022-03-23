@@ -170,16 +170,6 @@ public:
   rclcpp::QoS
   get_request_subscription_actual_qos() const;
 
-  using IntraProcessManagerWeakPtr =
-    std::weak_ptr<rclcpp::experimental::IntraProcessManager>;
-
-  /// Implementation detail.
-  RCLCPP_PUBLIC
-  void
-  setup_intra_process(
-    uint64_t intra_process_service_id,
-    IntraProcessManagerWeakPtr weak_ipm);
-
   /// Return the waitable for intra-process
   /**
    * \return the waitable sharedpointer for intra-process, or nullptr if intra-process is not setup.
@@ -288,6 +278,16 @@ protected:
   RCLCPP_PUBLIC
   void
   set_on_new_request_callback(rcl_event_callback_t callback, const void * user_data);
+
+  using IntraProcessManagerWeakPtr =
+    std::weak_ptr<rclcpp::experimental::IntraProcessManager>;
+
+  /// Implementation detail.
+  RCLCPP_PUBLIC
+  void
+  setup_intra_process(
+    uint64_t intra_process_service_id,
+    IntraProcessManagerWeakPtr weak_ipm);
 
   std::shared_ptr<rcl_node_t> node_handle_;
   std::shared_ptr<rclcpp::Context> context_;
