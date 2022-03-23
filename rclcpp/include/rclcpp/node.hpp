@@ -254,7 +254,7 @@ public:
     const std::string & service_name,
     const rmw_qos_profile_t & qos_profile = rmw_qos_profile_services_default,
     rclcpp::CallbackGroup::SharedPtr group = nullptr,
-    rclcpp::IntraProcessSetting ipc_setting = rclcpp::IntraProcessSetting::Disable);
+    rclcpp::IntraProcessSetting ipc_setting = rclcpp::IntraProcessSetting::NodeDefault);
 
   /// Create and return a Service.
   /**
@@ -272,7 +272,7 @@ public:
     CallbackT && callback,
     const rmw_qos_profile_t & qos_profile = rmw_qos_profile_services_default,
     rclcpp::CallbackGroup::SharedPtr group = nullptr,
-    rclcpp::IntraProcessSetting ipc_setting = rclcpp::IntraProcessSetting::Disable);
+    rclcpp::IntraProcessSetting ipc_setting = rclcpp::IntraProcessSetting::NodeDefault);
 
   /// Create and return a GenericPublisher.
   /**
