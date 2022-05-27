@@ -323,7 +323,7 @@ protected:
   // ---------------------------------------------------------
 
   // Intra-process action server data fields
-  bool use_intra_process_{false};
+  std::atomic<bool> use_intra_process_{false};
   IntraProcessManagerWeakPtr weak_ipm_;
   uint64_t ipc_action_server_id_;
 
@@ -459,7 +459,7 @@ public:
     GoalCallback handle_goal,
     CancelCallback handle_cancel,
     AcceptedCallback handle_accepted,
-    rclcpp::IntraProcessSetting ipc_setting)
+    rclcpp::IntraProcessSetting ipc_setting = rclcpp::IntraProcessSetting::NodeDefault)
   : ServerBase(
       node_base,
       node_clock,
@@ -471,77 +471,161 @@ public:
     handle_cancel_(handle_cancel),
     handle_accepted_(handle_accepted)
   {
-    // Do this in a function
-    // Setup intra process if requested. 
-    if (ipc_setting == rclcpp::IntraProcessSetting::Enable) {
-      use_intra_process_ = true;
-      // Create a ActionClientIntraProcess which will be given
-      // to the intra-process manager.
-      auto context = node_base->get_context();
-      ipc_action_server_ = std::make_shared<ActionServerIntraProcessT>(
-        context, name, options,
-        std::bind(&Server::ipc_execute_goal_request_received, this, std::placeholders::_1),
-        std::bind(&Server::ipc_execute_cancel_request_received, this, std::placeholders::_1),
-        std::bind(&Server::ipc_execute_result_request_received, this, std::placeholders::_1));
-
-      // Add it to the intra process manager.
-      using rclcpp::experimental::IntraProcessManager;
-      auto ipm = context->get_sub_context<IntraProcessManager>();
-      uint64_t ipc_action_client_id = ipm->add_intra_process_action_server(ipc_action_server_);
-      this->setup_intra_process(ipc_action_client_id, ipm);
+    // Setup intra process if requested.
+    if (rclcpp::detail::resolve_use_intra_process(ipc_setting, *node_base)) {
+      create_intra_process_action_server(node_base, name, options);
     }
   }
 
   virtual ~Server() = default;
 
 protected:
-  // -----------------------------------------------------
-  // API for communication between ServerBase and Server<>
 
-  /// \internal
-  std::pair<GoalResponse, std::shared_ptr<void>>
-  call_handle_goal_callback(GoalUUID & uuid, std::shared_ptr<void> message) override
+  // Intra-process version of execute_goal_request_received_
+  // Missing: Deep comparison of functionality betwen IPC on/off
+  void
+  ipc_execute_goal_request_received(GoalRequestDataPairSharedPtr data)
   {
-    auto request = std::static_pointer_cast<
-      typename ActionT::Impl::SendGoalService::Request>(message);
-    auto goal = std::shared_ptr<typename ActionT::Goal>(request, &request->goal);
-    GoalResponse user_response = handle_goal_(uuid, goal);
+    uint64_t intra_process_action_client_id = data->first;
+    GoalRequestSharedPtr goal_request = data->second;
 
-    auto ros_response = std::make_shared<typename ActionT::Impl::SendGoalService::Response>();
-    ros_response->accepted = GoalResponse::ACCEPT_AND_EXECUTE == user_response ||
-      GoalResponse::ACCEPT_AND_DEFER == user_response;
-    return std::make_pair(user_response, ros_response);
-  }
+    rcl_action_goal_info_t goal_info = rcl_action_get_zero_initialized_goal_info();
+    GoalUUID uuid = get_goal_id_from_goal_request(goal_request.get());
+    convert(uuid, &goal_info);
 
-  /// \internal
-  CancelResponse
-  call_handle_cancel_callback(const GoalUUID & uuid) override
-  {
-    std::shared_ptr<ServerGoalHandle<ActionT>> goal_handle;
-    {
-      std::lock_guard<std::mutex> lock(goal_handles_mutex_);
-      auto element = goal_handles_.find(uuid);
-      if (element != goal_handles_.end()) {
-        goal_handle = element->second.lock();
-      }
+    // Call user's callback, getting the user's response and a ros message to send back
+    auto response_pair = call_handle_goal_callback(uuid, goal_request);
+
+    using Response = typename ActionT::Impl::SendGoalService::Response;
+    auto goal_response = std::static_pointer_cast<Response>(response_pair.second);
+
+    auto ipm = weak_ipm_.lock();
+    if (!ipm) {
+      throw std::runtime_error(
+              "intra_process_action_send_goal_response called "
+              "after destruction of intra process manager");
     }
 
-    CancelResponse resp = CancelResponse::REJECT;
-    if (goal_handle) {
-      resp = handle_cancel_(goal_handle);
-      if (CancelResponse::ACCEPT == resp) {
-        try {
-          goal_handle->_cancel_goal();
-        } catch (const rclcpp::exceptions::RCLError & ex) {
-          RCLCPP_DEBUG(
-            rclcpp::get_logger("rclcpp_action"),
-            "Failed to cancel goal in call_handle_cancel_callback: %s", ex.what());
-          return CancelResponse::REJECT;
+    // Here we store the uuid of the goal and associate it with a client
+    // so we can retrieve it when response is ready, or when sending feedback
+    // since the feedback calls only provide the goal UUID
+    // Store an entry
+    ipm->store_intra_process_action_client_goal_uuid(
+      intra_process_action_client_id,
+      std::hash<GoalUUID>()(uuid));
+
+    ipm->intra_process_action_send_goal_response<ActionT>(
+      intra_process_action_client_id,
+      std::move(goal_response));
+
+    const auto user_response = response_pair.first;
+
+    // if goal is accepted, create a goal handle, and store it
+    if (GoalResponse::ACCEPT_AND_EXECUTE == user_response ||
+      GoalResponse::ACCEPT_AND_DEFER == user_response)
+    {
+      RCLCPP_DEBUG(
+        rclcpp::get_logger("rclcpp_action"), "Accepted goal %s", to_string(uuid).c_str());
+
+      // Hack: Get rcl goal handle for simplicity
+      auto handle = this->get_rcl_action_goal_handle(goal_info, uuid);
+
+      if (user_response == GoalResponse::ACCEPT_AND_EXECUTE) {
+        // Change status to executing
+        rcl_ret_t ret = rcl_action_update_goal_state(handle.get(), GOAL_EVENT_EXECUTE);
+        if (RCL_RET_OK != ret) {
+          rclcpp::exceptions::throw_from_rcl_error(ret);
         }
       }
+
+      // publish status since a goal's state has changed (was accepted or has begun execution)
+      // This part would be the IPC version of publish_status();
+      auto status_msg = this->get_status_array();
+
+      ipm->template intra_process_action_publish_status<ActionT>(
+        intra_process_action_client_id,
+        std::move(status_msg));
+
+      call_goal_accepted_callback(handle, uuid, std::static_pointer_cast<void>(goal_request));
     }
-    return resp;
   }
+
+
+  // Intra-process version of execute_cancel_request_received_
+  // Missing: Deep comparison of functionality betwen IPC on/off
+  void
+  ipc_execute_cancel_request_received(CancelRequestDataPairSharedPtr data)
+  {
+    uint64_t intra_process_action_client_id = data->first;
+    CancelRequestSharedPtr request = data->second;
+
+    auto ipm = weak_ipm_.lock();
+    if (!ipm) {
+      throw std::runtime_error(
+              "intra_process_action_send_cancel_response called "
+              " after destruction of intra process manager");
+    }
+
+    // Convert c++ message to C message
+    rcl_action_cancel_request_t cancel_request = rcl_action_get_zero_initialized_cancel_request();
+    convert(request->goal_info.goal_id.uuid, &cancel_request.goal_info);
+    cancel_request.goal_info.stamp.sec = request->goal_info.stamp.sec;
+    cancel_request.goal_info.stamp.nanosec = request->goal_info.stamp.nanosec;
+
+    auto response = process_cancel_request(cancel_request);
+
+    if (!response->goals_canceling.empty()) {
+      // at least one goal state changed, publish a new status message
+      auto status_msg = this->get_status_array();
+
+      ipm->template intra_process_action_publish_status<ActionT>(
+        intra_process_action_client_id,
+        std::move(status_msg));
+    }
+
+    ipm->intra_process_action_send_cancel_response<ActionT>(
+      intra_process_action_client_id,
+      std::move(response));
+  }
+
+
+  // Intra-process version of execute_result_request_received_
+  // See if we can call the server.cpp version of it without doing rcl_action_send_result_response
+  void
+  ipc_execute_result_request_received(ResultRequestDataPairSharedPtr data)
+  {
+    uint64_t intra_process_action_client_id = data->first;
+    ResultRequestSharedPtr result_request = data->second;
+
+    // check if the goal exists. How?
+    GoalUUID uuid = get_goal_id_from_result_request(result_request.get());
+    rcl_action_goal_info_t goal_info;
+    convert(uuid, &goal_info);
+
+    // This is a workaround, I have to find a place to have the
+    // result response stored somewhere.
+    std::shared_ptr<void> result_response = this->get_result_response(uuid);
+
+    // Check if a result is already available. If not, it will
+    // be sent when ready in the on_terminal_state callback below.
+    if (result_response) {
+      // Send the result now
+      auto ipm = weak_ipm_.lock();
+      if (!ipm) {
+        throw std::runtime_error(
+                "intra_process_action_send_result_response called "
+                "after destruction of intra process manager");
+      }
+
+      auto typed_response = std::static_pointer_cast<ResultResponse>(result_response);
+      ipm->intra_process_action_send_result_response<ActionT>(
+        intra_process_action_client_id,
+        std::move(typed_response));
+    }
+  }
+
+  // -----------------------------------------------------
+  // API for communication between ServerBase and Server<>
 
   /// \internal
   void
@@ -783,7 +867,63 @@ private:
 
   using ActionServerIntraProcessT = rclcpp::experimental::ActionServerIntraProcess<ActionT>;
   std::shared_ptr<ActionServerIntraProcessT> ipc_action_server_;
-  bool use_intra_process_{false};
+  std::atomic<bool> use_intra_process_{false};
+
+  void
+  create_intra_process_action_server(
+    rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_base,
+    const std::string & name,
+    const rcl_action_server_options_t & options)
+  {
+    // Setup intra process if requested.
+    auto keep_last = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
+    if (options.goal_service_qos.history != keep_last ||
+      options.result_service_qos.history != keep_last ||
+      options.cancel_service_qos.history != keep_last)
+    {
+      throw std::invalid_argument(
+              "intraprocess communication allowed only with keep last history qos policy");
+    }
+
+    if (options.goal_service_qos.depth == 0 ||
+      options.result_service_qos.depth == 0 ||
+      options.cancel_service_qos.depth == 0)
+    {
+      throw std::invalid_argument(
+              "intraprocess communication is not allowed with 0 depth qos policy");
+    }
+
+    auto durability_vol = RMW_QOS_POLICY_DURABILITY_VOLATILE;
+    if (options.goal_service_qos.durability != durability_vol ||
+      options.result_service_qos.durability != durability_vol ||
+      options.cancel_service_qos.durability != durability_vol)
+    {
+      throw std::invalid_argument(
+              "intraprocess communication allowed only with volatile durability");
+    }
+
+    rcl_action_server_depth_t qos_history;
+    qos_history.goal_service_depth = options.goal_service_qos.history;
+    qos_history.result_service_depth = options.result_service_qos.history;
+    qos_history.cancel_service_depth = options.cancel_service_qos.history;
+
+    // Mutex to proctec??
+    use_intra_process_ = true;
+    // Create a ActionClientIntraProcess which will be given
+    // to the intra-process manager.
+    auto context = node_base->get_context();
+    ipc_action_server_ = std::make_shared<ActionServerIntraProcessT>(
+      context, name, qos_history,
+      std::bind(&Server::ipc_execute_goal_request_received, this, std::placeholders::_1),
+      std::bind(&Server::ipc_execute_cancel_request_received, this, std::placeholders::_1),
+      std::bind(&Server::ipc_execute_result_request_received, this, std::placeholders::_1));
+
+    // Add it to the intra process manager.
+    using rclcpp::experimental::IntraProcessManager;
+    auto ipm = context->get_sub_context<IntraProcessManager>();
+    uint64_t ipc_action_client_id = ipm->add_intra_process_action_server(ipc_action_server_);
+    this->setup_intra_process(ipc_action_client_id, ipm);
+  }
 };
 }  // namespace rclcpp_action
 #endif  // RCLCPP_ACTION__SERVER_HPP_
