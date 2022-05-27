@@ -335,7 +335,7 @@ protected:
   std::unordered_map<EntityType, std::function<void(size_t)>> entity_type_to_on_ready_callback_;
 
   // Intra-process action client data fields
-  bool use_intra_process_{false};
+  std::atomic<bool> use_intra_process_{false};
   IntraProcessManagerWeakPtr weak_ipm_;
   uint64_t ipc_action_client_id_;
 
@@ -432,23 +432,8 @@ public:
       client_options)
   {
     // Setup intra process if requested.
-    // TODO: Encapsulate the inner of if into its own function
-    if (ipc_setting == rclcpp::IntraProcessSetting::Enable) {
-      // Create a ActionClientIntraProcess which will be given
-      // to the intra-process manager.
-      auto context = node_base->get_context();
-      ipc_action_client_ = std::make_shared<ActionClientIntraProcessT>(
-        context,
-        action_name,
-        client_options,
-        std::bind(&Client::handle_status_message, this, std::placeholders::_1),
-        std::bind(&Client::handle_feedback_message, this, std::placeholders::_1));
-
-      // Add it to the intra process manager.
-      using rclcpp::experimental::IntraProcessManager;
-      auto ipm = context->get_sub_context<IntraProcessManager>();
-      uint64_t ipc_action_client_id = ipm->add_intra_process_action_client(ipc_action_client_);
-      this->setup_intra_process(ipc_action_client_id, ipm);
+    if (rclcpp::detail::resolve_use_intra_process(ipc_setting, *node_base)) {
+      create_intra_process_action_client(node_base, action_name, options);
     }
   }
 
@@ -892,6 +877,68 @@ private:
         callback);
     }
     return future;
+  }
+
+  void
+  create_intra_process_action_client(
+    rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_base,
+    const std::string & action_name,
+    const rcl_action_client_options_t & options)
+  {
+    auto keep_last = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
+    if (options.goal_service_qos.history != keep_last ||
+      options.result_service_qos.history != keep_last ||
+      options.cancel_service_qos.history != keep_last ||
+      options.feedback_topic_qos.history != keep_last ||
+      options.status_topic_qos.history != keep_last)
+    {
+      throw std::invalid_argument(
+              "intraprocess communication allowed only with keep last history qos policy");
+    }
+
+    if (options.goal_service_qos.depth == 0 ||
+      options.result_service_qos.depth == 0 ||
+      options.cancel_service_qos.depth == 0 ||
+      options.feedback_topic_qos.depth == 0 ||
+      options.status_topic_qos.depth == 0)
+    {
+      throw std::invalid_argument(
+              "intraprocess communication is not allowed with 0 depth qos policy");
+    }
+
+    auto durability_vol = RMW_QOS_POLICY_DURABILITY_VOLATILE;
+    if (options.goal_service_qos.durability != durability_vol ||
+      options.result_service_qos.durability != durability_vol ||
+      options.cancel_service_qos.durability != durability_vol ||
+      options.feedback_topic_qos.durability != durability_vol ||
+      options.status_topic_qos.durability != durability_vol)
+    {
+      throw std::invalid_argument(
+              "intraprocess communication allowed only with volatile durability");
+    }
+
+    rcl_action_client_depth_t qos_history;
+    qos_history.goal_service_depth = options.goal_service_qos.history;
+    qos_history.result_service_depth = options.result_service_qos.history;
+    qos_history.cancel_service_depth = options.cancel_service_qos.history;
+    qos_history.feedback_topic_depth = options.feedback_topic_qos.history;
+    qos_history.status_topic_depth = options.status_topic_qos.history;
+
+    // Create a ActionClientIntraProcess which will be given
+    // to the intra-process manager.
+    auto context = node_base->get_context();
+    ipc_action_client_ = std::make_shared<ActionClientIntraProcessT>(
+      context,
+      action_name,
+      qos_history,
+      std::bind(&Client::handle_status_message, this, std::placeholders::_1),
+      std::bind(&Client::handle_feedback_message, this, std::placeholders::_1));
+
+    // Add it to the intra process manager.
+    using rclcpp::experimental::IntraProcessManager;
+    auto ipm = context->get_sub_context<IntraProcessManager>();
+    uint64_t ipc_action_client_id = ipm->add_intra_process_action_client(ipc_action_client_);
+    this->setup_intra_process(ipc_action_client_id, ipm);
   }
 
   std::map<GoalUUID, typename GoalHandle::WeakPtr> goal_handles_;

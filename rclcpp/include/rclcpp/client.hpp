@@ -391,7 +391,7 @@ protected:
 
   std::atomic<bool> in_use_by_wait_set_{false};
 
-  bool use_intra_process_{false};
+  std::atomic<bool> use_intra_process_{false};
   IntraProcessManagerWeakPtr weak_ipm_;
   uint64_t intra_process_client_id_;
 

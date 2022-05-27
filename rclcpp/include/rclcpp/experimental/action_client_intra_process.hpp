@@ -15,8 +15,6 @@
 #ifndef RCLCPP__EXPERIMENTAL__ACTION_CLIENT_INTRA_PROCESS_HPP_
 #define RCLCPP__EXPERIMENTAL__ACTION_CLIENT_INTRA_PROCESS_HPP_
 
-#include <rcl_action/action_client.h>
-
 #include <functional>
 #include <future>
 #include <memory>
@@ -29,6 +27,15 @@
 #include "rclcpp/experimental/buffers/intra_process_buffer.hpp"
 #include "rclcpp/experimental/create_intra_process_buffer.hpp"
 #include "rclcpp/experimental/action_client_intra_process_base.hpp"
+
+typedef struct rcl_action_client_depth_s
+{
+  size_t goal_service_depth;
+  size_t result_service_depth;
+  size_t cancel_service_depth;
+  size_t feedback_topic_depth;
+  size_t status_topic_depth;
+} rcl_action_client_depth_t;
 
 namespace rclcpp
 {
@@ -55,7 +62,7 @@ public:
   ActionClientIntraProcess(
     rclcpp::Context::SharedPtr context,
     const std::string & action_name,
-    const rcl_action_client_options_t & options,
+    const rcl_action_client_depth_t & qos_history,
     ResponseCallback goal_status_callback,
     ResponseCallback feedback_callback)
   : goal_status_callback_(goal_status_callback),
@@ -63,60 +70,28 @@ public:
     ActionClientIntraProcessBase(
       context,
       action_name,
-      QoS(options.goal_service_qos.depth))
+      QoS(qos_history.goal_service_depth))
   {
-    auto keep_last = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
-    if (options.goal_service_qos.history != keep_last ||
-      options.result_service_qos.history != keep_last ||
-      options.cancel_service_qos.history != keep_last ||
-      options.feedback_topic_qos.history != keep_last ||
-      options.status_topic_qos.history != keep_last)
-    {
-      throw std::invalid_argument(
-              "intraprocess communication allowed only with keep last history qos policy");
-    }
-
-    if (options.goal_service_qos.depth == 0 ||
-      options.result_service_qos.depth == 0 ||
-      options.cancel_service_qos.depth == 0 ||
-      options.feedback_topic_qos.depth == 0 ||
-      options.status_topic_qos.depth == 0)
-    {
-      throw std::invalid_argument(
-              "intraprocess communication is not allowed with 0 depth qos policy");
-    }
-
-    auto durability_vol = RMW_QOS_POLICY_DURABILITY_VOLATILE;
-    if (options.goal_service_qos.durability != durability_vol ||
-      options.result_service_qos.durability != durability_vol ||
-      options.cancel_service_qos.durability != durability_vol ||
-      options.feedback_topic_qos.durability != durability_vol ||
-      options.status_topic_qos.durability != durability_vol)
-    {
-      throw std::invalid_argument(
-              "intraprocess communication allowed only with volatile durability");
-    }
-
     // Create the intra-process buffers
     goal_response_buffer_ =
       rclcpp::experimental::create_service_intra_process_buffer<GoalResponseSharedPtr>(
-      QoS(options.goal_service_qos.depth));
+      QoS(qos_history.goal_service_depth));
 
     result_response_buffer_ =
       rclcpp::experimental::create_service_intra_process_buffer<ResultResponseSharedPtr>(
-      QoS(options.result_service_qos.depth));
+      QoS(qos_history.result_service_depth));
 
     status_buffer_ =
       rclcpp::experimental::create_service_intra_process_buffer<GoalStatusSharedPtr>(
-      QoS(options.status_topic_qos.depth));
+      QoS(qos_history.status_topic_depth));
 
     feedback_buffer_ =
       rclcpp::experimental::create_service_intra_process_buffer<FeedbackSharedPtr>(
-      QoS(options.feedback_topic_qos.depth));
+      QoS(qos_history.feedback_topic_depth));
 
     cancel_response_buffer_ =
       rclcpp::experimental::create_service_intra_process_buffer<CancelGoalSharedPtr>(
-      QoS(options.cancel_service_qos.depth));
+      QoS(qos_history.cancel_service_depth));
   }
 
   virtual ~ActionClientIntraProcess() = default;
