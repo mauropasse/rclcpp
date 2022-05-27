@@ -264,7 +264,7 @@ public:
    */
   RCLCPP_PUBLIC
   rclcpp::Waitable::SharedPtr
-  get_intra_process_waitable() const;
+  get_intra_process_waitable();
 
   /// Set a callback to be called when each new response is received.
   /**
@@ -391,6 +391,7 @@ protected:
 
   std::atomic<bool> in_use_by_wait_set_{false};
 
+  std::recursive_mutex ipc_mutex_;
   bool use_intra_process_{false};
   IntraProcessManagerWeakPtr weak_ipm_;
   uint64_t intra_process_client_id_;
@@ -830,6 +831,7 @@ protected:
   int64_t
   async_send_request_impl(SharedRequest request, CallbackInfoVariant value)
   {
+    std::lock_guard<std::recursive_mutex> lock(ipc_mutex_);
     if (use_intra_process_) {
       auto ipm = weak_ipm_.lock();
       if (!ipm) {
