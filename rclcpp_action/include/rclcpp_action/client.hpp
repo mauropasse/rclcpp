@@ -193,7 +193,7 @@ public:
    */
   RCLCPP_PUBLIC
   rclcpp::Waitable::SharedPtr
-  get_intra_process_waitable() const;
+  get_intra_process_waitable();
 
 protected:
   RCLCPP_ACTION_PUBLIC
@@ -335,7 +335,8 @@ protected:
   std::unordered_map<EntityType, std::function<void(size_t)>> entity_type_to_on_ready_callback_;
 
   // Intra-process action client data fields
-  std::atomic<bool> use_intra_process_{false};
+  std::recursive_mutex ipc_mutex_;
+  bool use_intra_process_{false};
   IntraProcessManagerWeakPtr weak_ipm_;
   uint64_t ipc_action_client_id_;
 
@@ -433,7 +434,7 @@ public:
   {
     // Setup intra process if requested.
     if (rclcpp::detail::resolve_use_intra_process(ipc_setting, *node_base)) {
-      create_intra_process_action_client(node_base, action_name, options);
+      create_intra_process_action_client(node_base, action_name, client_options);
     }
   }
 
@@ -498,6 +499,8 @@ public:
       };
 
     bool intra_process_send_done = false;
+
+    std::lock_guard<std::recursive_mutex> lock(ipc_mutex_);
 
     if (use_intra_process_) {
       auto ipm = weak_ipm_.lock();
@@ -796,6 +799,8 @@ private:
     try {
       bool intra_process_send_done = false;
 
+      std::lock_guard<std::recursive_mutex> lock(ipc_mutex_);
+
       if (use_intra_process_) {
         auto ipm = weak_ipm_.lock();
         if (!ipm) {
@@ -850,6 +855,8 @@ private:
       };
 
     bool intra_process_send_done = false;
+
+    std::lock_guard<std::recursive_mutex> lock(ipc_mutex_);
 
     if (use_intra_process_) {
       auto ipm = weak_ipm_.lock();

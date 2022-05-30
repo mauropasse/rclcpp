@@ -692,8 +692,10 @@ ClientBase::setup_intra_process(
 }
 
 rclcpp::Waitable::SharedPtr
-ClientBase::get_intra_process_waitable() const
+ClientBase::get_intra_process_waitable()
 {
+  std::lock_guard<std::recursive_mutex> lock(ipc_mutex_);
+
   // If not using intra process, shortcut to nullptr.
   if (!use_intra_process_) {
     return nullptr;
