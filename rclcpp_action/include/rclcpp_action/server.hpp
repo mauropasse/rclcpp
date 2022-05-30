@@ -197,7 +197,7 @@ public:
    */
   RCLCPP_PUBLIC
   rclcpp::Waitable::SharedPtr
-  get_intra_process_waitable() const;
+  get_intra_process_waitable();
 
   // End Waitables API
   // -----------------
@@ -323,7 +323,8 @@ protected:
   // ---------------------------------------------------------
 
   // Intra-process action server data fields
-  std::atomic<bool> use_intra_process_{false};
+  std::recursive_mutex ipc_mutex_;
+  bool use_intra_process_{false};
   IntraProcessManagerWeakPtr weak_ipm_;
   uint64_t ipc_action_server_id_;
 
@@ -645,6 +646,9 @@ protected:
         if (!shared_this) {
           return;
         }
+
+        std::lock_guard<std::recursive_mutex> ipc_lock(shared_this->ipc_mutex_);
+
         if (shared_this->use_intra_process_) {
           auto ipm = shared_this->weak_ipm_.lock();
           if (!ipm) {
@@ -696,6 +700,8 @@ protected:
           return;
         }
 
+        std::lock_guard<std::recursive_mutex> lock(shared_this->ipc_mutex_);
+
         // Publish a status message any time a goal handle changes state
         if (shared_this->use_intra_process_) {
           auto ipm = shared_this->weak_ipm_.lock();
@@ -732,6 +738,8 @@ protected:
         if (!shared_this) {
           return;
         }
+
+        std::lock_guard<std::recursive_mutex> lock(shared_this->ipc_mutex_);
 
         if (shared_this->use_intra_process_) {
           auto ipm = shared_this->weak_ipm_.lock();
@@ -867,7 +875,8 @@ private:
 
   using ActionServerIntraProcessT = rclcpp::experimental::ActionServerIntraProcess<ActionT>;
   std::shared_ptr<ActionServerIntraProcessT> ipc_action_server_;
-  std::atomic<bool> use_intra_process_{false};
+  std::recursive_mutex ipc_mutex_;
+  bool use_intra_process_{false};
 
   void
   create_intra_process_action_server(
@@ -907,7 +916,8 @@ private:
     qos_history.result_service_depth = options.result_service_qos.history;
     qos_history.cancel_service_depth = options.cancel_service_qos.history;
 
-    // Mutex to proctec??
+    std::lock_guard<std::recursive_mutex> lock(ipc_mutex_);
+
     use_intra_process_ = true;
     // Create a ActionClientIntraProcess which will be given
     // to the intra-process manager.
