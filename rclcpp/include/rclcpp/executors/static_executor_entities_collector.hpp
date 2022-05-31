@@ -307,7 +307,7 @@ private:
   bool
   has_node(
     const rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr,
-    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) const;
+    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes);
 
   /// Add all callback groups that can be automatically added by any executor
   /// and is not already associated with an executor from nodes
@@ -346,6 +346,9 @@ private:
 
   /// Bool to check if the entities collector has been initialized
   bool initialized_ = false;
+
+  std::recursive_mutex reentrant_mutex_;
+
 };
 
 }  // namespace executors

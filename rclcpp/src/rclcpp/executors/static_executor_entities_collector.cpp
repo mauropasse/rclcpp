@@ -114,6 +114,8 @@ StaticExecutorEntitiesCollector::execute(std::shared_ptr<void> & data)
 void
 StaticExecutorEntitiesCollector::fill_memory_strategy()
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   memory_strategy_->clear_handles();
   bool has_invalid_weak_groups_or_nodes =
     memory_strategy_->collect_entities(weak_groups_to_nodes_associated_with_executor_);
@@ -159,6 +161,8 @@ StaticExecutorEntitiesCollector::fill_memory_strategy()
 void
 StaticExecutorEntitiesCollector::fill_executable_list()
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   exec_list_.clear();
   add_callback_groups_from_nodes_associated_to_executor();
   fill_executable_list_from_map(weak_groups_associated_with_executor_to_nodes_);
@@ -171,6 +175,8 @@ StaticExecutorEntitiesCollector::fill_executable_list_from_map(
   const rclcpp::memory_strategy::MemoryStrategy::WeakCallbackGroupsToNodesMap &
   weak_groups_to_nodes)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   for (const auto & pair : weak_groups_to_nodes) {
     auto group = pair.first.lock();
     auto node = pair.second.lock();
@@ -218,6 +224,7 @@ StaticExecutorEntitiesCollector::fill_executable_list_from_map(
 void
 StaticExecutorEntitiesCollector::prepare_wait_set()
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
   // clear wait set
   if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
     throw std::runtime_error("Couldn't clear wait set");
@@ -239,6 +246,8 @@ StaticExecutorEntitiesCollector::prepare_wait_set()
 void
 StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeout)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   // clear wait set (memset to '0' all wait_set_ entities
   // but keeps the wait_set_ number of entities)
   if (rcl_wait_set_clear(p_wait_set_) != RCL_RET_OK) {
@@ -265,6 +274,8 @@ StaticExecutorEntitiesCollector::refresh_wait_set(std::chrono::nanoseconds timeo
 bool
 StaticExecutorEntitiesCollector::add_to_wait_set(rcl_wait_set_t * wait_set)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   // Add waitable guard conditions (one for each registered node) into the wait set.
   for (const auto & pair : weak_nodes_to_guard_conditions_) {
     auto & gc = pair.second;
@@ -275,6 +286,8 @@ StaticExecutorEntitiesCollector::add_to_wait_set(rcl_wait_set_t * wait_set)
 
 size_t StaticExecutorEntitiesCollector::get_number_of_ready_guard_conditions()
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   return weak_nodes_to_guard_conditions_.size();
 }
 
@@ -282,6 +295,8 @@ bool
 StaticExecutorEntitiesCollector::add_node(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   bool is_new_node = false;
   // If the node already has an executor
   std::atomic_bool & has_executor = node_ptr->get_associated_with_executor_atomic();
@@ -310,6 +325,8 @@ StaticExecutorEntitiesCollector::add_callback_group(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr,
   rclcpp::memory_strategy::MemoryStrategy::WeakCallbackGroupsToNodesMap & weak_groups_to_nodes)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   // If the callback_group already has an executor
   std::atomic_bool & has_executor = group_ptr->get_associated_with_executor_atomic();
   if (has_executor.exchange(true)) {
@@ -354,6 +371,8 @@ StaticExecutorEntitiesCollector::remove_callback_group_from_map(
   rclcpp::CallbackGroup::SharedPtr group_ptr,
   rclcpp::memory_strategy::MemoryStrategy::WeakCallbackGroupsToNodesMap & weak_groups_to_nodes)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr;
   rclcpp::CallbackGroup::WeakPtr weak_group_ptr = group_ptr;
   auto iter = weak_groups_to_nodes.find(weak_group_ptr);
@@ -381,6 +400,8 @@ bool
 StaticExecutorEntitiesCollector::remove_node(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   if (!node_ptr->get_associated_with_executor_atomic().load()) {
     return false;
   }
@@ -426,6 +447,8 @@ StaticExecutorEntitiesCollector::remove_node(
 bool
 StaticExecutorEntitiesCollector::is_ready(rcl_wait_set_t * p_wait_set)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   // Check wait_set guard_conditions for added/removed entities to/from a node
   for (size_t i = 0; i < p_wait_set->size_of_guard_conditions; ++i) {
     if (p_wait_set->guard_conditions[i] != NULL) {
@@ -450,8 +473,10 @@ bool
 StaticExecutorEntitiesCollector::has_node(
   const rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr,
   const rclcpp::memory_strategy::MemoryStrategy::WeakCallbackGroupsToNodesMap &
-  weak_groups_to_nodes) const
+  weak_groups_to_nodes)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   return std::find_if(
     weak_groups_to_nodes.begin(),
     weak_groups_to_nodes.end(),
@@ -464,6 +489,8 @@ StaticExecutorEntitiesCollector::has_node(
 void
 StaticExecutorEntitiesCollector::add_callback_groups_from_nodes_associated_to_executor()
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   for (const auto & weak_node : weak_nodes_) {
     auto node = weak_node.lock();
     if (node) {
@@ -489,6 +516,8 @@ StaticExecutorEntitiesCollector::add_callback_groups_from_nodes_associated_to_ex
 std::vector<rclcpp::CallbackGroup::WeakPtr>
 StaticExecutorEntitiesCollector::get_all_callback_groups()
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   std::vector<rclcpp::CallbackGroup::WeakPtr> groups;
   for (const auto & group_node_ptr : weak_groups_associated_with_executor_to_nodes_) {
     groups.push_back(group_node_ptr.first);
@@ -502,6 +531,8 @@ StaticExecutorEntitiesCollector::get_all_callback_groups()
 std::vector<rclcpp::CallbackGroup::WeakPtr>
 StaticExecutorEntitiesCollector::get_manually_added_callback_groups()
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   std::vector<rclcpp::CallbackGroup::WeakPtr> groups;
   for (const auto & group_node_ptr : weak_groups_associated_with_executor_to_nodes_) {
     groups.push_back(group_node_ptr.first);
@@ -512,6 +543,8 @@ StaticExecutorEntitiesCollector::get_manually_added_callback_groups()
 std::vector<rclcpp::CallbackGroup::WeakPtr>
 StaticExecutorEntitiesCollector::get_automatically_added_callback_groups_from_nodes()
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   std::vector<rclcpp::CallbackGroup::WeakPtr> groups;
   for (const auto & group_node_ptr : weak_groups_to_nodes_associated_with_executor_) {
     groups.push_back(group_node_ptr.first);
