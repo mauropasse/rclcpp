@@ -51,13 +51,13 @@ public:
 
   virtual bool collect_entities(const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) = 0;
 
-  virtual size_t number_of_ready_subscriptions() const = 0;
-  virtual size_t number_of_ready_services() const = 0;
-  virtual size_t number_of_ready_clients() const = 0;
-  virtual size_t number_of_ready_events() const = 0;
-  virtual size_t number_of_ready_timers() const = 0;
-  virtual size_t number_of_guard_conditions() const = 0;
-  virtual size_t number_of_waitables() const = 0;
+  virtual size_t number_of_ready_subscriptions() = 0;
+  virtual size_t number_of_ready_services() = 0;
+  virtual size_t number_of_ready_clients() = 0;
+  virtual size_t number_of_ready_events() = 0;
+  virtual size_t number_of_ready_timers() = 0;
+  virtual size_t number_of_guard_conditions() = 0;
+  virtual size_t number_of_waitables() = 0;
 
   virtual void add_waitable_handle(const rclcpp::Waitable::SharedPtr & waitable) = 0;
   virtual bool add_handles_to_wait_set(rcl_wait_set_t * wait_set) = 0;

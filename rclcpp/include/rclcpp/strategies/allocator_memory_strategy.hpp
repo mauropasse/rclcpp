@@ -54,36 +54,43 @@ public:
 
   explicit AllocatorMemoryStrategy(std::shared_ptr<Alloc> allocator)
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     allocator_ = std::make_shared<VoidAlloc>(*allocator.get());
   }
 
   AllocatorMemoryStrategy()
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     allocator_ = std::make_shared<VoidAlloc>();
   }
 
   void add_guard_condition(const rclcpp::GuardCondition & guard_condition) override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     add_guard_condition(&guard_condition);
   }
 
   void add_guard_condition(const rclcpp::GuardCondition::SharedPtr guard_condition) override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     add_guard_condition(guard_condition.get());
   }
 
   void remove_guard_condition(const rclcpp::GuardCondition & guard_condition) override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     remove_guard_condition(&guard_condition);
   }
 
   void remove_guard_condition(const rclcpp::GuardCondition::SharedPtr guard_condition) override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     remove_guard_condition(guard_condition.get());
   }
 
   void clear_handles() override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     subscription_handles_.clear();
     service_handles_.clear();
     client_handles_.clear();
@@ -93,6 +100,7 @@ public:
 
   void remove_null_handles(rcl_wait_set_t * wait_set) override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     // TODO(jacobperron): Check if wait set sizes are what we expect them to be?
     //                    e.g. wait_set->size_of_clients == client_handles_.size()
 
@@ -153,6 +161,7 @@ public:
 
   bool collect_entities(const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     bool has_invalid_weak_groups_or_nodes = false;
     for (const auto & pair : weak_groups_to_nodes) {
       auto group = pair.first.lock();
@@ -196,6 +205,7 @@ public:
 
   void add_waitable_handle(const rclcpp::Waitable::SharedPtr & waitable) override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     if (nullptr == waitable) {
       throw std::runtime_error("waitable object unexpectedly nullptr");
     }
@@ -204,6 +214,7 @@ public:
 
   bool add_handles_to_wait_set(rcl_wait_set_t * wait_set) override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     for (auto subscription : subscription_handles_) {
       if (rcl_wait_set_add_subscription(wait_set, subscription.get(), NULL) != RCL_RET_OK) {
         RCUTILS_LOG_ERROR_NAMED(
@@ -260,6 +271,7 @@ public:
     rclcpp::AnyExecutable & any_exec,
     const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     auto it = subscription_handles_.begin();
     while (it != subscription_handles_.end()) {
       auto subscription = get_subscription_by_handle(*it, weak_groups_to_nodes);
@@ -295,6 +307,7 @@ public:
     rclcpp::AnyExecutable & any_exec,
     const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     auto it = service_handles_.begin();
     while (it != service_handles_.end()) {
       auto service = get_service_by_handle(*it, weak_groups_to_nodes);
@@ -330,6 +343,7 @@ public:
     rclcpp::AnyExecutable & any_exec,
     const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     auto it = client_handles_.begin();
     while (it != client_handles_.end()) {
       auto client = get_client_by_handle(*it, weak_groups_to_nodes);
@@ -365,6 +379,7 @@ public:
     rclcpp::AnyExecutable & any_exec,
     const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     auto it = timer_handles_.begin();
     while (it != timer_handles_.end()) {
       auto timer = get_timer_by_handle(*it, weak_groups_to_nodes);
@@ -400,6 +415,7 @@ public:
     rclcpp::AnyExecutable & any_exec,
     const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     auto it = waitable_handles_.begin();
     while (it != waitable_handles_.end()) {
       auto waitable = *it;
@@ -432,11 +448,13 @@ public:
 
   rcl_allocator_t get_allocator() override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     return rclcpp::allocator::get_rcl_allocator<void *, VoidAlloc>(*allocator_.get());
   }
 
-  size_t number_of_ready_subscriptions() const override
+  size_t number_of_ready_subscriptions() override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     size_t number_of_subscriptions = subscription_handles_.size();
     for (auto waitable : waitable_handles_) {
       number_of_subscriptions += waitable->get_number_of_ready_subscriptions();
@@ -444,8 +462,9 @@ public:
     return number_of_subscriptions;
   }
 
-  size_t number_of_ready_services() const override
+  size_t number_of_ready_services() override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     size_t number_of_services = service_handles_.size();
     for (auto waitable : waitable_handles_) {
       number_of_services += waitable->get_number_of_ready_services();
@@ -453,8 +472,9 @@ public:
     return number_of_services;
   }
 
-  size_t number_of_ready_events() const override
+  size_t number_of_ready_events() override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     size_t number_of_events = 0;
     for (auto waitable : waitable_handles_) {
       number_of_events += waitable->get_number_of_ready_events();
@@ -462,8 +482,9 @@ public:
     return number_of_events;
   }
 
-  size_t number_of_ready_clients() const override
+  size_t number_of_ready_clients() override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     size_t number_of_clients = client_handles_.size();
     for (auto waitable : waitable_handles_) {
       number_of_clients += waitable->get_number_of_ready_clients();
@@ -471,8 +492,9 @@ public:
     return number_of_clients;
   }
 
-  size_t number_of_guard_conditions() const override
+  size_t number_of_guard_conditions() override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     size_t number_of_guard_conditions = guard_conditions_.size();
     for (auto waitable : waitable_handles_) {
       number_of_guard_conditions += waitable->get_number_of_ready_guard_conditions();
@@ -480,8 +502,9 @@ public:
     return number_of_guard_conditions;
   }
 
-  size_t number_of_ready_timers() const override
+  size_t number_of_ready_timers() override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     size_t number_of_timers = timer_handles_.size();
     for (auto waitable : waitable_handles_) {
       number_of_timers += waitable->get_number_of_ready_timers();
@@ -489,8 +512,9 @@ public:
     return number_of_timers;
   }
 
-  size_t number_of_waitables() const override
+  size_t number_of_waitables() override
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     return waitable_handles_.size();
   }
 
@@ -528,6 +552,8 @@ private:
   VectorRebind<std::shared_ptr<Waitable>> waitable_handles_;
 
   std::shared_ptr<VoidAlloc> allocator_;
+
+  std::recursive_mutex reentrant_mutex_;
 };
 
 }  // namespace allocator_memory_strategy
