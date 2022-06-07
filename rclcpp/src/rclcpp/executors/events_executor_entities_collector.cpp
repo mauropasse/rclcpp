@@ -172,6 +172,8 @@ EventsExecutorEntitiesCollector::add_callback_group(
 void
 EventsExecutorEntitiesCollector::execute(std::shared_ptr<void> & data)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   // This function is called when the associated executor is notified that something changed.
   // We do not know if an entity has been added or remode so we have to rebuild everything.
   (void)data;
@@ -191,6 +193,8 @@ EventsExecutorEntitiesCollector::execute(std::shared_ptr<void> & data)
 void
 EventsExecutorEntitiesCollector::add_callback_groups_from_nodes_associated_to_executor()
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   // Register new callback groups added to a node while already spinning
   for (const auto & weak_node : weak_nodes_) {
     auto node = weak_node.lock();
@@ -218,6 +222,8 @@ void
 EventsExecutorEntitiesCollector::set_entities_event_callbacks_from_map(
   const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   for (const auto & pair : weak_groups_to_nodes) {
     auto group = pair.first.lock();
     auto node = pair.second.lock();
@@ -232,6 +238,8 @@ void
 EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
   rclcpp::CallbackGroup::SharedPtr group)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   // Timers are handled by the timers manager
   group->find_timer_ptrs_if(
     [this](const rclcpp::TimerBase::SharedPtr & timer) {
@@ -288,6 +296,8 @@ void
 EventsExecutorEntitiesCollector::unset_callback_group_entities_callbacks(
   rclcpp::CallbackGroup::SharedPtr group)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   // Timers are handled by the timers manager
   group->find_timer_ptrs_if(
     [this](const rclcpp::TimerBase::SharedPtr & timer) {
@@ -336,6 +346,8 @@ void
 EventsExecutorEntitiesCollector::remove_callback_group(
   rclcpp::CallbackGroup::SharedPtr group_ptr)
 {
+  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
   this->remove_callback_group_from_map(
     group_ptr,
     weak_groups_associated_with_executor_to_nodes_);
