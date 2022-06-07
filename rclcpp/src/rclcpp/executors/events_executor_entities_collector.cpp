@@ -178,8 +178,6 @@ EventsExecutorEntitiesCollector::execute(std::shared_ptr<void> & data)
   // We do not know if an entity has been added or remode so we have to rebuild everything.
   (void)data;
 
-  std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
-
   timers_manager_->clear();
 
   // If a registered node has a new callback group, register the group.
