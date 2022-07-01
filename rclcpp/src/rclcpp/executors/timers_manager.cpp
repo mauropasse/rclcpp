@@ -220,8 +220,10 @@ void TimersManager::run_timers()
     if (time_to_sleep > std::chrono::nanoseconds::zero()) {
       if (time_to_sleep != std::chrono::nanoseconds::max()) {
         // Wait until timeout or notification that timers have been updated
-        uint64_t timeout = time_to_sleep.count();
-        timers_cv_.wait(timers_mutex_, timeout);
+        uint64_t timetosleep_ns = time_to_sleep.count(); // in nano-seconds
+        bool ok = timers_cv_.wait_for(timers_mutex_, timetosleep_ns);
+        assert(ok);
+        (void)ok;
       } else {
         // Wait until notification that timers have been updated
         while (!timers_updated_) {

@@ -125,7 +125,7 @@ public:
     pthread_cond_wait(&this->m_cond, &mutex.native_handle());
   }
 
-  bool wait(RecursiveMutex& mutex, uint64_t nanoseconds)
+  bool wait_for(RecursiveMutex& mutex, const uint64_t duration_nanoseconds)
   {
     // Determine the absolute system time when timeout occurs.
     timespec start {};
@@ -134,8 +134,8 @@ public:
     static constexpr uint64_t NS_PER_SECONDS = 1000000000;
 
     timespec wait {};
-    wait.tv_nsec = nanoseconds % NS_PER_SECONDS;
-    wait.tv_sec = nanoseconds / NS_PER_SECONDS;
+    wait.tv_nsec = duration_nanoseconds % NS_PER_SECONDS;
+    wait.tv_sec = duration_nanoseconds / NS_PER_SECONDS;
 
     timespec timeout {};
     const uint64_t nanoseconds_sum = start.tv_nsec + wait.tv_nsec;
