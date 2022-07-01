@@ -41,7 +41,7 @@ void TimersManager::add_timer(rclcpp::TimerBase::SharedPtr timer)
 
   bool added = false;
   {
-    std::unique_lock<std::mutex> lock(timers_mutex_);
+    rclcpp::Lock lock(timers_mutex_);
     added = weak_timers_heap_.add_timer(timer);
     timers_updated_ = timers_updated_ || added;
   }
@@ -72,7 +72,7 @@ void TimersManager::stop()
 
   // Notify the timers manager thread to wake up
   {
-    std::unique_lock<std::mutex> lock(timers_mutex_);
+    rclcpp::Lock lock(timers_mutex_);
     timers_updated_ = true;
   }
   timers_cv_.notify_one();
@@ -91,7 +91,7 @@ std::chrono::nanoseconds TimersManager::get_head_timeout()
             "TimersManager::get_head_timeout() can't be used while timers thread is running");
   }
 
-  std::unique_lock<std::mutex> lock(timers_mutex_);
+  rclcpp::Lock lock(timers_mutex_);
   return this->get_head_timeout_unsafe();
 }
 
@@ -103,7 +103,7 @@ size_t TimersManager::get_number_ready_timers()
             "TimersManager::get_number_ready_timers() can't be used while timers thread is running");
   }
 
-  std::unique_lock<std::mutex> lock(timers_mutex_);
+  rclcpp::Lock lock(timers_mutex_);
   TimersHeap locked_heap = weak_timers_heap_.validate_and_lock();
   return locked_heap.get_number_ready_timers();
 }
@@ -116,7 +116,7 @@ void TimersManager::execute_ready_timers()
             "TimersManager::execute_ready_timers() can't be used while timers thread is running");
   }
 
-  std::unique_lock<std::mutex> lock(timers_mutex_);
+  rclcpp::Lock lock(timers_mutex_);
   this->execute_ready_timers_unsafe();
 }
 
@@ -128,7 +128,7 @@ bool TimersManager::execute_head_timer()
             "TimersManager::execute_head_timer() can't be used while timers thread is running");
   }
 
-  std::unique_lock<std::mutex> lock(timers_mutex_);
+  rclcpp::Lock lock(timers_mutex_);
 
   TimersHeap timers_heap = weak_timers_heap_.validate_and_lock();
 
@@ -212,7 +212,7 @@ void TimersManager::run_timers()
 {
   while (rclcpp::ok(context_) && running_) {
     // Lock mutex
-    std::unique_lock<std::mutex> lock(timers_mutex_);
+    rclcpp::Lock lock(timers_mutex_);
 
     std::chrono::nanoseconds time_to_sleep = get_head_timeout_unsafe();
 
@@ -220,10 +220,13 @@ void TimersManager::run_timers()
     if (time_to_sleep > std::chrono::nanoseconds::zero()) {
       if (time_to_sleep != std::chrono::nanoseconds::max()) {
         // Wait until timeout or notification that timers have been updated
-        timers_cv_.wait_for(lock, time_to_sleep, [this]() {return timers_updated_;});
+        uint64_t timeout = time_to_sleep.count();
+        timers_cv_.wait(timers_mutex_, timeout);
       } else {
         // Wait until notification that timers have been updated
-        timers_cv_.wait(lock, [this]() {return timers_updated_;});  
+        while (!timers_updated_) {
+            timers_cv_.wait(timers_mutex_);
+        }
       }
     }
 
@@ -243,7 +246,7 @@ void TimersManager::clear()
 {
   {
     // Lock mutex and then clear all data structures
-    std::unique_lock<std::mutex> lock(timers_mutex_);
+    rclcpp::Lock lock(timers_mutex_);
     weak_timers_heap_.clear();
 
     timers_updated_ = true;
@@ -257,7 +260,7 @@ void TimersManager::remove_timer(TimerPtr timer)
 {
   bool removed = false;
   {
-    std::unique_lock<std::mutex> lock(timers_mutex_);
+    rclcpp::Lock lock(timers_mutex_);
     removed = weak_timers_heap_.remove_timer(timer);
 
     timers_updated_ = timers_updated_ || removed;
