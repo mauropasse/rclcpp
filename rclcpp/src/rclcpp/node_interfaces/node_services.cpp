@@ -51,7 +51,7 @@ NodeServices::add_service(
   auto & node_gc = node_base_->get_notify_guard_condition();
   try {
     node_gc.trigger();
-    if (auto callback_group_gc = group->get_notify_guard_condition().lock()) {
+    if (auto callback_group_gc = group->get_notify_guard_condition()) {
       callback_group_gc->trigger();
     }
   } catch (const rclcpp::exceptions::RCLError & ex) {
@@ -86,7 +86,7 @@ NodeServices::add_client(
   auto & node_gc = node_base_->get_notify_guard_condition();
   try {
     node_gc.trigger();
-    if (auto callback_group_gc = group->get_notify_guard_condition().lock()) {
+    if (auto callback_group_gc = group->get_notify_guard_condition()) {
       callback_group_gc->trigger();
     }
   } catch (const rclcpp::exceptions::RCLError & ex) {
