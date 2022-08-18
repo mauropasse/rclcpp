@@ -145,7 +145,7 @@ TimerBase::exchange_in_use_by_wait_set_state(bool in_use_state)
 }
 
 void
-TimerBase::set_on_reset_callback(std::function<void()> callback)
+TimerBase::set_on_reset_callback(std::function<void(size_t)> callback)
 {
   if (!callback) {
     throw std::invalid_argument(
@@ -156,8 +156,7 @@ TimerBase::set_on_reset_callback(std::function<void()> callback)
   auto new_callback =
     [callback, this](size_t reset_calls) {
       try {
-        (void)reset_calls;
-        callback();
+        callback(reset_calls);
       } catch (const std::exception & exception) {
         RCLCPP_ERROR_STREAM(
           rclcpp::get_logger("rclcpp"),

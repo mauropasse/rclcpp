@@ -166,7 +166,7 @@ public:
    * \param[in] callback functor to be called whenever timer is reset
    */
   void
-  set_on_reset_callback(std::function<void()> callback);
+  set_on_reset_callback(std::function<void(size_t)> callback);
 
   /// Unset the callback registered for reset timer
   void
