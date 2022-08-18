@@ -156,6 +156,7 @@ public:
    * spin it off to another thread.
    *
    * Calling it again will override any previously set callback.
+   * An exception will be thrown if the callback is not callable.
    *
    * This function is thread-safe.
    *
