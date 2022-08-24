@@ -62,7 +62,7 @@ class ClientBase : public rclcpp::Waitable
 {
 public:
   RCLCPP_ACTION_PUBLIC
-  virtual ~ClientBase();
+  virtual ~ClientBase() = default;
 
   enum class EntityType
   {

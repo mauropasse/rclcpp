@@ -79,7 +79,7 @@ public:
   };
 
   RCLCPP_ACTION_PUBLIC
-  virtual ~ServerBase();
+  virtual ~ServerBase() = default;
 
   // -------------
   // Waitables API
