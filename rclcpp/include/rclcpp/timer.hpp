@@ -63,7 +63,7 @@ public:
   /// TimerBase destructor
   RCLCPP_PUBLIC
   virtual
-  ~TimerBase();
+  ~TimerBase() = default;
 
   /// Cancel the timer.
   /**
