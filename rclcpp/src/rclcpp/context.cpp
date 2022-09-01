@@ -209,7 +209,7 @@ Context::init(
   }
   rcl_context_.reset(context, __delete_context);
 
-  if (init_options.auto_initialize_logging()) {
+  if (false) {
     logging_mutex_ = get_global_logging_mutex();
     std::lock_guard<std::recursive_mutex> guard(*logging_mutex_);
     size_t & count = get_logging_reference_count();
