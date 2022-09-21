@@ -161,6 +161,7 @@ public:
     auto new_callback =
       [callback, this](size_t number_of_events) {
         try {
+          std::cout << "calling callback" << std::endl;
           callback(number_of_events, static_cast<int>(EntityType::Event));
         } catch (const std::exception & exception) {
           RCLCPP_ERROR_STREAM(
@@ -179,6 +180,7 @@ public:
         }
       };
 
+
     std::lock_guard<std::recursive_mutex> lock(callback_mutex_);
 
     // Set it temporarily to the new callback, while we replace the old one.
@@ -195,6 +197,8 @@ public:
     set_on_new_event_callback(
       rclcpp::detail::cpp_callback_trampoline<const void *, size_t>,
       static_cast<const void *>(&on_new_event_callback_));
+
+    (void) new_callback;
   }
 
   /// Unset the callback registered for new events, if any.
