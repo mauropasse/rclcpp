@@ -15,7 +15,9 @@
 #ifndef RCLCPP__NODE_INTERFACES__NODE_BASE_HPP_
 #define RCLCPP__NODE_INTERFACES__NODE_BASE_HPP_
 
+#include <atomic>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
