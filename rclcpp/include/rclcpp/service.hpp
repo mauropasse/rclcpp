@@ -302,7 +302,6 @@ protected:
   // would point briefly to a destroyed function.
   std::function<void(size_t)> on_new_request_callback_{nullptr};
   // Declare service_handle_ after callback
-
   std::shared_ptr<rcl_service_t> service_handle_;
   bool owns_rcl_handle_ = true;
 
