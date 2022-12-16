@@ -322,7 +322,7 @@ public:
               "is not callable.");
     }
 
-    auto new_callback =
+    std::function<void(size_t)> new_callback =
       [callback, this](size_t number_of_messages) {
         try {
           callback(number_of_messages);
@@ -348,7 +348,7 @@ public:
     // This two-step setting, prevents a gap where the old std::function has
     // been replaced but the middleware hasn't been told about the new one yet.
     set_on_new_message_callback(
-      rclcpp::detail::cpp_callback_trampoline<const void *, size_t>,
+      rclcpp::detail::cpp_callback_trampoline<decltype(new_callback), const void *, size_t>,
       static_cast<const void *>(&new_callback));
 
     // Store the std::function to keep it in scope, also overwrites the existing one.
@@ -356,7 +356,8 @@ public:
 
     // Set it again, now using the permanent storage.
     set_on_new_message_callback(
-      rclcpp::detail::cpp_callback_trampoline<const void *, size_t>,
+      rclcpp::detail::cpp_callback_trampoline<
+        decltype(on_new_message_callback_), const void *, size_t>,
       static_cast<const void *>(&on_new_message_callback_));
   }
 
