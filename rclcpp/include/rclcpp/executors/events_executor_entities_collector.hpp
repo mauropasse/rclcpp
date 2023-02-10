@@ -253,6 +253,14 @@ private:
 
   std::recursive_mutex reentrant_mutex_;
 
+  typedef std::map<rclcpp::CallbackGroup::WeakPtr,
+    rclcpp::GuardCondition *,
+    std::owner_less<rclcpp::CallbackGroup::WeakPtr>>
+  WeakCallbackGroupsToGuardConditionsMap;
+
+  /// maps callback groups to guard conditions
+  WeakCallbackGroupsToGuardConditionsMap weak_groups_to_guard_conditions_;
+
   // maps callback groups to nodes.
   WeakCallbackGroupsToNodesMap weak_groups_associated_with_executor_to_nodes_;
   // maps callback groups to nodes.
