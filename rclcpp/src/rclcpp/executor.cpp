@@ -310,7 +310,7 @@ Executor::remove_callback_group_from_map(
   {
     auto iter = weak_groups_to_guard_conditions_.find(weak_group_ptr);
     if (iter != weak_groups_to_guard_conditions_.end()) {
-      memory_strategy_->remove_guard_condition(iter->second);
+      memory_strategy_->remove_guard_condition(*(iter->second));
     }
     weak_groups_to_guard_conditions_.erase(weak_group_ptr);
 
@@ -384,7 +384,7 @@ Executor::remove_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node
     }
   }
 
-  memory_strategy_->remove_guard_condition(&node_ptr->get_notify_guard_condition());
+  memory_strategy_->remove_guard_condition(node_ptr->get_notify_guard_condition());
   weak_nodes_to_guard_conditions_.erase(node_ptr);
 
   std::atomic_bool & has_executor = node_ptr->get_associated_with_executor_atomic();
@@ -702,7 +702,7 @@ Executor::wait_for_work(std::chrono::nanoseconds timeout)
           if (node_guard_pair != weak_nodes_to_guard_conditions_.end()) {
             auto guard_condition = node_guard_pair->second;
             weak_nodes_to_guard_conditions_.erase(weak_node_ptr);
-            memory_strategy_->remove_guard_condition(guard_condition);
+            memory_strategy_->remove_guard_condition(*guard_condition);
           }
         }
       }
