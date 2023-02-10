@@ -174,8 +174,6 @@ EventsExecutorEntitiesCollector::add_callback_group(
     weak_nodes_to_guard_conditions_[node_ptr] = notify_guard_condition;
   }
 
-  rclcpp::CallbackGroup::WeakPtr weak_group_ptr = group;
-
   if (node_ptr->get_context()->is_valid()) {
     auto callback_group_guard_condition =
       group_ptr->get_notify_guard_condition(node_ptr->get_context());

@@ -112,7 +112,7 @@ Executor::~Executor()
 
   for (const auto & pair : weak_nodes_to_guard_conditions_) {
     auto guard_condition = pair.second;
-    memory_strategy_->remove_guard_condition(guard_condition);
+    memory_strategy_->remove_guard_condition(*guard_condition);
   }
   weak_nodes_to_guard_conditions_.clear();
 
