@@ -281,7 +281,7 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
         weak_services_map_.emplace(service.get(), service);
 
         service->set_on_new_request_callback(
-          create_entity_callback(service.get(), SERVICE_EVENT));
+          create_entity_callback_with_logs(service.get(), ExecutorEventType::SERVICE_EVENT, service->get_service_name()));
       }
       return false;
     });
@@ -291,7 +291,7 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
         weak_clients_map_.emplace(client.get(), client);
 
         client->set_on_new_response_callback(
-          create_entity_callback(client.get(), CLIENT_EVENT));
+          create_entity_callback_with_logs(client.get(), ExecutorEventType::CLIENT_EVENT, client->get_service_name()));
       }
       return false;
     });
@@ -305,6 +305,21 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
       }
       return false;
     });
+}
+
+std::function<void(size_t)>
+EventsExecutorEntitiesCollector::create_entity_callback_with_logs(
+  void * exec_entity_id, ExecutorEventType event_type, std::string name)
+{
+  std::string ev = (event_type == ExecutorEventType::SERVICE_EVENT) ? "service" : "client";
+
+  std::function<void(size_t)>
+  callback = [this, exec_entity_id, event_type, ev, name](size_t num_events) {
+      std::cout << "Push " + ev + " event: " + name << std::endl;
+      ExecutorEvent event = {exec_entity_id, -1, event_type, num_events};
+      associated_executor_->events_queue_->enqueue(event);
+    };
+  return callback;
 }
 
 void

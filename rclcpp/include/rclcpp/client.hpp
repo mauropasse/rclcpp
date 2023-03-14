@@ -391,11 +391,14 @@ public:
     std::shared_ptr<rmw_request_id_t> request_header,
     std::shared_ptr<void> response) override
   {
+    std::cout << "Client handle_response: " << get_service_name() << std::endl;
+
     std::unique_lock<std::mutex> lock(pending_requests_mutex_);
     auto typed_response = std::static_pointer_cast<typename ServiceT::Response>(response);
     int64_t sequence_number = request_header->sequence_number;
     // TODO(esteve) this should throw instead since it is not expected to happen in the first place
     if (this->pending_requests_.count(sequence_number) == 0) {
+      std::cout << "Client Received invalid sequence number: " << get_service_name() << std::endl;
       RCUTILS_LOG_ERROR_NAMED(
         "rclcpp",
         "Received invalid sequence number. Ignoring...");
@@ -410,7 +413,9 @@ public:
     lock.unlock();
 
     call_promise->set_value(typed_response);
+    std::cout << "Client: Call callback: " << get_service_name() << std::endl;
     callback(future);
+    std::cout << "Client: Callback called: " << get_service_name() << std::endl;
   }
 
   SharedFuture
@@ -433,7 +438,9 @@ public:
   {
     std::lock_guard<std::mutex> lock(pending_requests_mutex_);
     int64_t sequence_number;
+    std::cout << "rcl_send_request: " << get_service_name() << std::endl;
     rcl_ret_t ret = rcl_send_request(get_client_handle().get(), request.get(), &sequence_number);
+    std::cout << "rcl_send_request: sent. sequence_number: " << sequence_number << ". " << get_service_name() << std::endl;
     if (RCL_RET_OK != ret) {
       rclcpp::exceptions::throw_from_rcl_error(ret, "failed to send request");
     }

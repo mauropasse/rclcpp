@@ -547,6 +547,7 @@ take_and_do_error_handling(
 {
   bool taken = false;
   try {
+    std::cout << "take_and_do_error_handling: take_action: " << topic_or_service_name << std::endl;
     taken = take_action();
   } catch (const rclcpp::exceptions::RCLError & rcl_error) {
     RCLCPP_ERROR(
@@ -557,8 +558,10 @@ take_and_do_error_handling(
       rcl_error.what());
   }
   if (taken) {
+    std::cout << "take_and_do_error_handling: handle_action: " << topic_or_service_name << std::endl;
     handle_action();
   } else {
+    std::cout << "take_and_do_error_handling: NOT TAKEN! - " << topic_or_service_name << std::endl;
     // Message or Service was not taken for some reason.
     // Note that this can be normal, if the underlying middleware needs to
     // interrupt wait spuriously it is allowed.
@@ -665,8 +668,11 @@ void
 Executor::execute_client(
   rclcpp::ClientBase::SharedPtr client)
 {
+  std::cout<< "client->create_request_header(): " << client->get_service_name() << std::endl;
   auto request_header = client->create_request_header();
+  std::cout<< "client->create_response() - " << client->get_service_name() << std::endl;
   std::shared_ptr<void> response = client->create_response();
+  std::cout<< "take_and_do_error_handling() - " << client->get_service_name() << std::endl;
   take_and_do_error_handling(
     "taking a service client response from service",
     client->get_service_name(),

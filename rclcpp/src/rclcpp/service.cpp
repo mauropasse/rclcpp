@@ -36,19 +36,21 @@ ServiceBase::ServiceBase(std::shared_ptr<rcl_node_t> node_handle)
 bool
 ServiceBase::take_type_erased_request(void * request_out, rmw_request_id_t & request_id_out)
 {
+  std::cout << "Service take_type_erased_request: " << get_service_name() << std::endl;
   rcl_ret_t ret = rcl_take_request(
     this->get_service_handle().get(),
     &request_id_out,
     request_out);
   if (RCL_RET_SERVICE_TAKE_FAILED == ret) {
-    RCLCPP_ERROR(
-      rclcpp::get_logger("rclcpp"),
-      "Error in take_type_erased_request: RCL_RET_SERVICE_TAKE_FAILED. "
-      "Service name: %s", get_service_name());
+    std::cout << "RCL_RET_SERVICE_TAKE_FAILED: " << get_service_name() << std::endl;
+    std::cout << "Sequence number: "  << request_id_out.sequence_number << " . "<< get_service_name() << std::endl;
     return false;
   } else if (RCL_RET_OK != ret) {
+    std::cout << "RCL_RET_OK != ret: " << get_service_name() << std::endl;
+    std::cout << "Sequence number: "  << request_id_out.sequence_number << " . "<< get_service_name() << std::endl;
     rclcpp::exceptions::throw_from_rcl_error(ret);
   }
+  std::cout << "RCL_RET_OK: " << get_service_name() << std::endl;
   return true;
 }
 

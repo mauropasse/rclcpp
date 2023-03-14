@@ -440,8 +440,11 @@ public:
   {
     auto typed_request = std::static_pointer_cast<typename ServiceT::Request>(request);
     auto response = std::make_shared<typename ServiceT::Response>();
+    std::cout<< "handle_request - Before dispatching: " << this->get_service_name() << std::endl;
     any_callback_.dispatch(request_header, typed_request, response);
+    std::cout<< "handle_request - After dispatching, send_response: " << this->get_service_name() << std::endl;
     send_response(*request_header, *response);
+    std::cout<< "exit handle_request() - " << this->get_service_name() << std::endl;
   }
 
   void

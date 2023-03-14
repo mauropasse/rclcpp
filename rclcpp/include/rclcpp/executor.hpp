@@ -340,6 +340,7 @@ public:
     // If the future is already complete, don't try to spin.
     std::future_status status = future.wait_for(std::chrono::seconds(0));
     if (status == std::future_status::ready) {
+      std::cout << "executor.hpp: SUCCESS (1)" << std::endl;
       return FutureReturnCode::SUCCESS;
     }
 
@@ -357,27 +358,36 @@ public:
     RCLCPP_SCOPE_EXIT(this->spinning.store(false); );
     while (rclcpp::ok(this->context_) && spinning.load()) {
       // Do one item of work.
+      std::string count = std::to_string(timeout_left.count() / 1000000);
+      std::string msg =  "executor.hpp: spin_once_impl for: " + count + " ms";
+      std::cout << msg << std::endl;
+
       spin_once_impl(timeout_left);
 
       // Check if the future is set, return SUCCESS if it is.
       status = future.wait_for(std::chrono::seconds(0));
       if (status == std::future_status::ready) {
+        std::cout << "executor.hpp: SUCCESS (2) - " << std::endl;
         return FutureReturnCode::SUCCESS;
       }
       // If the original timeout is < 0, then this is blocking, never TIMEOUT.
       if (timeout_ns < std::chrono::nanoseconds::zero()) {
+        std::cout << "executor.hpp: future DEFERRED " << std::endl;
         continue;
       }
       // Otherwise check if we still have time to wait, return TIMEOUT if not.
       auto now = std::chrono::steady_clock::now();
       if (now >= end_time) {
+        std::cout << "executor.hpp: future TIMEOUT - " << std::endl;
         return FutureReturnCode::TIMEOUT;
       }
+      std::cout << "executor.hpp: spin_until_future_complete: do it again." << std::endl;
       // Subtract the elapsed time from the original timeout.
       timeout_left = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - now);
     }
 
     // The future did not complete before ok() returned false, return INTERRUPTED.
+    std::cout << "executor.hpp: FutureReturnCode::INTERRUPTED. " << std::endl;
     return FutureReturnCode::INTERRUPTED;
   }
 

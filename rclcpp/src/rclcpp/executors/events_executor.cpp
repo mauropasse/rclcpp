@@ -232,6 +232,7 @@ EventsExecutor::execute_event(const ExecutorEvent & event)
 
         if (service) {
           for (size_t i = 0; i < event.num_events; i++) {
+            std::cout << "Execute SERVICE_EVENT: " << i <<  " - " << service->get_service_name() << std::endl;
             execute_service(service);
           }
         }
@@ -244,6 +245,7 @@ EventsExecutor::execute_event(const ExecutorEvent & event)
 
         if (client) {
           for (size_t i = 0; i < event.num_events; i++) {
+            std::cout << "Execute CLIENT_EVENT: " << i <<  " - " << client->get_service_name() << std::endl;
             execute_client(client);
           }
         }

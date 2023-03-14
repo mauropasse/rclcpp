@@ -75,19 +75,26 @@ ClientBase::~ClientBase()
 bool
 ClientBase::take_type_erased_response(void * response_out, rmw_request_id_t & request_header_out)
 {
+  std::cout<< "take_type_erased_response: Before rcl_take_response() - " << this->get_service_name() << std::endl;
+
   rcl_ret_t ret = rcl_take_response(
     this->get_client_handle().get(),
     &request_header_out,
     response_out);
   if (RCL_RET_CLIENT_TAKE_FAILED == ret) {
+    std::cout<< "After take_type_erased_response: RCL_RET_CLIENT_TAKE_FAILED - " << this->get_service_name() << std::endl;
+    std::cout << "Sequence number: "  << request_header_out.sequence_number << " . "<< get_service_name() << std::endl;
     RCLCPP_ERROR(
       rclcpp::get_logger("rclcpp"),
       "Error in take_type_erased_response: RCL_RET_CLIENT_TAKE_FAILED. "
       "Service name: %s", get_service_name());
     return false;
   } else if (RCL_RET_OK != ret) {
+    std::cout<< "take_type_erased_response: throw_from_rcl_error - " << this->get_service_name() << std::endl;
     rclcpp::exceptions::throw_from_rcl_error(ret);
   }
+  std::cout<< "After take_type_erased_response: OK - " << this->get_service_name() << std::endl;
+  std::cout << "Sequence number: "  << request_header_out.sequence_number << " . "<< get_service_name() << std::endl;
   return true;
 }
 
