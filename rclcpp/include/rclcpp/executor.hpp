@@ -333,14 +333,19 @@ public:
     const FutureT & future,
     std::chrono::duration<TimeRepT, TimeT> timeout = std::chrono::duration<TimeRepT, TimeT>(-1))
   {
+
+    size_t id = std::hash<std::thread::id>{}(std::this_thread::get_id());
+    std::string idstr = std::to_string(id);
+
     // TODO(wjwwood): does not work recursively; can't call spin_node_until_future_complete
     // inside a callback executed by an executor.
 
     // Check the future before entering the while loop.
     // If the future is already complete, don't try to spin.
     std::future_status status = future.wait_for(std::chrono::seconds(0));
+
     if (status == std::future_status::ready) {
-      std::cout << "executor.hpp: SUCCESS (1)" << std::endl;
+      std::cout << "executor.hpp: SUCCESS (1) - Thread ID: " << idstr << std::endl;
       return FutureReturnCode::SUCCESS;
     }
 
@@ -360,34 +365,36 @@ public:
       // Do one item of work.
       std::string count = std::to_string(timeout_left.count() / 1000000);
       std::string msg =  "executor.hpp: spin_once_impl for: " + count + " ms";
-      std::cout << msg << std::endl;
+      std::cout << msg << ". Thread ID: " << idstr << std::endl;
 
       spin_once_impl(timeout_left);
 
       // Check if the future is set, return SUCCESS if it is.
       status = future.wait_for(std::chrono::seconds(0));
+
       if (status == std::future_status::ready) {
-        std::cout << "executor.hpp: SUCCESS (2) - " << std::endl;
+        std::cout << "executor.hpp: SUCCESS (2) - Thread ID: " << idstr << std::endl;
         return FutureReturnCode::SUCCESS;
       }
       // If the original timeout is < 0, then this is blocking, never TIMEOUT.
       if (timeout_ns < std::chrono::nanoseconds::zero()) {
-        std::cout << "executor.hpp: future DEFERRED " << std::endl;
+        std::cout << "executor.hpp: future DEFERRED - Thread ID: " << idstr << std::endl;
         continue;
       }
       // Otherwise check if we still have time to wait, return TIMEOUT if not.
       auto now = std::chrono::steady_clock::now();
       if (now >= end_time) {
-        std::cout << "executor.hpp: future TIMEOUT - " << std::endl;
+        std::cout << "executor.hpp: future TIMEOUT - Thread ID: " << idstr << std::endl;
         return FutureReturnCode::TIMEOUT;
       }
-      std::cout << "executor.hpp: spin_until_future_complete: do it again." << std::endl;
+
+      std::cout << "executor.hpp: spin_until_future_complete: do it again. Thread ID: " << idstr << std::endl;
       // Subtract the elapsed time from the original timeout.
       timeout_left = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - now);
     }
 
     // The future did not complete before ok() returned false, return INTERRUPTED.
-    std::cout << "executor.hpp: FutureReturnCode::INTERRUPTED. " << std::endl;
+    std::cout << "executor.hpp: FutureReturnCode::INTERRUPTED. Thread ID: " << idstr << std::endl;
     return FutureReturnCode::INTERRUPTED;
   }
 

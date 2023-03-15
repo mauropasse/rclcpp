@@ -150,6 +150,7 @@ EventsExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool exhau
 void
 EventsExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
 {
+  std::cout << "spin_once_impl. Executor: " << this << std::endl;
   // In this context a negative input timeout means no timeout
   if (timeout < 0ns) {
     timeout = std::chrono::nanoseconds::max();
@@ -167,8 +168,23 @@ EventsExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
   // If we wake up from the wait with an event, it means that it
   // arrived before any of the timers expired.
   if (has_event) {
+    switch (event.type) {
+      case SUBSCRIPTION_EVENT:
+          std::cout << "has SUBSCRIPTION_EVENT!. Executor: " << this << std::endl;
+          break;
+      case SERVICE_EVENT:
+          std::cout << "has SERVICE_EVENT!. Executor: " << this << std::endl;
+          break;
+      case CLIENT_EVENT:
+          std::cout << "has CLIENT_EVENT!. Executor: " << this << std::endl;
+          break;
+      case WAITABLE_EVENT:
+          std::cout << "has WAITABLE_EVENT!. Executor: " << this << std::endl;
+          break;
+    }
     this->execute_event(event);
   } else {
+    std::cout << "Does not have event!. Executor: " << this << std::endl;
     timers_manager_->execute_head_timer();
   }
 }
