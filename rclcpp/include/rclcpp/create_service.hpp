@@ -39,6 +39,7 @@ create_service(
   const rmw_qos_profile_t & qos_profile,
   rclcpp::CallbackGroup::SharedPtr group)
 {
+  std::cout << "Create Service: " << service_name << std::endl;
   rclcpp::AnyServiceCallback<ServiceT> any_service_callback;
   any_service_callback.set(std::forward<CallbackT>(callback));
 

@@ -125,8 +125,15 @@ ClientBase::service_is_ready() const
     }
   }
   if (ret != RCL_RET_OK) {
+    std::cout << "rcl_service_server_is_available failed! - " << get_service_name() << std::endl;
     throw_from_rcl_error(ret, "rcl_service_server_is_available failed");
   }
+
+  if (!is_ready)
+  {
+    std::cout << "service_is_ready: False! - " << get_service_name() << std::endl;
+  }
+
   return is_ready;
 }
 
@@ -145,6 +152,7 @@ ClientBase::wait_for_service_nanoseconds(std::chrono::nanoseconds timeout)
   }
   if (timeout == std::chrono::nanoseconds(0)) {
     // check was non-blocking, return immediately
+    std::cout << "wait_for_service_nanoseconds: return immediately" << std::endl;
     return false;
   }
   auto event = node_ptr->get_graph_event();
@@ -161,6 +169,7 @@ ClientBase::wait_for_service_nanoseconds(std::chrono::nanoseconds timeout)
   }
   do {
     if (!rclcpp::ok(this->context_)) {
+      std::cout << "wait_for_service_nanoseconds: No context" << std::endl;
       return false;
     }
     // Limit each wait to 100ms to workaround an issue specific to the Connext RMW implementation.
@@ -184,6 +193,8 @@ ClientBase::wait_for_service_nanoseconds(std::chrono::nanoseconds timeout)
     }
     // if timeout is negative, time_to_wait will never reach zero
   } while (time_to_wait > std::chrono::nanoseconds(0));
+
+  std::cout << "wait_for_service_nanoseconds: timeout exceeded" << std::endl;
   return false;  // timeout exceeded while waiting for the server to be ready
 }
 

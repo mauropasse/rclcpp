@@ -260,6 +260,8 @@ public:
       std::shared_ptr<typename ServiceT::Response>)>;
   RCLCPP_SMART_PTR_DEFINITIONS(Service)
 
+  std::string srv_name_;
+
   /// Default constructor.
   /**
    * The constructor for a Service is almost never called directly.
@@ -278,6 +280,10 @@ public:
     rcl_service_options_t & service_options)
   : ServiceBase(node_handle), any_callback_(any_callback)
   {
+    srv_name_ = service_name;
+
+    std::cout << "Create Service: " << srv_name_ << std::endl;
+
     using rosidl_typesupport_cpp::get_service_type_support_handle;
     auto service_type_support_handle = get_service_type_support_handle<ServiceT>();
 
@@ -401,6 +407,7 @@ public:
 
   virtual ~Service()
   {
+    std::cout << "Destroy Service: " << srv_name_ << std::endl;
   }
 
   /// Take the next request from the service.
