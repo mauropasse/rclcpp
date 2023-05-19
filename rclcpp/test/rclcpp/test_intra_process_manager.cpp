@@ -291,6 +291,10 @@ public:
     return qos_profile.durability() == rclcpp::DurabilityPolicy::TransientLocal;
   }
 
+  virtual
+  size_t
+  available_capacity() const = 0;
+
   rclcpp::QoS qos_profile;
   std::string topic_name;
 };
@@ -348,6 +352,12 @@ public:
   use_take_shared_method() const
   {
     return take_shared_method;
+  }
+
+  size_t
+  available_capacity() const override
+  {
+    return qos_profile.depth() - buffer->size();
   }
 
   bool take_shared_method;
@@ -984,6 +994,78 @@ TEST(TestIntraProcessManager, transient_local_invalid_buffer) {
  * along with the contents and pointer addresses from the subscriptions.
  */
 TEST(TestIntraProcessManager, transient_local) {
+  using IntraProcessManagerT = rclcpp::experimental::IntraProcessManager;
+  using MessageT = rcl_interfaces::msg::Log;
+  using PublisherT = rclcpp::mock::Publisher<MessageT>;
+  using SubscriptionIntraProcessT = rclcpp::experimental::mock::SubscriptionIntraProcess<MessageT>;
+
+  constexpr auto history_depth = 10u;
+
+  auto ipm = std::make_shared<IntraProcessManagerT>();
+
+  auto p1 = std::make_shared<PublisherT>(rclcpp::QoS(history_depth).transient_local());
+
+  auto s1 =
+    std::make_shared<SubscriptionIntraProcessT>(rclcpp::QoS(history_depth).transient_local());
+  auto s2 =
+    std::make_shared<SubscriptionIntraProcessT>(rclcpp::QoS(history_depth).transient_local());
+  auto s3 =
+    std::make_shared<SubscriptionIntraProcessT>(rclcpp::QoS(history_depth).transient_local());
+
+  s1->take_shared_method = false;
+  s2->take_shared_method = true;
+  s3->take_shared_method = true;
+
+  auto p1_id = ipm->add_publisher(p1, p1->buffer);
+
+  p1->set_intra_process_manager(p1_id, ipm);
+
+  auto unique_msg = std::make_unique<MessageT>();
+  unique_msg->msg = "Test";
+  p1->publish(std::move(unique_msg));
+
+  ipm->template add_subscription<MessageT>(s1);
+  ipm->template add_subscription<MessageT>(s2);
+  ipm->template add_subscription<MessageT>(s3);
+
+  auto received_message_pointer_1 = s1->pop();
+  auto received_message_pointer_2 = s2->pop();
+  auto received_message_pointer_3 = s3->pop();
+  ASSERT_NE(0u, received_message_pointer_1);
+  ASSERT_NE(0u, received_message_pointer_2);
+  ASSERT_NE(0u, received_message_pointer_3);
+  ASSERT_EQ(received_message_pointer_3, received_message_pointer_2);
+  ASSERT_EQ(
+    reinterpret_cast<MessageT *>(received_message_pointer_1)->msg,
+    reinterpret_cast<MessageT *>(received_message_pointer_2)->msg);
+  ASSERT_EQ(
+    reinterpret_cast<MessageT *>(received_message_pointer_1)->msg,
+    reinterpret_cast<MessageT *>(received_message_pointer_3)->msg);
+  ASSERT_EQ("Test", reinterpret_cast<MessageT *>(received_message_pointer_1)->msg);
+}
+
+/*
+ * This tests the method "lowest_available_capacity":
+ * - Creates 1 publisher.
+ * - The available buffer capacity should be at least history size.
+ * - Add 2 subscribers.
+ * - Add everything to the intra-process manager.
+ * - All the entities are expected to have different ids.
+ * - Check the subscriptions count for the publisher.
+ * - The available buffer capacity should be the history size.
+ * - Publish one message (without receiving it).
+ * - The available buffer capacity should decrease by 1.
+ * - Publish another message (without receiving it).
+ * - The available buffer capacity should decrease by 1.
+ * - One subscriber receives one message.
+ * - The available buffer capacity should stay the same,
+ *   as the other subscriber still has not freed its buffer.
+ * - The other subscriber receives one message.
+ * - The available buffer capacity should increase by 1.
+ * - One subscription goes out of scope.
+ * - The available buffer capacity should not change.
+ */
+TEST(TestIntraProcessManager, lowest_available_capacity) {
   using IntraProcessManagerT = rclcpp::experimental::IntraProcessManager;
   using MessageT = rcl_interfaces::msg::Log;
   using PublisherT = rclcpp::mock::Publisher<MessageT>;

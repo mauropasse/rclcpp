@@ -66,6 +66,10 @@ public:
   bool
   is_durability_transient_local() const;
 
+  virtual
+  size_t
+  available_capacity() const = 0;
+
   bool
   is_ready(rcl_wait_set_t * wait_set) override = 0;
 

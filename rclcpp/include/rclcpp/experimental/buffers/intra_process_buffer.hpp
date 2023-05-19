@@ -45,6 +45,7 @@ public:
 
   virtual bool has_data() const = 0;
   virtual bool use_take_shared_method() const = 0;
+  virtual size_t available_capacity() const = 0;
 };
 
 template<
@@ -155,6 +156,11 @@ public:
   bool use_take_shared_method() const override
   {
     return std::is_same<BufferT, MessageSharedPtr>::value;
+  }
+
+  size_t available_capacity() const override
+  {
+    return buffer_->available_capacity();
   }
 
 private:
@@ -346,6 +352,11 @@ public:
   void clear() override
   {
     buffer_->clear();
+  }
+
+  size_t available_capacity() const override
+  {
+    return buffer_->available_capacity();
   }
 
   void add(BufferT && msg)

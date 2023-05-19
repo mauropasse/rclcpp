@@ -819,6 +819,11 @@ public:
   bool
   action_server_is_available(uint64_t ipc_action_client_id);
 
+  /// Return the lowest available capacity for all subscription buffers for a publisher id.
+  RCLCPP_PUBLIC
+  size_t
+  lowest_available_capacity(const uint64_t intra_process_publisher_id) const;
+
 private:
   struct SplittedSubscriptions
   {
