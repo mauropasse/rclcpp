@@ -75,11 +75,9 @@ void TimersManager::start()
 
 void TimersManager::stop()
 {
-  // Nothing to do if the timers thread is not running
-  // or if another thread already signaled to stop.
-  if (!running_.exchange(false)) {
-    return;
-  }
+  // Lock stop() function to prevent race condition in destructor
+  rclcpp::Lock lock(stop_mutex_);
+  running_ = false;
 
   // Notify the timers manager thread to wake up
   {
@@ -232,9 +230,7 @@ void TimersManager::run_timers()
       if (time_to_sleep != std::chrono::nanoseconds::max()) {
         // Wait until timeout or notification that timers have been updated
         uint64_t timetosleep_ns = time_to_sleep.count(); // in nano-seconds
-        bool ok = timers_cv_.wait_for(timers_mutex_, timetosleep_ns);
-        assert(ok);
-        (void)ok;
+        timers_cv_.wait_for(timers_mutex_, timetosleep_ns);
       } else {
         // Wait until notification that timers have been updated
         while (!timers_updated_) {
