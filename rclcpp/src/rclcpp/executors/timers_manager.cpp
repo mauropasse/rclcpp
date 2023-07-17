@@ -75,16 +75,9 @@ void TimersManager::start()
 
 void TimersManager::stop()
 {
-  // Nothing to do if the timers thread is not running
-  // or if another thread already signaled to stop.
-  if (!running_.exchange(false)) {
-    // Thread might be still running, despite the atomic bool
-    // 'running_' already set to false
-    if (timers_thread_.joinable()) {
-      timers_thread_.join();
-    }
-    return;
-  }
+  // Lock stop() function to prevent race condition in destructor
+  rclcpp::Lock lock(stop_mutex_);
+  running_ = false;
 
   // Notify the timers manager thread to wake up
   {
