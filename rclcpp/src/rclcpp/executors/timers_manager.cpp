@@ -76,7 +76,7 @@ void TimersManager::start()
 void TimersManager::stop()
 {
   // Lock stop() function to prevent race condition in destructor
-  rclcpp::Lock lock(stop_mutex_);
+  std::unique_lock<std::mutex> lock(stop_mutex_);
   running_ = false;
 
   // Notify the timers manager thread to wake up
