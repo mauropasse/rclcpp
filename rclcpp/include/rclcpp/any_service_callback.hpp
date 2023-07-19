@@ -41,7 +41,7 @@ struct can_be_nullptr : std::false_type {};
 // We also test if `T &` can be assigned to `nullptr` to avoid the issue.
 template<typename T>
 struct can_be_nullptr<T, std::void_t<
-    decltype(std::declval<T>() == nullptr), decltype(std::declval<T &>() = nullptr)>>
+    decltype(std::declval<T>() == nullptr), decltype(std::declval<T &>())>>
   : std::true_type {};
 }  // namespace detail
 
