@@ -73,7 +73,7 @@ public:
 
   /// Default destrcutor.
   RCLCPP_PUBLIC
-  virtual ~EventsExecutor() = default;
+  virtual ~EventsExecutor();
 
   /// Events executor implementation of spin.
   /**
