@@ -270,6 +270,9 @@ private:
     return entity;
   }
 
+  /// Stop timers thread
+  void stop_timers_thread();
+
   /// Queue where entities can push events
   rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue_;
 
@@ -285,6 +288,12 @@ private:
 
   /// Timers manager used to track and/or execute associated timers
   std::shared_ptr<rclcpp::experimental::TimersManager> timers_manager_;
+
+  // Thread used to run the timers execution task
+  std::thread timers_thread_;
+
+  // Indicates whether the timers thread is currently running or not
+  std::atomic<bool> timers_running_{false};
 };
 
 }  // namespace executors

@@ -96,6 +96,19 @@ EventsExecutor::EventsExecutor(
     std::make_shared<rclcpp::executors::ExecutorEntitiesCollector>(notify_waitable_);
 }
 
+void EventsExecutor::stop_timers_thread()
+{
+  // Stop timers manager thread if it's running
+  if (timers_running_.exchange(false)) {
+    timers_manager_->notify_stop();
+
+    // Join timers thread if it's running
+    if (timers_thread_.joinable()) {
+      timers_thread_.join();
+    }
+  }
+}
+
 EventsExecutor::~EventsExecutor()
 {
   // Set 'spinning' to false and get previous value
@@ -107,12 +120,7 @@ EventsExecutor::~EventsExecutor()
     // Then since 'spinning' is now false, the spin loop will exit.
     shutdown_guard_condition_->trigger();
 
-    // The timers manager thread is stopped at the end of spin().
-    // We have to wait for timers manager thread to exit, otherwise
-    // the 'timers_manager_' will be destroyed while still being used on spin().
-    while (timers_manager_->is_running()) {
-      std::this_thread::sleep_for(1ms);
-    }
+    stop_timers_thread();
   }
 
   this->refresh_current_collection({});
@@ -126,8 +134,13 @@ EventsExecutor::spin()
   }
   RCPPUTILS_SCOPE_EXIT(this->spinning.store(false); );
 
-  timers_manager_->start();
-  RCPPUTILS_SCOPE_EXIT(timers_manager_->stop(); );
+  timers_running_.exchange(true);
+
+  timers_thread_ = std::thread([this](){
+     timers_manager_->run_timers();
+   });
+
+  RCPPUTILS_SCOPE_EXIT(stop_timers_thread());
 
   while (rclcpp::ok(context_) && spinning.load()) {
     // Wait until we get an event

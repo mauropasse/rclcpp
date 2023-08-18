@@ -95,6 +95,12 @@ public:
   ~TimersManager();
 
   /**
+   * @brief Implements a loop that keeps executing ready timers.  -- - -
+   * This function is executed in the timers thread.
+   */
+  void run_timers();
+
+  /**
    * @brief Adds a new timer to the storage, maintaining weak ownership of it.
    * Function is thread safe and it can be called regardless of the state of the timers thread.
    *
@@ -122,18 +128,11 @@ public:
   void clear();
 
   /**
-   * @brief Starts a thread that takes care of executing the timers stored in this object.
-   * Function will throw an error if the timers thread was already running.
+   * @brief Signal to stop the timers execution
+   * Will do nothing if the timers thread was not running.
    */
   RCLCPP_PUBLIC
-  void start();
-
-  /**
-   * @brief Stops the timers thread.
-   * Will do nothing if the timer thread was not running.
-   */
-  RCLCPP_PUBLIC
-  void stop();
+  void notify_stop();
 
   /**
    * @brief Get the number of timers that are currently ready.
@@ -179,12 +178,6 @@ public:
    */
   RCLCPP_PUBLIC
   std::chrono::nanoseconds get_head_timeout();
-
-  /**
-   * @brief Function to check if the timers thread is running
-   * @return true if timers thread is running
-   */
-  bool is_running();
 
 private:
   RCLCPP_DISABLE_COPY(TimersManager)
@@ -509,12 +502,6 @@ private:
   };
 
   /**
-   * @brief Implements a loop that keeps executing ready timers.
-   * This function is executed in the timers thread.
-   */
-  void run_timers();
-
-  /**
    * @brief Get the amount of time before the next timer triggers.
    * This function is not thread safe, acquire a mutex before calling it.
    *
@@ -535,8 +522,6 @@ private:
   // Callback to be called when timer is ready
   std::function<void(const rclcpp::TimerBase *)> on_ready_callback_ = nullptr;
 
-  // Thread used to run the timers execution task
-  std::thread timers_thread_;
   // Protects access to timers
   std::mutex timers_mutex_;
   // Protects access to stop()

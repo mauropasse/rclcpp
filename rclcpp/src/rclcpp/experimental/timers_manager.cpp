@@ -38,8 +38,8 @@ TimersManager::~TimersManager()
   // Remove all timers
   this->clear();
 
-  // Make sure timers thread is stopped before destroying this object
-  this->stop();
+  // Make sure timers execution is stopped before destroying this object
+  this->notify_stop();
 }
 
 void TimersManager::add_timer(rclcpp::TimerBase::SharedPtr timer)
@@ -71,17 +71,7 @@ void TimersManager::add_timer(rclcpp::TimerBase::SharedPtr timer)
   }
 }
 
-void TimersManager::start()
-{
-  // Make sure that the thread is not already running
-  if (running_.exchange(true)) {
-    throw std::runtime_error("TimersManager::start() can't start timers thread as already running");
-  }
-
-  timers_thread_ = std::thread(&TimersManager::run_timers, this);
-}
-
-void TimersManager::stop()
+void TimersManager::notify_stop()
 {
   // Lock stop() function to prevent race condition in destructor
   std::unique_lock<std::mutex> lock(stop_mutex_);
@@ -93,11 +83,6 @@ void TimersManager::stop()
     timers_updated_ = true;
   }
   timers_cv_.notify_one();
-
-  // Join timers thread if it's running
-  if (timers_thread_.joinable()) {
-    timers_thread_.join();
-  }
 }
 
 std::chrono::nanoseconds TimersManager::get_head_timeout()
@@ -296,9 +281,4 @@ void TimersManager::remove_timer(TimerPtr timer)
     timers_cv_.notify_one();
     timer->clear_on_reset_callback();
   }
-}
-
-bool TimersManager::is_running()
-{
-  return running_;
 }
