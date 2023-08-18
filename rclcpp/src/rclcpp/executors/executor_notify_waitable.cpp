@@ -42,6 +42,11 @@ ExecutorNotifyWaitable & ExecutorNotifyWaitable::operator=(const ExecutorNotifyW
   return *this;
 }
 
+ExecutorNotifyWaitable::~ExecutorNotifyWaitable()
+{
+  clear_on_ready_callback();
+}
+
 void
 ExecutorNotifyWaitable::add_to_wait_set(rcl_wait_set_t * wait_set)
 {

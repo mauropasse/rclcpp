@@ -45,7 +45,7 @@ public:
 
   // Destructor
   RCLCPP_PUBLIC
-  ~ExecutorNotifyWaitable() override = default;
+  ~ExecutorNotifyWaitable() override;
 
   RCLCPP_PUBLIC
   ExecutorNotifyWaitable(const ExecutorNotifyWaitable & other);
