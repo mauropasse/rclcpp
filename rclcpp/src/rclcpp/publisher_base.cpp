@@ -317,11 +317,3 @@ std::vector<rclcpp::NetworkFlowEndpoint> PublisherBase::get_network_flow_endpoin
   return network_flow_endpoint_vector;
 }
 
-void PublisherBase::do_shared_intra_process_publish_for_late_joiner(const uint64_t)
-{
-  throw std::runtime_error("intra process publish for late joiner is not implemented");
-}
-void PublisherBase::do_unique_intra_process_publish_for_late_joiner(const uint64_t)
-{
-  throw std::runtime_error("intra process publish for late joiner is not implemented");
-}
