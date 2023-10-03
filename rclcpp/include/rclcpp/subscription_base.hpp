@@ -652,20 +652,21 @@ protected:
   // destroyed first. Otherwise, the rmw subscription callback
   // would point briefly to a destroyed function.
   std::function<void(size_t)> on_new_message_callback_{nullptr};
-  // Declare subscription_handle_ after callback
-  std::shared_ptr<rcl_subscription_t> subscription_handle_;
-  std::shared_ptr<rcl_subscription_t> intra_process_subscription_handle_;
+
   rclcpp::Logger node_logger_;
-
-  std::unordered_map<rcl_subscription_event_type_t,
-    std::shared_ptr<rclcpp::EventHandlerBase>> event_handlers_;
-
   bool use_intra_process_;
   IntraProcessManagerWeakPtr weak_ipm_;
   uint64_t intra_process_subscription_id_;
   std::shared_ptr<rclcpp::experimental::SubscriptionIntraProcessBase> subscription_intra_process_;
+  std::shared_ptr<rcl_subscription_t> intra_process_subscription_handle_;
 
   const SubscriptionEventCallbacks event_callbacks_;
+
+  // Declare subscription_handle_ after callback and intra-process objects
+  std::shared_ptr<rcl_subscription_t> subscription_handle_;
+
+  std::unordered_map<rcl_subscription_event_type_t,
+    std::shared_ptr<rclcpp::EventHandlerBase>> event_handlers_;
 
 private:
   RCLCPP_DISABLE_COPY(SubscriptionBase)

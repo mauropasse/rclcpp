@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <memory>
 #include <mutex>
+#include <iostream>
 #include <string>
 
 #include "rcl/wait.h"
@@ -52,7 +53,10 @@ public:
   {}
 
   RCLCPP_PUBLIC
-  virtual ~SubscriptionIntraProcessBase() = default;
+  virtual ~SubscriptionIntraProcessBase()
+  {
+    std::cout << "~SubscriptionIntraProcessBase: " << this << std::endl;
+  };
 
   RCLCPP_PUBLIC
   size_t
