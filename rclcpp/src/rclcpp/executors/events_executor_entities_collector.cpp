@@ -308,6 +308,23 @@ EventsExecutorEntitiesCollector::set_callback_group_entities_callbacks(
 }
 
 void
+EventsExecutorEntitiesCollector::log_event(ExecutorEvent ev)
+{
+  switch (ev.type)
+  {
+    case ExecutorEventType::SUBSCRIPTION_EVENT:
+      std::cout << "SUBSCRIPTION_EVENT: "; break;
+    case ExecutorEventType::CLIENT_EVENT:
+      std::cout << "CLIENT_EVENT: "; break;
+    case ExecutorEventType::SERVICE_EVENT:
+      std::cout << "SERVICE_EVENT: "; break;
+    case ExecutorEventType::WAITABLE_EVENT:
+      std::cout << "WAITABLE_EVENT: "; break;
+  }
+  std::cout << ev.exec_entity_id << std::endl;
+}
+
+void
 EventsExecutorEntitiesCollector::unset_callback_group_entities_callbacks(
   rclcpp::CallbackGroup::SharedPtr group)
 {
@@ -656,6 +673,7 @@ EventsExecutorEntitiesCollector::create_entity_callback(
 {
   return [this, exec_entity_id, event_type](size_t num_events) {
     ExecutorEvent event = {exec_entity_id, -1, event_type, num_events};
+    log_event(event);
     associated_executor_->events_queue_->enqueue(event);
   };
 }
