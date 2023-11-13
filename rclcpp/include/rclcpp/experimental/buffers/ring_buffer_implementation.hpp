@@ -198,11 +198,15 @@ private:
   /**
    * This member function is thread-safe.
    * Two versions for the implementation of the function.
-   * One for buffer containing unique_ptr and the other for other typess
+   * One for buffer containing unique_ptr and the other for other types
    *
    * \return a vector containing all the elements from the ring buffer
    */
-  template<typename T = BufferT, std::enable_if_t<is_std_unique_ptr<T>::value, void> * = nullptr>
+  template<typename T = BufferT, std::enable_if_t<is_std_unique_ptr<T>::value &&
+    std::is_copy_constructible<
+      typename is_std_unique_ptr<T>::Ptr_type
+    >::value,
+    void> * = nullptr>
   std::vector<BufferT> get_all_data_impl()
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -216,7 +220,8 @@ private:
     return result_vtr;
   }
 
-  template<typename T = BufferT, std::enable_if_t<!is_std_unique_ptr<T>::value, void> * = nullptr>
+  template<typename T = BufferT, std::enable_if_t<
+      std::is_copy_constructible<T>::value, void> * = nullptr>
   std::vector<BufferT> get_all_data_impl()
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -226,6 +231,23 @@ private:
       result_vtr.emplace_back(ring_buffer_[(read_index_ + id) % capacity_]);
     }
     return result_vtr;
+  }
+
+  template<typename T = BufferT, std::enable_if_t<!is_std_unique_ptr<T>::value &&
+    !std::is_copy_constructible<T>::value, void> * = nullptr>
+  std::vector<BufferT> get_all_data_impl()
+  {
+    throw std::logic_error("Underlined type results in invalid get_all_data_impl()");
+    return {};
+  }
+
+  template<typename T = BufferT, std::enable_if_t<is_std_unique_ptr<T>::value &&
+    !std::is_copy_constructible<typename is_std_unique_ptr<T>::Ptr_type>::value,
+    void> * = nullptr>
+  std::vector<BufferT> get_all_data_impl()
+  {
+    throw std::logic_error("Underlined type in unique_ptr results in invalid get_all_data_impl()");
+    return {};
   }
 
   size_t capacity_;
