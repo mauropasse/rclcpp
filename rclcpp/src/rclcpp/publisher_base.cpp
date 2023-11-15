@@ -206,6 +206,13 @@ PublisherBase::get_intra_process_subscription_count() const
   return ipm->get_subscription_count(intra_process_publisher_id_);
 }
 
+bool
+PublisherBase::is_durability_transient_local() const
+{
+  return rcl_publisher_get_actual_qos(publisher_handle_.get())->durability ==
+         RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL;
+}
+
 rclcpp::QoS
 PublisherBase::get_actual_qos() const
 {
@@ -309,3 +316,4 @@ std::vector<rclcpp::NetworkFlowEndpoint> PublisherBase::get_network_flow_endpoin
 
   return network_flow_endpoint_vector;
 }
+
