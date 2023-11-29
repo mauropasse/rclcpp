@@ -411,6 +411,8 @@ ServerBase::execute_goal_request_received(std::shared_ptr<void> & data)
 void
 ServerBase::execute_cancel_request_received(std::shared_ptr<void> & data)
 {
+  pimpl_->cancel_request_ready_ = false;
+
   auto shared_ptr = std::static_pointer_cast
     <std::tuple<rcl_ret_t, std::shared_ptr<action_msgs::srv::CancelGoal::Request>,
       rmw_request_id_t>>(data);
