@@ -177,17 +177,9 @@ TEST_F(TestService, basic_public_getters) {
     }
     rclcpp::AnyServiceCallback<test_msgs::srv::Empty> cb;
 
-
-    rclcpp::IntraProcessSetting ipc_setting;
-    if (node_base_interface->get_use_intra_process_default()) {
-      ipc_setting = rclcpp::IntraProcessSetting::Enable;
-    } else {
-      ipc_setting = rclcpp::IntraProcessSetting::Disable;
-    }
-
     const rclcpp::Service<test_msgs::srv::Empty> base(
       node_handle_int->get_node_base_interface(),
-      &service_handle, cb, ipc_setting);
+      &service_handle, cb);
     // Use get_service_handle specific to const service
     std::shared_ptr<const rcl_service_t> const_service_handle = base.get_service_handle();
     EXPECT_NE(nullptr, const_service_handle);
