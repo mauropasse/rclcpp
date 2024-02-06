@@ -93,7 +93,11 @@ ClientBase::take_type_erased_response(void * response_out, rmw_request_id_t & re
     &request_header_out,
     response_out);
   if (RCL_RET_CLIENT_TAKE_FAILED == ret) {
-    RCLCPP_ERROR(
+    // Currently all clients with same service name will get the server reponse.
+    // This impacts performances, since the service response is deserialized and
+    // discarded by clients receiving unwanted responses.
+    // If the response wasn't intended for a client, we log the warning below.
+    RCLCPP_WARN(
       rclcpp::get_logger("rclcpp"),
       "Error in take_type_erased_response: RCL_RET_CLIENT_TAKE_FAILED. "
       "Service name: %s", get_service_name());
