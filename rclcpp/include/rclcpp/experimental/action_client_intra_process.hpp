@@ -100,6 +100,12 @@ public:
   {
     (void) wait_set;
 
+    is_goal_response_ready_ = goal_response_buffer_->has_data();
+    is_result_response_ready_ = result_response_buffer_->has_data();
+    is_cancel_response_ready_ = cancel_response_buffer_->has_data();
+    is_feedback_ready_ = feedback_buffer_->has_data();
+    is_status_ready_ = status_buffer_->has_data();
+
     return is_feedback_ready_ ||
            is_status_ready_ ||
            is_goal_response_ready_ ||
@@ -130,7 +136,6 @@ public:
   {
     goal_response_buffer_->add(std::move(goal_response));
     gc_.trigger();
-    is_goal_response_ready_ = true;
     invoke_on_ready_callback(EventType::GoalResponse);
   }
 
@@ -138,7 +143,6 @@ public:
   {
     result_response_buffer_->add(std::move(result_response));
     gc_.trigger();
-    is_result_response_ready_ = true;
     invoke_on_ready_callback(EventType::ResultResponse);
   }
 
@@ -146,7 +150,6 @@ public:
   {
     cancel_response_buffer_->add(std::move(cancel_response));
     gc_.trigger();
-    is_cancel_response_ready_ = true;
     invoke_on_ready_callback(EventType::CancelResponse);
   }
 
@@ -154,7 +157,6 @@ public:
   {
     feedback_buffer_->add(std::move(feedback));
     gc_.trigger();
-    is_feedback_ready_ = true;
     invoke_on_ready_callback(EventType::FeedbackReady);
   }
 
@@ -162,7 +164,6 @@ public:
   {
     status_buffer_->add(std::move(status));
     gc_.trigger();
-    is_status_ready_ = true;
     invoke_on_ready_callback(EventType::StatusReady);
   }
 
@@ -217,11 +218,6 @@ public:
 
   void execute(std::shared_ptr<void> & data)
   {
-    // How to handle case when more than one flag is ready?
-    // For example, feedback and status are both ready, guard condition triggered
-    // twice, but we process a single entity here.
-    // On the default executor using a waitset, waitables are checked twice if ready,
-    // so that fixes the issue. Check if this is a problem with EventsExecutor.
     if (!data) {
       throw std::runtime_error("'data' is empty");
     }

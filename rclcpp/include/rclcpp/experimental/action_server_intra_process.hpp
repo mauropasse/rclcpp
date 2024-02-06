@@ -102,6 +102,10 @@ public:
   {
     (void)wait_set;
 
+    goal_request_ready_ = goal_request_buffer_->has_data();
+    cancel_request_ready_ = cancel_request_buffer_->has_data();
+    result_request_ready_ = result_request_buffer_->has_data();
+
     return goal_request_ready_ ||
            cancel_request_ready_ ||
            result_request_ready_ ||
@@ -115,7 +119,6 @@ public:
     goal_request_buffer_->add(
       std::make_pair(ipc_action_client_id, std::move(goal_request)));
     gc_.trigger();
-    goal_request_ready_ = true;
     invoke_on_ready_callback(EventType::GoalRequest);
   }
 
@@ -126,7 +129,6 @@ public:
     result_request_buffer_->add(
       std::make_pair(ipc_action_client_id, std::move(result_request)));
     gc_.trigger();
-    result_request_ready_ = true;
     invoke_on_ready_callback(EventType::ResultRequest);
   }
 
@@ -137,7 +139,6 @@ public:
     cancel_request_buffer_->add(
       std::make_pair(ipc_action_client_id, std::move(cancel_request)));
     gc_.trigger();
-    cancel_request_ready_ = true;
     invoke_on_ready_callback(EventType::CancelGoal);
   }
 
