@@ -499,7 +499,8 @@ public:
       }
     }
 
-    throw std::runtime_error("No action clients match the specified ID.");
+    RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "No action clients match the specified ID: %p", ipc_action_client_id);
+    return nullptr;
   }
 
   /// Gets an ActionServerIntraProcess<ActionT> matching an intra-process action client ID
@@ -517,7 +518,8 @@ public:
     auto action_client_it = action_clients_to_servers_.find(ipc_action_client_id);
 
     if (action_client_it == action_clients_to_servers_.end()) {
-      throw std::runtime_error("No action clients match the specified ID.");
+      RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "No action clients match the specified ID: %p", ipc_action_client_id);
+      return nullptr;
     }
 
     uint64_t action_service_id = action_client_it->second;
@@ -564,6 +566,9 @@ public:
 
     if (client) {
       client->store_goal_response_callback(callback);
+    } else {
+      // Client went out of scope
+      return;
     }
 
     // Now lets send the goal request
@@ -597,6 +602,9 @@ public:
 
     if (client) {
       client->store_cancel_goal_callback(callback);
+    } else {
+      // Client went out of scope
+      return;
     }
 
     // Now lets send the cancel request
@@ -629,6 +637,9 @@ public:
 
     if (client) {
       client->store_result_response_callback(callback);
+    } else {
+      // Client went out of scope
+      return;
     }
 
     // Now lets send the result request to the server

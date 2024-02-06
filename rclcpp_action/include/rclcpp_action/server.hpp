@@ -677,6 +677,10 @@ protected:
           uint64_t ipc_action_client_id =
             ipm->get_action_client_id_from_goal_uuid(hashed_uuid);
 
+          if (!ipc_action_client_id) {
+            return;
+          }
+
           auto typed_response = std::static_pointer_cast<ResultResponse>(result_message);
           ipm->template intra_process_action_send_result_response<ActionT>(
             ipc_action_client_id,
