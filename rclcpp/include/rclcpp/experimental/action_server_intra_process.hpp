@@ -146,17 +146,23 @@ public:
   take_data() override
   {
     if (goal_request_ready_) {
-      auto data = std::make_shared<GoalRequestDataPair>(
-        std::move(goal_request_buffer_->consume()));
-      return std::static_pointer_cast<void>(data);
+      if (goal_request_buffer_->has_data()) {
+        auto data = std::make_shared<GoalRequestDataPair>(
+          std::move(goal_request_buffer_->consume()));
+        return std::static_pointer_cast<void>(data);
+      }
     } else if (cancel_request_ready_) {
-      auto data = std::make_shared<CancelRequestDataPair>(
-        std::move(cancel_request_buffer_->consume()));
-      return std::static_pointer_cast<void>(data);
+      if (cancel_request_buffer_->has_data()) {
+        auto data = std::make_shared<CancelRequestDataPair>(
+          std::move(cancel_request_buffer_->consume()));
+        return std::static_pointer_cast<void>(data);
+      }
     } else if (result_request_ready_) {
-      auto data = std::make_shared<ResultRequestDataPair>(
-        std::move(result_request_buffer_->consume()));
-      return std::static_pointer_cast<void>(data);
+      if (result_request_buffer_->has_data()) {
+        auto data = std::make_shared<ResultRequestDataPair>(
+          std::move(result_request_buffer_->consume()));
+        return std::static_pointer_cast<void>(data);
+      }
     } else if (goal_expired_) {
       return nullptr;
     } else {
@@ -187,21 +193,28 @@ public:
   void execute(std::shared_ptr<void> & data)
   {
     if (!data && !goal_expired_) {
-      throw std::runtime_error("'data' is empty");
+      // Empty data can happen when there were more events than elements in the ring buffer
+      return;
     }
 
     if (goal_request_ready_) {
       goal_request_ready_ = false;
-      auto goal_request_data = std::static_pointer_cast<GoalRequestDataPair>(data);
-      execute_goal_request_received_(std::move(goal_request_data));
+      if (execute_goal_request_received_) {
+        auto goal_request_data = std::static_pointer_cast<GoalRequestDataPair>(data);
+        execute_goal_request_received_(std::move(goal_request_data));
+      }
     } else if (cancel_request_ready_) {
       cancel_request_ready_ = false;
-      auto cancel_goal_data = std::static_pointer_cast<CancelRequestDataPair>(data);
-      execute_cancel_request_received_(std::move(cancel_goal_data));
+      if (execute_cancel_request_received_) {
+        auto cancel_goal_data = std::static_pointer_cast<CancelRequestDataPair>(data);
+        execute_cancel_request_received_(std::move(cancel_goal_data));
+      }
     } else if (result_request_ready_) {
       result_request_ready_ = false;
-      auto result_request_data = std::static_pointer_cast<ResultRequestDataPair>(data);
-      execute_result_request_received_(std::move(result_request_data));
+      if (execute_result_request_received_) {
+        auto result_request_data = std::static_pointer_cast<ResultRequestDataPair>(data);
+        execute_result_request_received_(std::move(result_request_data));
+      }
     } else if (goal_expired_) {
       // TODO(mauropasse): Handle goal expired case
       // execute_check_expired_goals();

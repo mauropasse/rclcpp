@@ -210,10 +210,6 @@ protected:
     }
   }
 
-private:
-  std::string action_name_;
-  QoS qos_profile_;
-
   void set_callback_to_event_type(
     EventType event_type,
     std::function<void(size_t, int)> callback)
@@ -261,6 +257,10 @@ private:
     }
     return false;
   }
+
+private:
+  std::string action_name_;
+  QoS qos_profile_;
 
   std::function<void(size_t)>
   create_event_type_callback(

@@ -181,23 +181,36 @@ public:
   take_data() override
   {
     if (is_goal_response_ready_) {
-      auto data = std::move(goal_response_buffer_->consume());
-      return std::static_pointer_cast<void>(data);
+      if (goal_response_buffer_->has_data()) {
+        auto data = std::move(goal_response_buffer_->consume());
+        return std::static_pointer_cast<void>(data);
+      }
     } else if (is_result_response_ready_) {
-      auto data = std::move(result_response_buffer_->consume());
-      return std::static_pointer_cast<void>(data);
+      if (result_response_buffer_->has_data()) {
+        auto data = std::move(result_response_buffer_->consume());
+        return std::static_pointer_cast<void>(data);
+      }
     } else if (is_cancel_response_ready_) {
-      auto data = std::move(cancel_response_buffer_->consume());
-      return std::static_pointer_cast<void>(data);
+      if (cancel_response_buffer_->has_data()) {
+        auto data = std::move(cancel_response_buffer_->consume());
+        return std::static_pointer_cast<void>(data);
+      }
     } else if (is_feedback_ready_) {
-      auto data = std::move(feedback_buffer_->consume());
-      return std::static_pointer_cast<void>(data);
+      if (feedback_buffer_->has_data()) {
+        auto data = std::move(feedback_buffer_->consume());
+        return std::static_pointer_cast<void>(data);
+      }
     } else if (is_status_ready_) {
-      auto data = std::move(status_buffer_->consume());
-      return std::static_pointer_cast<void>(data);
+      if (status_buffer_->has_data()) {
+        auto data = std::move(status_buffer_->consume());
+        return std::static_pointer_cast<void>(data);
+      }
     } else {
       throw std::runtime_error("Taking data from intra-process action client but nothing is ready");
     }
+
+    // This can happen when there were more events than elements in the ring buffer
+    return nullptr;
   }
 
   std::shared_ptr<void>
