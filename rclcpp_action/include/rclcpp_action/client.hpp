@@ -939,12 +939,13 @@ private:
     }
 
     rcl_action_client_depth_t qos_history;
-    qos_history.goal_service_depth = options.goal_service_qos.history;
-    qos_history.result_service_depth = options.result_service_qos.history;
-    qos_history.cancel_service_depth = options.cancel_service_qos.history;
-    qos_history.feedback_topic_depth = options.feedback_topic_qos.history;
-    qos_history.status_topic_depth = options.status_topic_qos.history;
+    qos_history.goal_service_depth = options.goal_service_qos.depth;
+    qos_history.result_service_depth = options.result_service_qos.depth;
+    qos_history.cancel_service_depth = options.cancel_service_qos.depth;
+    qos_history.feedback_topic_depth = options.feedback_topic_qos.depth;
+    qos_history.status_topic_depth = options.status_topic_qos.depth;
 
+    // Get full action name, including namespaces.
     std::string remapped_action_name = node_base->resolve_topic_or_service_name(action_name, true);
 
     // Create a ActionClientIntraProcess which will be given

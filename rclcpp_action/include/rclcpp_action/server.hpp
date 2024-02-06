@@ -925,9 +925,9 @@ private:
     }
 
     rcl_action_server_depth_t qos_history;
-    qos_history.goal_service_depth = options.goal_service_qos.history;
-    qos_history.result_service_depth = options.result_service_qos.history;
-    qos_history.cancel_service_depth = options.cancel_service_qos.history;
+    qos_history.goal_service_depth = options.goal_service_qos.depth;
+    qos_history.result_service_depth = options.result_service_qos.depth;
+    qos_history.cancel_service_depth = options.cancel_service_qos.depth;
 
     std::lock_guard<std::recursive_mutex> lock(ipc_mutex_);
 
