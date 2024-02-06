@@ -18,6 +18,7 @@
 #include <functional>
 #include <future>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -113,22 +114,31 @@ public:
            is_result_response_ready_;
   }
 
-  // Store responses callbacks.
-  // We don't use mutex to protect these callbacks since they
-  // are called always after they are set.
   void store_goal_response_callback(ResponseCallback callback)
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     goal_response_callback_ = callback;
+    if (events_callbacks_set()) {
+      set_callback_to_event_type(EventType::GoalResponse, generic_callback_);
+    }
   }
 
   void store_cancel_goal_callback(ResponseCallback callback)
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     cancel_goal_callback_ = callback;
+    if (events_callbacks_set()) {
+      set_callback_to_event_type(EventType::CancelResponse, generic_callback_);
+    }
   }
 
   void store_result_response_callback(ResponseCallback callback)
   {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
     result_response_callback_ = callback;
+    if (events_callbacks_set()) {
+      set_callback_to_event_type(EventType::ResultResponse, generic_callback_);
+    }
   }
 
   // Store responses from server
@@ -219,18 +229,31 @@ public:
   void execute(std::shared_ptr<void> & data)
   {
     if (!data) {
-      throw std::runtime_error("'data' is empty");
+      // This can happen when there were more events than elements in the ring buffer
+      return;
     }
 
     if (is_goal_response_ready_) {
+      std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
       is_goal_response_ready_ = false;
       goal_response_callback_(std::move(data));
+      // Unset the callback after use, since it's keeping in scope shared pointers
+      goal_response_callback_ = nullptr;
+      unset_callback_to_event_type(EventType::GoalResponse);
     } else if (is_result_response_ready_) {
+      std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
       is_result_response_ready_ = false;
       result_response_callback_(std::move(data));
+      // Unset the callback after use, since it's keeping in scope shared pointers
+      result_response_callback_ = nullptr;
+      unset_callback_to_event_type(EventType::ResultResponse);
     } else if (is_cancel_response_ready_) {
+      std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
       is_cancel_response_ready_ = false;
       cancel_goal_callback_(std::move(data));
+      // Unset the callback after use, since it's keeping in scope shared pointers
+      cancel_goal_callback_ = nullptr;
+      unset_callback_to_event_type(EventType::CancelResponse);
     } else if (is_feedback_ready_) {
       is_feedback_ready_ = false;
       feedback_callback_(std::move(data));
@@ -243,9 +266,9 @@ public:
   }
 
 protected:
-  ResponseCallback goal_response_callback_;
-  ResponseCallback result_response_callback_;
-  ResponseCallback cancel_goal_callback_;
+  // Mutex to proctect callbacks
+  std::recursive_mutex reentrant_mutex_;
+
   ResponseCallback goal_status_callback_;
   ResponseCallback feedback_callback_;
 

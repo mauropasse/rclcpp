@@ -91,6 +91,11 @@ public:
   QoS
   get_actual_qos() const;
 
+  using ResponseCallback = std::function<void (std::shared_ptr<void>)>;
+  ResponseCallback goal_response_callback_;
+  ResponseCallback result_response_callback_;
+  ResponseCallback cancel_goal_callback_;
+
   /// Set a callback to be called when each new response arrives.
   /**
    * The callback receives a size_t which is the number of responses received
@@ -128,11 +133,29 @@ public:
               "is not callable.");
     }
 
-    set_callback_to_event_type(EventType::ResultResponse, callback);
-    set_callback_to_event_type(EventType::CancelResponse, callback);
-    set_callback_to_event_type(EventType::GoalResponse, callback);
+    // The event callbacks for feedback/status can be set now,
+    // since the callbacks that these events will call when executed
+    // are created on the constructor of the ActionClientIntraProcess.
+    // For example an event for FeedbackReady, when executed, call feedback_callback_
     set_callback_to_event_type(EventType::FeedbackReady, callback);
     set_callback_to_event_type(EventType::StatusReady, callback);
+
+    // For the rest we can't set the callbacks unless their callbacks are already set.
+    // For example a GoalResponse Event, when processed, will try to call
+    // goal_response_callback_(), so we shouldn't allow to generate these events
+    // until the callback goal_response_callback_ is set
+    if (goal_response_callback_) {
+      set_callback_to_event_type(EventType::GoalResponse, callback);
+    }
+    if (result_response_callback_) {
+      set_callback_to_event_type(EventType::ResultResponse, callback);
+    }
+    if (cancel_goal_callback_) {
+      set_callback_to_event_type(EventType::CancelResponse, callback);
+    }
+
+    // Store the callback in case we need it later
+    generic_callback_ = callback;
   }
 
   void
@@ -145,6 +168,9 @@ public:
 protected:
   std::recursive_mutex reentrant_mutex_;
   rclcpp::GuardCondition gc_;
+
+  // Generic events callback
+  std::function<void(size_t, int)> generic_callback_;
 
   // Action client on ready callbacks and unread count.
   // These callbacks can be set by the user to be notified about new events
@@ -215,6 +241,25 @@ private:
       // with the new callback and zero as unread count.
       event_type_to_on_ready_callback_.emplace(event_type, std::make_pair(new_callback, 0));
     }
+  }
+
+  void unset_callback_to_event_type(EventType event_type)
+  {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+    // Check if we have already an entry for this event type
+    auto it = event_type_to_on_ready_callback_.find(event_type);
+
+    if (it != event_type_to_on_ready_callback_.end()) {
+      event_type_to_on_ready_callback_.erase(it);
+    }
+  }
+
+  bool events_callbacks_set()
+  {
+    if (generic_callback_) {
+      return true;
+    }
+    return false;
   }
 
   std::function<void(size_t)>
