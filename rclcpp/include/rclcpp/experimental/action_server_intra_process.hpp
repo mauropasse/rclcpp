@@ -197,28 +197,30 @@ public:
       return;
     }
 
-    if (goal_request_ready_) {
-      goal_request_ready_ = false;
+    if (goal_request_ready_.exchange(false))
+    {
       if (execute_goal_request_received_) {
         auto goal_request_data = std::static_pointer_cast<GoalRequestDataPair>(data);
         execute_goal_request_received_(std::move(goal_request_data));
       }
-    } else if (cancel_request_ready_) {
-      cancel_request_ready_ = false;
+    }
+    else if (cancel_request_ready_.exchange(false)) {
       if (execute_cancel_request_received_) {
         auto cancel_goal_data = std::static_pointer_cast<CancelRequestDataPair>(data);
         execute_cancel_request_received_(std::move(cancel_goal_data));
       }
-    } else if (result_request_ready_) {
-      result_request_ready_ = false;
+    }
+    else if (result_request_ready_.exchange(false)) {
       if (execute_result_request_received_) {
         auto result_request_data = std::static_pointer_cast<ResultRequestDataPair>(data);
         execute_result_request_received_(std::move(result_request_data));
       }
-    } else if (goal_expired_) {
+    }
+    else if (goal_expired_) {
       // TODO(mauropasse): Handle goal expired case
       // execute_check_expired_goals();
-    } else {
+    }
+    else {
       throw std::runtime_error("Executing action server but nothing is ready");
     }
   }

@@ -51,6 +51,26 @@ public:
     StatusReady,
   };
 
+  // Alias for the type used for the server responses callback
+  using ResponseCallback = std::function<void (std::shared_ptr<void> /*server response*/)>;
+
+  // Define a structure to hold event information
+  struct EventInfo {
+    // The event type
+    EventType event_type;
+    // The callback to be called with the responses from the server
+    ResponseCallback response_callback;
+    // Flag to determine if there was an event but "response_callback" was not set
+    // Only applies to ResultResponse: The ActionServer can respond faster than the client
+    // setting the "response_callback"
+    bool has_event;
+    // Counter of events received before the "on_ready" callback was set
+    size_t unread_count;
+  };
+
+  // Map the Goal ID with EventInfo
+  std::unordered_multimap<size_t /*Goal ID*/, EventInfo> event_info_multi_map_;
+
   RCLCPP_PUBLIC
   ActionClientIntraProcessBase(
     rclcpp::Context::SharedPtr context,
@@ -91,11 +111,6 @@ public:
   QoS
   get_actual_qos() const;
 
-  using ResponseCallback = std::function<void (std::shared_ptr<void>)>;
-  ResponseCallback goal_response_callback_;
-  ResponseCallback result_response_callback_;
-  ResponseCallback cancel_goal_callback_;
-
   /// Set a callback to be called when each new response arrives.
   /**
    * The callback receives a size_t which is the number of responses received
@@ -132,37 +147,48 @@ public:
               "The callback passed to set_on_ready_callback "
               "is not callable.");
     }
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
 
-    // The event callbacks for feedback/status can be set now,
-    // since the callbacks that these events will call when executed
-    // are created on the constructor of the ActionClientIntraProcess.
-    // For example an event for FeedbackReady, when executed, call feedback_callback_
-    set_callback_to_event_type(EventType::FeedbackReady, callback);
-    set_callback_to_event_type(EventType::StatusReady, callback);
+    on_ready_callback_ = callback;
 
-    // For the rest we can't set the callbacks unless their callbacks are already set.
-    // For example a GoalResponse Event, when processed, will try to call
-    // goal_response_callback_(), so we shouldn't allow to generate these events
-    // until the callback goal_response_callback_ is set
-    if (goal_response_callback_) {
-      set_callback_to_event_type(EventType::GoalResponse, callback);
+    // If we had events happened before the "on_ready" callback was set,
+    // call the callback now with the events counter "unread_count".
+    // But we first have to verify that also the "response_callback" was set:
+    // Otherwise we'll push events in the queue, that when processed, will try to
+    // use a not-yet set "reponse_callback" (this problem actually can only happen for
+    // ResultResponse events, if the server finishes the goal
+    // (on_terminal_state called) before async_get_result is called)
+    for (auto& pair : event_info_multi_map_) {
+      auto & unread_count = pair.second.unread_count;
+      auto & event_type = pair.second.event_type;
+      auto & response_callback = pair.second.response_callback;
+      if (unread_count > 0) {
+        if (response_callback) {
+          // The "response_callback" was set, so we can safely generate the
+          // events
+          on_ready_callback_(unread_count, static_cast<int>(event_type));
+          unread_count = 0;
+        } else {
+          // The "response_callback" was not set!
+          // Mark that we have events, so when the "response_callback" is set,
+          // we call the "on_ready_callback"
+          pair.second.has_event = true;
+        }
+      }
     }
-    if (result_response_callback_) {
-      set_callback_to_event_type(EventType::ResultResponse, callback);
-    }
-    if (cancel_goal_callback_) {
-      set_callback_to_event_type(EventType::CancelResponse, callback);
-    }
-
-    // Store the callback in case we need it later
-    generic_callback_ = callback;
   }
 
   void
   clear_on_ready_callback() override
   {
     std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
-    event_type_to_on_ready_callback_.clear();
+    on_ready_callback_ = nullptr;
+  }
+
+  void clear_expired_goals(size_t goal_id)
+  {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+    event_info_multi_map_.erase(goal_id);
   }
 
 protected:
@@ -170,126 +196,103 @@ protected:
   rclcpp::GuardCondition gc_;
 
   // Generic events callback
-  std::function<void(size_t, int)> generic_callback_;
+  std::function<void(size_t, int)> on_ready_callback_{nullptr};
 
-  // Action client on ready callbacks and unread count.
-  // These callbacks can be set by the user to be notified about new events
-  // on the action client like a new goal response, result response, etc.
-  // These events have a counter associated with them, counting the amount of events
-  // that happened before having assigned a callback for them.
-  using EventTypeOnReadyCallback = std::function<void (size_t)>;
-  using CallbackUnreadCountPair = std::pair<EventTypeOnReadyCallback, size_t>;
-
-  // Map the different action client event types to their callbacks and unread count.
-  std::unordered_map<EventType, CallbackUnreadCountPair> event_type_to_on_ready_callback_;
-
-  // Invoke the callback to be called when the action client has a new event
-  void
-  invoke_on_ready_callback(EventType event_type)
-  {
-    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
-
-    // Search for a callback for this event type
-    auto it = event_type_to_on_ready_callback_.find(event_type);
-
-    if (it != event_type_to_on_ready_callback_.end()) {
-      auto & on_ready_callback = it->second.first;
-      // If there's a callback associated with this event type, call it
-      if (on_ready_callback) {
-        on_ready_callback(1);
-      } else {
-        // We don't have a callback for this event type yet,
-        // increase its event counter.
-        auto & event_type_unread_count = it->second.second;
-        event_type_unread_count++;
-      }
-    } else {
-      // No entries found for this event type, create one
-      // with an emtpy callback and one unread event.
-      event_type_to_on_ready_callback_.emplace(event_type, std::make_pair(nullptr, 1));
-    }
-  }
-
-  void set_callback_to_event_type(
+  // Function to set callback to event type
+  void set_response_callback_to_event_type(
     EventType event_type,
-    std::function<void(size_t, int)> callback)
+    ResponseCallback response_callback,
+    size_t goal_id = 0)
   {
-    auto new_callback = create_event_type_callback(callback, event_type);
-
     std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
 
-    // Check if we have already an entry for this event type
-    auto it = event_type_to_on_ready_callback_.find(event_type);
+    // Get the range of EventInfo matching the goal_id
+    auto range = event_info_multi_map_.equal_range(goal_id);
 
-    if (it != event_type_to_on_ready_callback_.end()) {
-      // We have an entry for this event type, check how many
-      // events of this event type happened so far.
-      auto & event_type_unread_count = it->second.second;
-      if (event_type_unread_count) {
-        new_callback(event_type_unread_count);
+    for (auto it = range.first; it != range.second; ++it) {
+      if (it->second.event_type == event_type) {
+        it->second.response_callback = response_callback;
+        return;
       }
-      event_type_unread_count = 0;
-      // Set the new callback for this event type
-      auto & event_type_on_ready_callback = it->second.first;
-      event_type_on_ready_callback = new_callback;
-    } else {
-      // We had no entries for this event type, create one
-      // with the new callback and zero as unread count.
-      event_type_to_on_ready_callback_.emplace(event_type, std::make_pair(new_callback, 0));
     }
+
+    // If no entry found, create a new one.
+    EventInfo event_info{event_type, response_callback, false, 0};
+    event_info_multi_map_.emplace(goal_id, event_info);
   }
 
-  void unset_callback_to_event_type(EventType event_type)
+  // Function to invoke callback on ready.
+  // If the callback was not set at the time of calling, increase the unread count.
+  void invoke_on_ready_callback(
+    EventType event_type,
+    size_t goal_id = 0)
   {
     std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
-    // Check if we have already an entry for this event type
-    auto it = event_type_to_on_ready_callback_.find(event_type);
 
-    if (it != event_type_to_on_ready_callback_.end()) {
-      event_type_to_on_ready_callback_.erase(it);
+    auto range = event_info_multi_map_.equal_range(goal_id);
+    for (auto it = range.first; it != range.second; ++it) {
+      if (it->second.event_type == event_type) {
+        if (on_ready_callback_) {
+          on_ready_callback_(1, static_cast<int>(event_type));
+        } else {
+          it->second.unread_count++;
+        }
+        return;
+      }
     }
+
+    // If no entry found, create a new one with unread_count = 1
+    EventInfo event_info{event_type, nullptr, false, 1};
+    event_info_multi_map_.emplace(goal_id, event_info);
   }
 
-  bool events_callbacks_set()
-  {
-    if (generic_callback_) {
-      return true;
+  // Function to retrieve a reference to an EventInfo matching the hashed_guuid and EventType
+  EventInfo& get_event_info(size_t goal_id, EventType event_type) {
+    auto range = event_info_multi_map_.equal_range(goal_id);
+    for (auto it = range.first; it != range.second; ++it) {
+      if (it->second.event_type == event_type) {
+        return it->second;
+      }
     }
-    return false;
+
+    // If no matching EventInfo found, create a new one
+    EventInfo event_info{event_type, nullptr, false, 0};
+    auto it = event_info_multi_map_.emplace(goal_id, event_info);
+    return it->second;
+  }
+
+  // Function to return a copy to the callback for a particular goal_id and event_type
+  ResponseCallback get_callback_for_event_type(size_t goal_id, EventType event_type)
+  {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
+    auto range = event_info_multi_map_.equal_range(goal_id);
+    for (auto it = range.first; it != range.second; ++it) {
+      if (it->second.event_type == event_type) {
+        return it->second.response_callback;
+      }
+    }
+
+    // If no callback found, return a default-constructed std::function
+    return ResponseCallback{};
+  }
+
+  // Function to remove an entry from event_info_multi_map_ for a particular goal_id and EventType
+  void remove_entry_from_event_info_multi_map_(size_t goal_id, EventType event_type) {
+    std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
+
+    auto range = event_info_multi_map_.equal_range(goal_id);
+    for (auto it = range.first; it != range.second; ++it) {
+      if (it->second.event_type == event_type) {
+        event_info_multi_map_.erase(it);
+        return;
+      }
+    }
   }
 
 private:
   std::string action_name_;
   QoS qos_profile_;
-
-  std::function<void(size_t)>
-  create_event_type_callback(
-    std::function<void(size_t, int)> callback,
-    EventType event_type)
-  {
-    // Note: we bind the int identifier argument to this waitable's entity types
-    auto new_callback =
-      [callback, event_type, this](size_t number_of_events) {
-        try {
-          callback(number_of_events, static_cast<int>(event_type));
-        } catch (const std::exception & exception) {
-          RCLCPP_ERROR_STREAM(
-            rclcpp::get_logger("rclcpp_action"),
-            "rclcpp::experimental::ActionClientIntraProcessBase@" << this <<
-              " caught " << rmw::impl::cpp::demangle(exception) <<
-              " exception in user-provided callback for the 'on ready' callback: " <<
-              exception.what());
-        } catch (...) {
-          RCLCPP_ERROR_STREAM(
-            rclcpp::get_logger("rclcpp_action"),
-            "rclcpp::experimental::ActionClientIntraProcessBase@" << this <<
-              " caught unhandled exception in user-provided callback " <<
-              "for the 'on ready' callback");
-        }
-      };
-
-    return new_callback;
-  }
 };
 
 }  // namespace experimental

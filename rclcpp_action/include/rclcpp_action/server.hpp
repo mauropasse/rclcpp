@@ -524,13 +524,16 @@ protected:
     // so we can retrieve it when response is ready, or when sending feedback
     // since the feedback calls only provide the goal UUID
     // Store an entry
+    size_t hashed_guuid = std::hash<GoalUUID>()(uuid);
+
     ipm->store_intra_process_action_client_goal_uuid(
       intra_process_action_client_id,
-      std::hash<GoalUUID>()(uuid));
+      hashed_guuid);
 
     ipm->intra_process_action_send_goal_response<ActionT>(
       intra_process_action_client_id,
-      std::move(goal_response));
+      std::move(goal_response),
+      hashed_guuid);
 
     const auto user_response = response_pair.first;
 
@@ -597,9 +600,13 @@ protected:
         std::move(status_msg));
     }
 
+    GoalUUID uuid = request->goal_info.goal_id.uuid;
+    size_t hashed_guuid = std::hash<GoalUUID>()(uuid);
+
     ipm->intra_process_action_send_cancel_response<ActionT>(
       intra_process_action_client_id,
-      std::move(response));
+      std::move(response),
+      hashed_guuid);
   }
 
 
@@ -632,9 +639,13 @@ protected:
       }
 
       auto typed_response = std::static_pointer_cast<ResultResponse>(result_response);
+
+      size_t hashed_guuid = std::hash<GoalUUID>()(uuid);
+
       ipm->intra_process_action_send_result_response<ActionT>(
         intra_process_action_client_id,
-        std::move(typed_response));
+        std::move(typed_response),
+        hashed_guuid);
     }
   }
 
@@ -670,12 +681,12 @@ protected:
                     "destruction of intra process manager");
           }
 
-          size_t hashed_uuid = std::hash<GoalUUID>()(goal_uuid);
+          size_t hashed_guuid = std::hash<GoalUUID>()(goal_uuid);
 
           // This part would be the IPC version of publish_result();
           // It does not perform any checks, like if the goal exists
           uint64_t ipc_action_client_id =
-            ipm->get_action_client_id_from_goal_uuid(hashed_uuid);
+            ipm->get_action_client_id_from_goal_uuid(hashed_guuid);
 
           if (!ipc_action_client_id) {
             return;
@@ -684,7 +695,8 @@ protected:
           auto typed_response = std::static_pointer_cast<ResultResponse>(result_message);
           ipm->template intra_process_action_send_result_response<ActionT>(
             ipc_action_client_id,
-            std::move(typed_response));
+            std::move(typed_response),
+            hashed_guuid);
 
           // This part would be the IPC version of publish_status();
           auto status_msg = shared_this->get_status_array();
@@ -693,7 +705,7 @@ protected:
             ipc_action_client_id,
             std::move(status_msg));
 
-          ipm->remove_intra_process_action_client_goal_uuid(hashed_uuid);
+          ipm->remove_intra_process_action_client_goal_uuid(hashed_guuid);
         } else {
           // Send result message to anyone that asked
           shared_this->publish_result(goal_uuid, result_message);
@@ -728,10 +740,10 @@ protected:
                     "after destruction of intra process manager");
           }
 
-          size_t hashed_uuid = std::hash<GoalUUID>()(goal_uuid);
+          size_t hashed_guuid = std::hash<GoalUUID>()(goal_uuid);
 
           uint64_t ipc_action_client_id =
-            ipm->get_action_client_id_from_goal_uuid(hashed_uuid);
+            ipm->get_action_client_id_from_goal_uuid(hashed_guuid);
 
           // This part would be the IPC version of publish_status();
           auto status_msg = shared_this->get_status_array();
@@ -766,10 +778,10 @@ protected:
                     "after destruction of intra process manager");
           }
 
-          size_t hashed_uuid = std::hash<GoalUUID>()(feedback_msg->goal_id.uuid);
+          size_t hashed_guuid = std::hash<GoalUUID>()(feedback_msg->goal_id.uuid);
 
           uint64_t ipc_action_client_id =
-            ipm->get_action_client_id_from_goal_uuid(hashed_uuid);
+            ipm->get_action_client_id_from_goal_uuid(hashed_guuid);
 
           ipm->template intra_process_action_publish_feedback<ActionT>(
             ipc_action_client_id,

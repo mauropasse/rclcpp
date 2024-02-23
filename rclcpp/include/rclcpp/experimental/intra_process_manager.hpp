@@ -551,27 +551,13 @@ public:
    *
    * \param ipc_action_client_id the id of the action client sending the goal request
    * \param goal_request the action client's goal request data.
-   * \param callback the callback to be called when the server sends the goal response
    */
   template<typename ActionT, typename RequestT>
   void
   intra_process_action_send_goal_request(
     uint64_t ipc_action_client_id,
-    RequestT goal_request,
-    std::function<void(std::shared_ptr<void>)> callback)
+    RequestT goal_request)
   {
-    // First, lets store the client callback to be called when the
-    // server sends the goal response
-    auto client = get_intra_process_action_client<ActionT>(ipc_action_client_id);
-
-    if (client) {
-      client->store_goal_response_callback(callback);
-    } else {
-      // Client went out of scope
-      return;
-    }
-
-    // Now lets send the goal request
     auto service = get_matching_intra_process_action_server<ActionT>(ipc_action_client_id);
 
     if (service) {
@@ -587,27 +573,13 @@ public:
    *
    * \param ipc_action_client_id the id of the action client sending the cancel request
    * \param cancel_request the action client's cancel request data.
-   * \param callback the callback to be called when the server sends the cancel response
    */
   template<typename ActionT, typename CancelT>
   void
   intra_process_action_send_cancel_request(
     uint64_t ipc_action_client_id,
-    CancelT cancel_request,
-    std::function<void(std::shared_ptr<void>)> callback)
+    CancelT cancel_request)
   {
-    // First, lets store the client callback to be called when the
-    // server sends the cancel response
-    auto client = get_intra_process_action_client<ActionT>(ipc_action_client_id);
-
-    if (client) {
-      client->store_cancel_goal_callback(callback);
-    } else {
-      // Client went out of scope
-      return;
-    }
-
-    // Now lets send the cancel request
     auto service = get_matching_intra_process_action_server<ActionT>(ipc_action_client_id);
 
     if (service) {
@@ -628,21 +600,8 @@ public:
   void
   intra_process_action_send_result_request(
     uint64_t ipc_action_client_id,
-    RequestT result_request,
-    std::function<void(std::shared_ptr<void>)> callback)
+    RequestT result_request)
   {
-    // First, lets store the client callback to be called when the
-    // server sends the result response
-    auto client = get_intra_process_action_client<ActionT>(ipc_action_client_id);
-
-    if (client) {
-      client->store_result_response_callback(callback);
-    } else {
-      // Client went out of scope
-      return;
-    }
-
-    // Now lets send the result request to the server
     auto service = get_matching_intra_process_action_server<ActionT>(ipc_action_client_id);
 
     if (service) {
@@ -658,17 +617,19 @@ public:
    *
    * \param ipc_action_client_id the id of the action client receiving the response
    * \param goal_response the action server's goal response data.
+   * \param goal_id the Goal ID.
    */
   template<typename ActionT, typename ResponseT>
   void
   intra_process_action_send_goal_response(
     uint64_t ipc_action_client_id,
-    ResponseT goal_response)
+    ResponseT goal_response,
+    size_t goal_id)
   {
     auto client = get_intra_process_action_client<ActionT>(ipc_action_client_id);
 
     if (client) {
-      client->store_ipc_action_goal_response(std::move(goal_response));
+      client->store_ipc_action_goal_response(std::move(goal_response), goal_id);
     }
   }
 
@@ -679,17 +640,19 @@ public:
    *
    * \param ipc_action_client_id the id of the action client receiving the response
    * \param cancel_response the action server's cancel response data.
+   * \param goal_id the Goal ID.
    */
   template<typename ActionT, typename ResponseT>
   void
   intra_process_action_send_cancel_response(
     uint64_t ipc_action_client_id,
-    ResponseT cancel_response)
+    ResponseT cancel_response,
+    size_t goal_id)
   {
     auto client = get_intra_process_action_client<ActionT>(ipc_action_client_id);
 
     if (client) {
-      client->store_ipc_action_cancel_response(std::move(cancel_response));
+      client->store_ipc_action_cancel_response(std::move(cancel_response), goal_id);
     }
   }
 
@@ -700,17 +663,19 @@ public:
    *
    * \param ipc_action_client_id the id of the action client receiving the response
    * \param result_response the action server's result response data.
+   * \param goal_id the Goal ID.
    */
   template<typename ActionT, typename ResponseT>
   void
   intra_process_action_send_result_response(
     uint64_t ipc_action_client_id,
-    ResponseT result_response)
+    ResponseT result_response,
+    size_t goal_id)
   {
     auto client = get_intra_process_action_client<ActionT>(ipc_action_client_id);
 
     if (client) {
-      client->store_ipc_action_result_response(std::move(result_response));
+      client->store_ipc_action_result_response(std::move(result_response), goal_id);
     }
   }
 
