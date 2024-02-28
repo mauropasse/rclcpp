@@ -247,7 +247,8 @@ protected:
   }
 
   // Function to retrieve a reference to an EventInfo matching the hashed_guuid and EventType
-  EventInfo& get_event_info(size_t goal_id, EventType event_type) {
+  EventInfo& get_event_info(size_t goal_id, EventType event_type)
+  {
     auto range = event_info_multi_map_.equal_range(goal_id);
     for (auto it = range.first; it != range.second; ++it) {
       if (it->second.event_type == event_type) {
@@ -278,7 +279,8 @@ protected:
   }
 
   // Function to remove an entry from event_info_multi_map_ for a particular goal_id and EventType
-  void remove_entry_from_event_info_multi_map_(size_t goal_id, EventType event_type) {
+  void remove_entry_from_event_info_multi_map_(size_t goal_id, EventType event_type)
+  {
     std::lock_guard<std::recursive_mutex> lock(reentrant_mutex_);
 
     auto range = event_info_multi_map_.equal_range(goal_id);
