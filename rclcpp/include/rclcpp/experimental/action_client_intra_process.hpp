@@ -182,7 +182,7 @@ public:
       auto data = std::move(feedback_buffer_->consume());
       return std::static_pointer_cast<void>(data);
     } else if (is_status_ready_) {
-      auto data = std::move(status_buffer_->consume());
+      auto data = status_buffer_->consume();
       return std::static_pointer_cast<void>(data);
     } else {
       throw std::runtime_error("Taking data from intra-process action client but nothing is ready");
