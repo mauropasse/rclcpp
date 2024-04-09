@@ -97,6 +97,16 @@ public:
     );
   }
 
+  /// Return true if there is an intra-process action server that is ready to take goal requests.
+  bool
+  intra_process_action_server_is_available()
+  {
+    if (auto ipm = weak_ipm_.lock()) {
+      return ipm->action_server_is_available(ipc_action_client_id_);
+    }
+    return false;
+  }
+
   // -------------
   // Waitables API
 
@@ -513,13 +523,17 @@ public:
       // If there's not, we fall back into inter-process communication, since
       // the server might be available in another process or was configured to not use IPC.
       if (intra_process_server_available) {
-        ipc_action_client_->store_goal_response_callback(
-          hashed_guuid, goal_response_callback);
+        bool goal_sent_by_ipc = ipc_action_client_->has_goal_id(hashed_guuid);
 
-        intra_process_send_done = ipm->template intra_process_action_send_goal_request<ActionT>(
-            ipc_action_client_id_,
-            std::move(goal_request),
-            hashed_guuid);
+        if (goal_sent_by_ipc) {
+          ipc_action_client_->store_goal_response_callback(
+            hashed_guuid, goal_response_callback);
+
+          intra_process_send_done = ipm->template intra_process_action_send_goal_request<ActionT>(
+              ipc_action_client_id_,
+              std::move(goal_request),
+              hashed_guuid);
+        }
       }
     }
 
@@ -835,12 +849,17 @@ private:
         // the server might be available in another process or was configured to not use IPC.
         if (intra_process_server_available) {
           size_t hashed_guuid = std::hash<GoalUUID>()(goal_handle->get_goal_id());
-          ipc_action_client_->store_result_response_callback(
-            hashed_guuid, result_response_callback);
 
-          intra_process_send_done = ipm->template intra_process_action_send_result_request<ActionT>(
-              ipc_action_client_id_,
-              std::move(goal_result_request));
+          bool goal_sent_by_ipc = ipc_action_client_->has_goal_id(hashed_guuid);
+
+          if (goal_sent_by_ipc) {
+            ipc_action_client_->store_result_response_callback(
+              hashed_guuid, result_response_callback);
+
+            intra_process_send_done = ipm->template intra_process_action_send_result_request<ActionT>(
+                ipc_action_client_id_,
+                std::move(goal_result_request));
+          }
         }
       }
 
@@ -891,12 +910,17 @@ private:
       // the server might be available in another process or was configured to not use IPC.
       if (intra_process_server_available) {
         size_t hashed_guuid = std::hash<GoalUUID>()(cancel_request->goal_info.goal_id.uuid);
-        ipc_action_client_->store_cancel_goal_callback(
-          hashed_guuid, cancel_goal_callback);
 
-        intra_process_send_done = ipm->template intra_process_action_send_cancel_request<ActionT>(
+        bool goal_sent_by_ipc = ipc_action_client_->has_goal_id(hashed_guuid);
+
+        if (goal_sent_by_ipc) {
+          ipc_action_client_->store_cancel_goal_callback(
+            hashed_guuid, cancel_goal_callback);
+
+          intra_process_send_done = ipm->template intra_process_action_send_cancel_request<ActionT>(
             ipc_action_client_id_,
             std::move(cancel_request));
+        }
       }
     }
 
