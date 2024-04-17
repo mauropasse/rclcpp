@@ -512,7 +512,7 @@ protected:
 
     auto ipm = lock_intra_process_manager();
 
-    ipm->intra_process_action_send_goal_response<ActionT>(
+    ipm->template intra_process_action_send_goal_response<ActionT>(
       intra_process_action_client_id,
       std::move(goal_response),
       std::hash<GoalUUID>()(uuid));
@@ -576,7 +576,7 @@ protected:
 
     GoalUUID uuid = request->goal_info.goal_id.uuid;
 
-    ipm->intra_process_action_send_cancel_response<ActionT>(
+    ipm->template intra_process_action_send_cancel_response<ActionT>(
       intra_process_action_client_id,
       std::move(response),
       std::hash<GoalUUID>()(uuid));
@@ -615,7 +615,7 @@ protected:
       // Send the result now
       auto ipm = lock_intra_process_manager();
 
-      ipm->intra_process_action_send_result_response<ActionT>(
+      ipm->template intra_process_action_send_result_response<ActionT>(
         intra_process_action_client_id,
         std::move(result_response),
         hashed_uuid);
