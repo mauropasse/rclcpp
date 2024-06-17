@@ -430,6 +430,8 @@ EventsExecutor::refresh_current_collection(
   // Acquire lock before modifying the current collection
   std::lock_guard<std::recursive_mutex> lock(collection_mutex_);
 
+  current_entities_collection_->remove_expired_entities();
+
   current_entities_collection_->timers.update(
     new_collection.timers,
     [this](rclcpp::TimerBase::SharedPtr timer) {timers_manager_->add_timer(timer);},
