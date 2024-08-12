@@ -523,17 +523,13 @@ public:
       // If there's not, we fall back into inter-process communication, since
       // the server might be available in another process or was configured to not use IPC.
       if (intra_process_server_available) {
-        bool goal_sent_by_ipc = ipc_action_client_->has_goal_id(hashed_guuid);
+        ipc_action_client_->store_goal_response_callback(
+          hashed_guuid, goal_response_callback);
 
-        if (goal_sent_by_ipc) {
-          ipc_action_client_->store_goal_response_callback(
-            hashed_guuid, goal_response_callback);
-
-          intra_process_send_done = ipm->template intra_process_action_send_goal_request<ActionT>(
-              ipc_action_client_id_,
-              std::move(goal_request),
-              hashed_guuid);
-        }
+        intra_process_send_done = ipm->template intra_process_action_send_goal_request<ActionT>(
+            ipc_action_client_id_,
+            std::move(goal_request),
+            hashed_guuid);
       }
     }
 
@@ -850,7 +846,8 @@ private:
         if (intra_process_server_available) {
           size_t hashed_guuid = std::hash<GoalUUID>()(goal_handle->get_goal_id());
 
-          bool goal_sent_by_ipc = ipc_action_client_->has_goal_id(hashed_guuid);
+          // Determine if goal was sent through inter or intra process by checking the goal ID
+          bool goal_sent_by_ipc = ipm->get_action_client_id_from_goal_uuid(hashed_guuid);
 
           if (goal_sent_by_ipc) {
             ipc_action_client_->store_result_response_callback(
@@ -910,17 +907,12 @@ private:
       // the server might be available in another process or was configured to not use IPC.
       if (intra_process_server_available) {
         size_t hashed_guuid = std::hash<GoalUUID>()(cancel_request->goal_info.goal_id.uuid);
+        ipc_action_client_->store_cancel_goal_callback(
+          hashed_guuid, cancel_goal_callback);
 
-        bool goal_sent_by_ipc = ipc_action_client_->has_goal_id(hashed_guuid);
-
-        if (goal_sent_by_ipc) {
-          ipc_action_client_->store_cancel_goal_callback(
-            hashed_guuid, cancel_goal_callback);
-
-          intra_process_send_done = ipm->template intra_process_action_send_cancel_request<ActionT>(
+        intra_process_send_done = ipm->template intra_process_action_send_cancel_request<ActionT>(
             ipc_action_client_id_,
             std::move(cancel_request));
-        }
       }
     }
 
