@@ -26,6 +26,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <iostream>
 
 #include "rcl/event_callback.h"
 
@@ -511,33 +512,42 @@ public:
 
     bool intra_process_send_done = false;
 
+    std::cout << "Checking if intra-process communication is enabled..." << std::endl;
+
     if (use_intra_process_) {
-      auto ipm = weak_ipm_.lock();
-      if (!ipm) {
-        throw std::runtime_error(
-                "intra process send goal called after destruction of intra process manager");
-      }
-      bool intra_process_server_available = ipm->action_server_is_available(ipc_action_client_id_);
+        std::cout << "Intra-process communication is enabled." << std::endl;
+        auto ipm = weak_ipm_.lock();
+        if (!ipm) {
+            std::cerr << "Error: Intra-process manager has been destroyed." << std::endl;
+            throw std::runtime_error(
+                "Intra-process send goal called after destruction of intra-process manager");
+        }
 
-      // Check if there's an intra-process action server available matching this client.
-      // If there's not, we fall back into inter-process communication, since
-      // the server might be available in another process or was configured to not use IPC.
-      if (intra_process_server_available) {
-        ipc_action_client_->store_goal_response_callback(
-          hashed_guuid, goal_response_callback);
+        std::cout << "Checking if intra-process action server is available..." << std::endl;
+        bool intra_process_server_available = ipm->action_server_is_available(ipc_action_client_id_);
 
-        intra_process_send_done = ipm->template intra_process_action_send_goal_request<ActionT>(
-            ipc_action_client_id_,
-            std::move(goal_request),
-            hashed_guuid);
-      }
+        if (intra_process_server_available) {
+            std::cout << "Intra-process action server is available, storing goal response callback." << std::endl;
+            ipc_action_client_->store_goal_response_callback(
+                hashed_guuid, goal_response_callback);
+
+            std::cout << "Sending goal request via intra-process communication..." << std::endl;
+            intra_process_send_done = ipm->template intra_process_action_send_goal_request<ActionT>(
+                ipc_action_client_id_,
+                std::move(goal_request),
+                hashed_guuid);
+        } else {
+            std::cout << "Intra-process action server not available, falling back to inter-process communication." << std::endl;
+        }
+    } else {
+        std::cout << "Intra-process communication is not enabled." << std::endl;
     }
 
     if (!intra_process_send_done) {
-      // Send inter-process goal request
-      this->send_goal_request(
-        std::static_pointer_cast<void>(goal_request),
-        goal_response_callback);
+        std::cout << "Sending goal request via inter-process communication..." << std::endl;
+        this->send_goal_request(
+            std::static_pointer_cast<void>(goal_request),
+            goal_response_callback);
     }
 
     clear_expired_goals();
@@ -831,40 +841,52 @@ private:
     try {
       bool intra_process_send_done = false;
 
+      std::cout << "make_result_aware: Checking if intra-process communication is enabled..." << std::endl;
+
       if (use_intra_process_) {
-        auto ipm = weak_ipm_.lock();
-        if (!ipm) {
-          throw std::runtime_error(
-                  "intra process send result called after destruction of intra process manager");
-        }
-        bool intra_process_server_available =
-          ipm->action_server_is_available(ipc_action_client_id_);
-
-        // Check if there's an intra-process action server available matching this client.
-        // If there's not, we fall back into inter-process communication, since
-        // the server might be available in another process or was configured to not use IPC.
-        if (intra_process_server_available) {
-          size_t hashed_guuid = std::hash<GoalUUID>()(goal_handle->get_goal_id());
-
-          // Determine if goal was sent through inter or intra process by checking the goal ID
-          bool goal_sent_by_ipc = ipm->get_action_client_id_from_goal_uuid(hashed_guuid);
-
-          if (goal_sent_by_ipc) {
-            ipc_action_client_->store_result_response_callback(
-              hashed_guuid, result_response_callback);
-
-            intra_process_send_done = ipm->template intra_process_action_send_result_request<ActionT>(
-                ipc_action_client_id_,
-                std::move(goal_result_request));
+          std::cout << "Intra-process communication is enabled." << std::endl;
+          auto ipm = weak_ipm_.lock();
+          if (!ipm) {
+              std::cerr << "Error: Intra-process manager has been destroyed." << std::endl;
+              throw std::runtime_error(
+                  "Intra-process send result called after destruction of intra-process manager");
           }
-        }
+
+          std::cout << "Checking if intra-process action server is available..." << std::endl;
+          bool intra_process_server_available =
+              ipm->action_server_is_available(ipc_action_client_id_);
+
+          if (intra_process_server_available) {
+              std::cout << "Intra-process action server is available." << std::endl;
+              size_t hashed_guuid = std::hash<GoalUUID>()(goal_handle->get_goal_id());
+
+              std::cout << "Checking if goal was sent via intra-process communication..." << std::endl;
+              bool goal_sent_by_ipc = ipm->get_action_client_id_from_goal_uuid(hashed_guuid);
+
+              if (goal_sent_by_ipc) {
+                  std::cout << "Goal was sent via intra-process, storing result response callback." << std::endl;
+                  ipc_action_client_->store_result_response_callback(
+                      hashed_guuid, result_response_callback);
+
+                  std::cout << "Sending result request via intra-process communication..." << std::endl;
+                  intra_process_send_done = ipm->template intra_process_action_send_result_request<ActionT>(
+                      ipc_action_client_id_,
+                      std::move(goal_result_request));
+              } else {
+                  std::cout << "Goal was not sent via intra-process, falling back to inter-process communication." << std::endl;
+              }
+          } else {
+              std::cout << "Intra-process action server not available, falling back to inter-process communication." << std::endl;
+          }
+      } else {
+          std::cout << "Intra-process communication is not enabled." << std::endl;
       }
 
       if (!intra_process_send_done) {
-        // Send inter-process result request
-        this->send_result_request(
-          std::static_pointer_cast<void>(goal_result_request),
-          result_response_callback);
+          std::cout << "Sending result request via inter-process communication..." << std::endl;
+          this->send_result_request(
+              std::static_pointer_cast<void>(goal_result_request),
+              result_response_callback);
       }
     } catch (rclcpp::exceptions::RCLError & ex) {
       // This will cause an exception when the user tries to access the result

@@ -22,6 +22,7 @@
 #include <tuple>
 #include <utility>
 #include <variant>  // NOLINT, cpplint doesn't think this is a cpp std header
+#include <iostream>
 
 #include "rcutils/logging_macros.h"
 #include "rclcpp/experimental/buffers/intra_process_buffer.hpp"
@@ -185,32 +186,43 @@ public:
     return take_data();
   }
 
+
+
   void execute(std::shared_ptr<void> & data)
   {
+    std::cout << "Executing action server..." << std::endl;
+
     if (!data && !goal_expired_) {
-      // Empty data can happen when there were more events than elements in the ring buffer
-      return;
+        std::cout << "Empty data and goal not expired, returning." << std::endl;
+        // Empty data can happen when there were more events than elements in the ring buffer
+        return;
     }
 
     if (goal_request_ready_.exchange(false)) {
-      auto goal_request_data = std::static_pointer_cast<GoalRequestDataPair>(data);
-      execute_goal_request_received_(std::move(goal_request_data));
+        std::cout << "Goal request is ready." << std::endl;
+        auto goal_request_data = std::static_pointer_cast<GoalRequestDataPair>(data);
+        execute_goal_request_received_(std::move(goal_request_data));
     }
     else if (cancel_request_ready_.exchange(false)) {
-      auto cancel_goal_data = std::static_pointer_cast<CancelRequestDataPair>(data);
-      execute_cancel_request_received_(std::move(cancel_goal_data));
+        std::cout << "Cancel request is ready." << std::endl;
+        auto cancel_goal_data = std::static_pointer_cast<CancelRequestDataPair>(data);
+        execute_cancel_request_received_(std::move(cancel_goal_data));
     }
     else if (result_request_ready_.exchange(false)) {
-      auto result_request_data = std::static_pointer_cast<ResultRequestDataPair>(data);
-      execute_result_request_received_(std::move(result_request_data));
+        std::cout << "Result request is ready." << std::endl;
+        auto result_request_data = std::static_pointer_cast<ResultRequestDataPair>(data);
+        execute_result_request_received_(std::move(result_request_data));
     }
     else if (goal_expired_) {
-      // TODO(mauropasse): Handle goal expired case
-      // execute_check_expired_goals();
+        std::cout << "Goal has expired." << std::endl;
+        // TODO(mauropasse): Handle goal expired case
+        // execute_check_expired_goals();
     } else {
-      throw std::runtime_error("Executing action server but nothing is ready");
+        std::cout << "Nothing is ready, throwing runtime error." << std::endl;
+        throw std::runtime_error("Executing action server but nothing is ready");
     }
   }
+
 
 protected:
   // Create one buffer per type of client request
