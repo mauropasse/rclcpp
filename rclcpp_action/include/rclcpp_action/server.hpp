@@ -675,7 +675,8 @@ protected:
       rclcpp::get_logger("rclcpp_action"),
       "Action server can't send result response, missing IPC Action client: %s. "
       "Will do inter-process publish",
-      this->action_name_.c_str());
+      this->action_name_);
+
     return true;
   }
 

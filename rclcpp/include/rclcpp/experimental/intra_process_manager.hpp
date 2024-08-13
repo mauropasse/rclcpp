@@ -1061,7 +1061,7 @@ private:
           auto ptr = MessageAllocTraits::allocate(allocator, 1);
           MessageAllocTraits::construct(allocator, ptr, *message);
 
-          subscription->provide_intra_process_data(std::move(MessageUniquePtr(ptr, deleter)));
+          subscription->provide_intra_process_data(MessageUniquePtr(ptr, deleter));
         }
 
         continue;
@@ -1104,7 +1104,7 @@ private:
             MessageAllocTraits::construct(allocator, ptr, *message);
 
             ros_message_subscription->provide_intra_process_message(
-              std::move(MessageUniquePtr(ptr, deleter)));
+              MessageUniquePtr(ptr, deleter));
           }
         }
       }
