@@ -22,6 +22,8 @@
 #include <tuple>
 #include <utility>
 #include <variant>  // NOLINT, cpplint doesn't think this is a cpp std header
+#include <iostream> // Include this header for std::cout
+
 
 #include "rcutils/logging_macros.h"
 #include "rclcpp/experimental/buffers/intra_process_buffer.hpp"
@@ -252,51 +254,63 @@ public:
 
   void execute(std::shared_ptr<void> & data)
   {
+    std::cout << "Executing intra-process action client..." << std::endl;
+
     if (!data) {
-      // This can happen when there were more events than elements in the ring buffer
-      return;
+        std::cout << "No data provided, returning." << std::endl;
+        // This can happen when there were more events than elements in the ring buffer
+        return;
     }
 
     if (is_goal_response_ready_.exchange(false)) {
-      auto goal_response_pair = std::static_pointer_cast<GoalResponseVoidDataPair>(data);
-      auto goal_id = goal_response_pair->first;
-      auto & goal_response = goal_response_pair->second;
+        std::cout << "Goal response is ready." << std::endl;
+        auto goal_response_pair = std::static_pointer_cast<GoalResponseVoidDataPair>(data);
+        auto goal_id = goal_response_pair->first;
+        auto & goal_response = goal_response_pair->second;
 
-      call_response_callback_and_erase(
-        EventType::GoalResponse,
-        goal_response,
-        goal_id);
+        std::cout << "Processing goal response for goal ID: " << goal_id << std::endl;
+        call_response_callback_and_erase(
+            EventType::GoalResponse,
+            goal_response,
+            goal_id);
     }
     else if (is_result_response_ready_.exchange(false)) {
-      auto result_response_pair = std::static_pointer_cast<ResultResponseVoidDataPair>(data);
-      auto goal_id = result_response_pair->first;
-      auto & result_response = result_response_pair->second;
+        std::cout << "Result response is ready." << std::endl;
+        auto result_response_pair = std::static_pointer_cast<ResultResponseVoidDataPair>(data);
+        auto goal_id = result_response_pair->first;
+        auto & result_response = result_response_pair->second;
 
-      call_response_callback_and_erase(
-        EventType::ResultResponse,
-        result_response,
-        goal_id);
+        std::cout << "Processing result response for goal ID: " << goal_id << std::endl;
+        call_response_callback_and_erase(
+            EventType::ResultResponse,
+            result_response,
+            goal_id);
     }
     else if (is_cancel_response_ready_.exchange(false)) {
-      auto cancel_response_pair = std::static_pointer_cast<CancelResponseVoidDataPair>(data);
-      auto goal_id = cancel_response_pair->first;
-      auto & cancel_response = cancel_response_pair->second;
+        std::cout << "Cancel response is ready." << std::endl;
+        auto cancel_response_pair = std::static_pointer_cast<CancelResponseVoidDataPair>(data);
+        auto goal_id = cancel_response_pair->first;
+        auto & cancel_response = cancel_response_pair->second;
 
-      call_response_callback_and_erase(
-        EventType::CancelResponse,
-        cancel_response,
-        goal_id);
+        std::cout << "Processing cancel response for goal ID: " << goal_id << std::endl;
+        call_response_callback_and_erase(
+            EventType::CancelResponse,
+            cancel_response,
+            goal_id);
     }
     else if (is_feedback_ready_.exchange(false)) {
-      call_response_callback_and_erase(
-        EventType::FeedbackReady, data, 0, false);
+        std::cout << "Feedback is ready." << std::endl;
+        call_response_callback_and_erase(
+            EventType::FeedbackReady, data, 0, false);
     }
     else if (is_status_ready_.exchange(false)) {
-      call_response_callback_and_erase(
-        EventType::StatusReady, data, 0, false);
+        std::cout << "Status is ready." << std::endl;
+        call_response_callback_and_erase(
+            EventType::StatusReady, data, 0, false);
     }
     else {
-      throw std::runtime_error("Executing intra-process action client but nothing is ready");
+        std::cout << "Nothing is ready, throwing runtime error." << std::endl;
+        throw std::runtime_error("Executing intra-process action client but nothing is ready");
     }
   }
 
