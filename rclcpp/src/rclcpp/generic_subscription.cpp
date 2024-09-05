@@ -54,9 +54,8 @@ GenericSubscription::handle_serialized_message(
   callback_(message);
 }
 
-void
-GenericSubscription::handle_loaned_message(
-  void * message, const rclcpp::MessageInfo & message_info)
+void GenericSubscription::handle_loaned_message(
+  std::shared_ptr<void> message, const rclcpp::MessageInfo & message_info)
 {
   (void) message;
   (void) message_info;
